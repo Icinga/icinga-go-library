@@ -10,6 +10,7 @@ import (
 	"github.com/icinga/icinga-go-library/types"
 	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
+	"strings"
 )
 
 // CantPerformQuery wraps the given error with the specified query that cannot be executed.
@@ -79,6 +80,23 @@ func InsertObtainID(ctx context.Context, conn TxOrDB, stmt string, arg any) (int
 	}
 
 	return resultID, nil
+}
+
+// BuildInsertStmtWithout builds an insert stmt without the provided column.
+func BuildInsertStmtWithout(db *DB, into interface{}, withoutColumn string) string {
+	columns := db.BuildColumns(into)
+	for i, column := range columns {
+		if column == withoutColumn {
+			columns = append(columns[:i], columns[i+1:]...)
+			break
+		}
+	}
+
+	return fmt.Sprintf(
+		`INSERT INTO "%s" ("%s") VALUES (%s)`,
+		TableName(into), strings.Join(columns, `", "`),
+		fmt.Sprintf(":%s", strings.Join(columns, ", :")),
+	)
 }
 
 // unsafeSetSessionVariableIfExists sets the given MySQL/MariaDB system variable for the specified database session.
