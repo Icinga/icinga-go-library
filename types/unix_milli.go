@@ -5,7 +5,7 @@ import (
 	"database/sql/driver"
 	"encoding"
 	"encoding/json"
-	"github.com/icinga/icingadb/pkg/utils"
+	"github.com/icinga/icinga-go-library/utils"
 	"github.com/pkg/errors"
 	"strconv"
 	"time"

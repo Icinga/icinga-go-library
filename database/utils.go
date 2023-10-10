@@ -1,9 +1,9 @@
 package database
 
 import (
-	"github.com/icinga/icingadb/pkg/com"
-	"github.com/icinga/icingadb/pkg/strcase"
-	"github.com/icinga/icingadb/pkg/types"
+	"github.com/icinga/icinga-go-library/com"
+	"github.com/icinga/icinga-go-library/strcase"
+	"github.com/icinga/icinga-go-library/types"
 	"github.com/pkg/errors"
 )
 

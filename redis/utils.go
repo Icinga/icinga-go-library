@@ -3,7 +3,7 @@ package redis
 import (
 	"context"
 	"github.com/go-redis/redis/v8"
-	"github.com/icinga/icingadb/pkg/utils"
+	"github.com/icinga/icinga-go-library/utils"
 	"github.com/pkg/errors"
 )
 

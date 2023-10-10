@@ -3,9 +3,9 @@ package database
 import (
 	"context"
 	"fmt"
-	"github.com/icinga/icingadb/pkg/com"
-	"github.com/icinga/icingadb/pkg/driver"
-	"github.com/icinga/icingadb/pkg/types"
+	"github.com/icinga/icinga-go-library/com"
+	"github.com/icinga/icinga-go-library/driver"
+	"github.com/icinga/icinga-go-library/types"
 	"time"
 )
 
