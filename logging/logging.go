@@ -131,6 +131,16 @@ func AssertOutput(o string) error {
 	return invalidOutput(o)
 }
 
+// Fatal logs the given error and its stack trace to the console and then exits.
+// This function is to be used if Logging has not yet been created or could not be created.
+func Fatal(err error) {
+	// NewDevelopment to use the console encoder.
+	l, _ := zap.NewDevelopment()
+	defer l.Sync()
+
+	l.Sugar().Fatal(err)
+}
+
 func invalidOutput(o string) error {
 	return fmt.Errorf("%s is not a valid logger output. Must be either %q or %q", o, CONSOLE, JOURNAL)
 }
