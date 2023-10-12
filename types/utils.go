@@ -1,6 +1,7 @@
 package types
 
 import (
+	"crypto/sha1"
 	"encoding/json"
 	"fmt"
 	"github.com/pkg/errors"
@@ -54,4 +55,20 @@ func UnmarshalJSON(data []byte, v interface{}) error {
 // Zero returns the zero value for type T.
 func Zero[T any]() T {
 	return *new(T)
+}
+
+// Checksum returns the SHA-1 checksum of the data.
+func Checksum(data any) []byte {
+	var chksm [sha1.Size]byte
+
+	switch data := data.(type) {
+	case string:
+		chksm = sha1.Sum([]byte(data))
+	case []byte:
+		chksm = sha1.Sum(data)
+	default:
+		panic(fmt.Sprintf("Unable to create checksum for type %T", data))
+	}
+
+	return chksm[:]
 }
