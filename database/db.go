@@ -90,8 +90,10 @@ func NewDb(db *sqlx.DB, logger *logging.Logger, options *Options) *DB {
 // NewDbFromConfig returns a new DB from Config.
 func NewDbFromConfig(c *Config, logger *logging.Logger) (*DB, error) {
 	var dsn string
+	var driverName string
 	switch c.Type {
 	case "mysql":
+		driverName = driver.MySQL
 		config := mysql.NewConfig()
 
 		config.User = c.User
@@ -119,7 +121,7 @@ func NewDbFromConfig(c *Config, logger *logging.Logger) (*DB, error) {
 		}
 
 		if tlsConfig != nil {
-			config.TLSConfig = "icingadb"
+			config.TLSConfig = "icinga"
 			if err := mysql.RegisterTLSConfig(config.TLSConfig, tlsConfig); err != nil {
 				return nil, errors.Wrap(err, "can't register TLS config")
 			}
@@ -127,6 +129,7 @@ func NewDbFromConfig(c *Config, logger *logging.Logger) (*DB, error) {
 
 		dsn = config.FormatDSN()
 	case "pgsql":
+		driverName = driver.PostgreSQL
 		uri := &url.URL{
 			Scheme: "postgres",
 			User:   url.UserPassword(c.User, c.Password),
@@ -178,7 +181,7 @@ func NewDbFromConfig(c *Config, logger *logging.Logger) (*DB, error) {
 		return nil, unknownDbType(c.Type)
 	}
 
-	db, err := sqlx.Open("icingadb-"+c.Type, dsn)
+	db, err := sqlx.Open(driverName, dsn)
 	if err != nil {
 		return nil, errors.Wrap(err, "can't open database")
 	}
