@@ -743,6 +743,30 @@ func (db *DB) GetSemaphoreForTable(table string) *semaphore.Weighted {
 	}
 }
 
+// RunInTx allows running a function in a database transaction without requiring manual transaction handling.
+//
+// A new transaction is started on db which is then passed to fn. After fn returns, the transaction is
+// committed unless an error was returned. If fn returns an error, that error is returned, otherwise an
+// error is returned if a database operation fails.
+func (db *DB) RunInTx(ctx context.Context, f func(tx *sqlx.Tx) error) error {
+	tx, err := db.BeginTxx(ctx, nil)
+	if err != nil {
+		return errors.Wrap(err, "failed to start a database transaction")
+	}
+	// We don't expect meaningful errors from rolling back the tx other than the sql.ErrTxDone, so just ignore it.
+	defer func() { _ = tx.Rollback() }()
+
+	if err = f(tx); err != nil {
+		return err
+	}
+
+	if err = tx.Commit(); err != nil {
+		return errors.Wrap(err, "can't commit a database transaction")
+	}
+
+	return nil
+}
+
 func (db *DB) log(ctx context.Context, query string, counter *com.Counter) periodic.Stopper {
 	return periodic.Start(ctx, db.logger.Interval(), func(tick periodic.Tick) {
 		if count := counter.Reset(); count > 0 {
