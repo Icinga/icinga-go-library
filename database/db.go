@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"github.com/go-sql-driver/mysql"
 	"github.com/icinga/icinga-go-library/backoff"
@@ -11,6 +12,7 @@ import (
 	"github.com/icinga/icinga-go-library/periodic"
 	"github.com/icinga/icinga-go-library/retry"
 	"github.com/icinga/icinga-go-library/strcase"
+	"github.com/icinga/icinga-go-library/types"
 	"github.com/icinga/icinga-go-library/utils"
 	"github.com/jmoiron/sqlx"
 	"github.com/jmoiron/sqlx/reflectx"
@@ -765,6 +767,54 @@ func (db *DB) RunInTx(ctx context.Context, f func(tx *sqlx.Tx) error) error {
 	}
 
 	return nil
+}
+
+// InsertObtainID executes the given query and fetches the last inserted ID.
+//
+// Using this method for database tables that don't define an auto-incrementing ID, or none at all, will not work.
+// The only supported column that can be retrieved with this method is id. Besides, if you don't want the specified
+// query to be executed within a transaction, you can simply pass nil as an argument for the *sql.Tx param. Doing so
+// will then fall back to the db instance instead.
+// Returns types.Int on success and error on any database inserting/fetching failure.
+func (db *DB) InsertObtainID(ctx context.Context, tx *sqlx.Tx, stmt string, arg any) (types.Int, error) {
+	var id types.Int
+	var err error
+	if (tx != nil && tx.DriverName() == driver.PostgreSQL) || db.DriverName() == driver.PostgreSQL {
+		var preparedStmt *sqlx.NamedStmt
+		if tx != nil {
+			preparedStmt, err = tx.PrepareNamedContext(ctx, stmt+" RETURNING id")
+		} else {
+			preparedStmt, err = db.PrepareNamedContext(ctx, stmt+" RETURNING id")
+		}
+		if err != nil {
+			return types.Int{}, errors.Wrap(err, "failed to create a prepared statement")
+		}
+		defer func() { _ = preparedStmt.Close() }()
+
+		err = preparedStmt.Get(&id, arg)
+		if err != nil {
+			return types.Int{}, errors.Wrap(err, "failed to fetch last inserted ID")
+		}
+	} else {
+		var result sql.Result
+		if tx != nil {
+			result, err = tx.NamedExecContext(ctx, stmt, arg)
+		} else {
+			result, err = db.NamedExecContext(ctx, stmt, arg)
+		}
+		if err != nil {
+			return types.Int{}, errors.Wrap(err, "failed to insert entry")
+		}
+
+		lastInsertID, err := result.LastInsertId()
+		if err != nil {
+			return types.Int{}, errors.Wrap(err, "failed to fetch last inserted ID")
+		}
+
+		id = types.ToInt(lastInsertID)
+	}
+
+	return id, nil
 }
 
 func (db *DB) log(ctx context.Context, query string, counter *com.Counter) periodic.Stopper {
