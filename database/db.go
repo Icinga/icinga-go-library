@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"github.com/go-sql-driver/mysql"
 	"github.com/icinga/icinga-go-library/backoff"
@@ -11,6 +12,7 @@ import (
 	"github.com/icinga/icinga-go-library/periodic"
 	"github.com/icinga/icinga-go-library/retry"
 	"github.com/icinga/icinga-go-library/strcase"
+	"github.com/icinga/icinga-go-library/types"
 	"github.com/icinga/icinga-go-library/utils"
 	"github.com/jmoiron/sqlx"
 	"github.com/jmoiron/sqlx/reflectx"
@@ -775,4 +777,48 @@ func (db *DB) log(ctx context.Context, query string, counter *com.Counter) perio
 	}, periodic.OnStop(func(tick periodic.Tick) {
 		db.logger.Debugf("Finished executing %q with %d rows in %s", query, counter.Total(), tick.Elapsed)
 	}))
+}
+
+// TxOrDB is just a helper interface that can represent a *sqlx.Tx or *DB instance.
+type TxOrDB interface {
+	sqlx.ExtContext
+	sqlx.PreparerContext
+
+	PrepareNamedContext(ctx context.Context, query string) (*sqlx.NamedStmt, error)
+}
+
+// InsertObtainID executes the given query and fetches the last inserted ID.
+//
+// Using this method for database tables that don't define an auto-incrementing ID, or none at all,
+// will not work. The only supported column that can be retrieved with this method is id.
+// This function expects TxOrDB as an argument, which represents a *sqlx.Tx or *DB instance.
+// Returns types.Int on success and error on any database inserting/fetching failure.
+func InsertObtainID(ctx context.Context, conn TxOrDB, stmt string, arg any) (types.Int, error) {
+	if conn.DriverName() == driver.PostgreSQL {
+		preparedStmt, err := conn.PrepareNamedContext(ctx, stmt+" RETURNING id")
+		if err != nil {
+			return types.Int{}, errors.Wrap(err, "failed to create a prepared statement")
+		}
+		defer func() { _ = preparedStmt.Close() }()
+
+		var id types.Int
+		err = preparedStmt.Get(&id, arg)
+		if err != nil {
+			return types.Int{}, errors.Wrap(err, "failed to fetch last inserted ID")
+		}
+
+		return id, nil
+	}
+
+	result, err := sqlx.NamedExecContext(ctx, conn, stmt, arg)
+	if err != nil {
+		return types.Int{}, errors.Wrap(err, "failed to insert entry")
+	}
+
+	id, err := result.LastInsertId()
+	if err != nil {
+		return types.Int{}, errors.Wrap(err, "failed to fetch last inserted ID")
+	}
+
+	return types.Int{NullInt64: sql.NullInt64{Int64: id, Valid: true}}, nil
 }
