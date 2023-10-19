@@ -1,5 +1,10 @@
 package database
 
+import (
+	"context"
+	"github.com/jmoiron/sqlx"
+)
+
 // Entity is implemented by each type that works with the database package.
 type Entity interface {
 	Fingerprinter
@@ -53,4 +58,11 @@ type Scoper interface {
 type PgsqlOnConflictConstrainter interface {
 	// PgsqlOnConflictConstraint returns the primary or unique key constraint name of the PostgreSQL table.
 	PgsqlOnConflictConstraint() string
+}
+
+// TxOrDB is just a helper interface that can represent a *[sqlx.Tx] or *[DB] instance.
+type TxOrDB interface {
+	sqlx.ExtContext
+
+	PrepareNamedContext(ctx context.Context, query string) (*sqlx.NamedStmt, error)
 }
