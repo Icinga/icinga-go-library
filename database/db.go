@@ -20,6 +20,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/semaphore"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -197,9 +198,23 @@ func NewDbFromConfig(c *Config, logger *logging.Logger) (*DB, error) {
 	return NewDb(db, logger, &c.Options), nil
 }
 
-// BuildColumns returns all columns of the given struct.
-func (db *DB) BuildColumns(subject interface{}) []string {
-	return db.columnMap.Columns(subject)
+// BuildColumns returns by defaul all columns of the given struct.
+// You can also optionally exclude specific columns from the returned slice by providing the excludes param.
+func (db *DB) BuildColumns(subject interface{}, excludeColumns ...string) []string {
+	columns := db.columnMap.Columns(subject)
+	if len(excludeColumns) > 0 {
+		columns = slices.DeleteFunc(append([]string(nil), columns...), func(column string) bool {
+			for _, exclude := range excludeColumns {
+				if exclude == column {
+					return true
+				}
+			}
+
+			return false
+		})
+	}
+
+	return columns
 }
 
 // BuildDeleteStmt returns a DELETE statement for the given struct.
@@ -211,8 +226,9 @@ func (db *DB) BuildDeleteStmt(from interface{}) string {
 }
 
 // BuildInsertStmt returns an INSERT INTO statement for the given struct.
-func (db *DB) BuildInsertStmt(into interface{}) (string, int) {
-	columns := db.BuildColumns(into)
+// You can exclude specific columns from an INSERT query by providing the excludes param.
+func (db *DB) BuildInsertStmt(into interface{}, excludeColumns ...string) (string, int) {
+	columns := db.BuildColumns(into, excludeColumns...)
 
 	return fmt.Sprintf(
 		`INSERT INTO "%s" ("%s") VALUES (%s)`,
@@ -224,9 +240,9 @@ func (db *DB) BuildInsertStmt(into interface{}) (string, int) {
 
 // BuildInsertIgnoreStmt returns an INSERT statement for the specified struct for
 // which the database ignores rows that have already been inserted.
-func (db *DB) BuildInsertIgnoreStmt(into interface{}) (string, int) {
+func (db *DB) BuildInsertIgnoreStmt(into interface{}, excludes ...string) (string, int) {
 	table := TableName(into)
-	columns := db.BuildColumns(into)
+	columns := db.BuildColumns(into, excludes...)
 	var clause string
 
 	switch db.DriverName() {
@@ -271,8 +287,9 @@ func (db *DB) BuildSelectStmt(table interface{}, columns interface{}) string {
 }
 
 // BuildUpdateStmt returns an UPDATE statement for the given struct.
-func (db *DB) BuildUpdateStmt(update interface{}) (string, int) {
-	columns := db.BuildColumns(update)
+// You can exclude specific columns from an UPDATE query by providing the excludes param.
+func (db *DB) BuildUpdateStmt(update interface{}, excludeColumns ...string) (string, int) {
+	columns := db.BuildColumns(update, excludeColumns...)
 	set := make([]string, 0, len(columns))
 
 	for _, col := range columns {
@@ -287,8 +304,9 @@ func (db *DB) BuildUpdateStmt(update interface{}) (string, int) {
 }
 
 // BuildUpsertStmt returns an upsert statement for the given struct.
-func (db *DB) BuildUpsertStmt(subject interface{}) (stmt string, placeholders int) {
-	insertColumns := db.BuildColumns(subject)
+// You can exclude specific columns from an upsert query by providing the excludes param.
+func (db *DB) BuildUpsertStmt(subject interface{}, excludeColumns ...string) (stmt string, placeholders int) {
+	insertColumns := db.BuildColumns(subject, excludeColumns...)
 	table := TableName(subject)
 	var updateColumns []string
 
