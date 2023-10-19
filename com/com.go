@@ -33,8 +33,8 @@ func WaitAsync(ctx context.Context, w Waiter) <-chan error {
 func ErrgroupReceive(ctx context.Context, g *errgroup.Group, err <-chan error) {
 	g.Go(func() error {
 		select {
-		case e, closed := <-err:
-			if closed {
+		case e, more := <-err:
+			if !more {
 				return nil
 			}
 
