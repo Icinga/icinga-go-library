@@ -652,6 +652,26 @@ func (db *DB) Delete(
 	return db.DeleteStreamed(ctx, entityType, idsCh, onSuccess...)
 }
 
+// RunInTx allows running a function in a database transaction without requiring manual transaction handling.
+//
+// A new transaction is started on [DB] which is then passed to fn. After fn returns, the transaction is
+// committed unless an error was returned. If fn returns an error, that error is returned or when failing
+// to start or/and commit the transaction.
+func (db *DB) RunInTx(ctx context.Context, fn func(tx *sqlx.Tx) error) error {
+	tx, err := db.BeginTxx(ctx, nil)
+	if err != nil {
+		return errors.Wrap(err, "DB.RunInTx: cannot start a database transaction")
+	}
+	// We don't expect meaningful errors from rolling back the tx other than the sql.ErrTxDone, so just ignore it.
+	defer func() { _ = tx.Rollback() }()
+
+	if err := fn(tx); err != nil {
+		return err
+	}
+
+	return errors.Wrap(tx.Commit(), "DB.RunInTx: cannot commit a database transaction")
+}
+
 func (db *DB) GetSemaphoreForTable(table string) *semaphore.Weighted {
 	db.tableSemaphoresMu.Lock()
 	defer db.tableSemaphoresMu.Unlock()
