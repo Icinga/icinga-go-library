@@ -7,6 +7,7 @@ import (
 	"github.com/icinga/icinga-go-library/com"
 	"github.com/icinga/icinga-go-library/strcase"
 	"github.com/icinga/icinga-go-library/types"
+	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
 )
 
@@ -41,6 +42,47 @@ func SplitOnDupId[T IDer]() com.BulkChunkSplitPolicy[T] {
 
 		return ok
 	}
+}
+
+// InsertObtainID executes the given query and fetches the last inserted ID.
+//
+// Using this method for database tables that don't define an auto-incrementing ID, or none at all,
+// will not work. The only supported column that can be retrieved with this method is id.
+// This function expects [TxOrDB] as an executor of the provided query, and is usually a *[sqlx.Tx] or *[DB] instance.
+// Returns the retrieved ID on success and error on any database inserting/retrieving failure.
+func InsertObtainID(ctx context.Context, conn TxOrDB, stmt string, arg any) (int64, error) {
+	var resultID int64
+	switch conn.DriverName() {
+	case PostgreSQL:
+		query := stmt + " RETURNING id"
+		ps, err := conn.PrepareNamedContext(ctx, query)
+		if err != nil {
+			return 0, errors.Wrapf(err, "cannot prepare %q", query)
+		}
+		// We're deferring the ps#Close invocation here just to be on the safe side, otherwise it's
+		// closed manually later on and the error is handled gracefully (if any).
+		defer func() { _ = ps.Close() }()
+
+		if err := ps.GetContext(ctx, &resultID, arg); err != nil {
+			return 0, CantPerformQuery(err, query)
+		}
+
+		if err := ps.Close(); err != nil {
+			return 0, errors.Wrapf(err, "cannot close prepared statement %q", query)
+		}
+	default:
+		result, err := sqlx.NamedExecContext(ctx, conn, stmt, arg)
+		if err != nil {
+			return 0, CantPerformQuery(err, stmt)
+		}
+
+		resultID, err = result.LastInsertId()
+		if err != nil {
+			return 0, errors.Wrap(err, "cannot retrieve last inserted ID")
+		}
+	}
+
+	return resultID, nil
 }
 
 // setGaleraOpts sets the "wsrep_sync_wait" variable for each session ensures that causality checks are performed

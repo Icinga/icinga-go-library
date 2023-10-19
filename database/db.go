@@ -713,3 +713,9 @@ func (db *DB) Log(ctx context.Context, query string, counter *com.Counter) perio
 		db.logger.Debugf("Finished executing %q with %d rows in %s", query, counter.Total(), tick.Elapsed)
 	}))
 }
+
+var (
+	// Assert TxOrDB interface compliance of the DB and sqlx.Tx types.
+	_ TxOrDB = (*DB)(nil)
+	_ TxOrDB = (*sqlx.Tx)(nil)
+)
