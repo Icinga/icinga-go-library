@@ -14,8 +14,8 @@ import (
 	"time"
 )
 
-const MySQL = "icingadb-mysql"
-const PostgreSQL = "icingadb-pgsql"
+const MySQL = "icinga-mysql"
+const PostgreSQL = "icinga-pgsql"
 
 var timeout = time.Minute * 5
 
@@ -110,7 +110,7 @@ func (d Driver) OpenConnector(name string) (driver.Connector, error) {
 	return rc, nil
 }
 
-// Register makes our database Driver available under the name "icingadb-*sql".
+// Register makes our database Driver available under the name "icinga-*sql".
 func Register(logger *logging.Logger, options ...Option) {
 	sql.Register(MySQL, &Driver{ctxDriver: &mysql.MySQLDriver{}, Logger: logger})
 	sql.Register(PostgreSQL, &Driver{ctxDriver: PgSQLDriver{}, Logger: logger})
