@@ -14,6 +14,18 @@ type Int struct {
 	sql.NullInt64
 }
 
+// ToInt transforms the given value to types.Int.
+// The returned types.Int will be set to valid only if the provided
+// value is not `0`, otherwise it is marked as invalid.
+func ToInt(value int64) Int {
+	val := Int{NullInt64: sql.NullInt64{Int64: value}}
+	if value != 0 {
+		val.Valid = true
+	}
+
+	return val
+}
+
 // MarshalJSON implements the json.Marshaler interface.
 // Supports JSON null.
 func (i Int) MarshalJSON() ([]byte, error) {

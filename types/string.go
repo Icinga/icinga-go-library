@@ -14,6 +14,18 @@ type String struct {
 	sql.NullString
 }
 
+// ToString transforms the given go string to types.String.
+// The returned types.String will be set to valid only if the provided
+// value is not empty, otherwise it is marked as invalid.
+func ToString(value string) String {
+	str := String{NullString: sql.NullString{String: value}}
+	if value != "" {
+		str.Valid = true
+	}
+
+	return str
+}
+
 // MarshalJSON implements the json.Marshaler interface.
 // Supports JSON null.
 func (s String) MarshalJSON() ([]byte, error) {
