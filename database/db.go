@@ -18,7 +18,6 @@ import (
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/semaphore"
 	"net/url"
-	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -32,6 +31,7 @@ type DB struct {
 
 	Options *Options
 
+	columnMap         ColumnMap
 	logger            *logging.Logger
 	tableSemaphores   map[string]*semaphore.Weighted
 	tableSemaphoresMu sync.Mutex
@@ -81,6 +81,7 @@ func (o *Options) Validate() error {
 func NewDb(db *sqlx.DB, logger *logging.Logger, options *Options) *DB {
 	return &DB{
 		DB:              db,
+		columnMap:       NewColumnMap(db.Mapper),
 		logger:          logger,
 		Options:         options,
 		tableSemaphores: make(map[string]*semaphore.Weighted),
@@ -196,16 +197,7 @@ func NewDbFromConfig(c *Config, logger *logging.Logger) (*DB, error) {
 
 // BuildColumns returns all columns of the given struct.
 func (db *DB) BuildColumns(subject interface{}) []string {
-	fields := db.Mapper.TypeMap(reflect.TypeOf(subject)).Names
-	columns := make([]string, 0, len(fields))
-	for _, f := range fields {
-		if f.Field.Tag == "" {
-			continue
-		}
-		columns = append(columns, f.Name)
-	}
-
-	return columns
+	return db.columnMap.Columns(subject)
 }
 
 // BuildDeleteStmt returns a DELETE statement for the given struct.
