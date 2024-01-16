@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"github.com/go-sql-driver/mysql"
 	"github.com/icinga/icinga-go-library/backoff"
@@ -11,6 +12,7 @@ import (
 	"github.com/icinga/icinga-go-library/periodic"
 	"github.com/icinga/icinga-go-library/retry"
 	"github.com/icinga/icinga-go-library/strcase"
+	"github.com/icinga/icinga-go-library/types"
 	"github.com/icinga/icinga-go-library/utils"
 	"github.com/jmoiron/sqlx"
 	"github.com/jmoiron/sqlx/reflectx"
@@ -18,6 +20,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/semaphore"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -195,9 +198,23 @@ func NewDbFromConfig(c *Config, logger *logging.Logger) (*DB, error) {
 	return NewDb(db, logger, &c.Options), nil
 }
 
-// BuildColumns returns all columns of the given struct.
-func (db *DB) BuildColumns(subject interface{}) []string {
-	return db.columnMap.Columns(subject)
+// BuildColumns returns by defaul all columns of the given struct.
+// You can also optionally exclude specific columns from the returned slice by providing the excludes param.
+func (db *DB) BuildColumns(subject interface{}, excludeColumns ...string) []string {
+	columns := db.columnMap.Columns(subject)
+	if len(excludeColumns) > 0 {
+		columns = slices.DeleteFunc(append([]string(nil), columns...), func(column string) bool {
+			for _, exclude := range excludeColumns {
+				if exclude == column {
+					return true
+				}
+			}
+
+			return false
+		})
+	}
+
+	return columns
 }
 
 // BuildDeleteStmt returns a DELETE statement for the given struct.
@@ -209,8 +226,9 @@ func (db *DB) BuildDeleteStmt(from interface{}) string {
 }
 
 // BuildInsertStmt returns an INSERT INTO statement for the given struct.
-func (db *DB) BuildInsertStmt(into interface{}) (string, int) {
-	columns := db.BuildColumns(into)
+// You can exclude specific columns from an INSERT query by providing the excludes param.
+func (db *DB) BuildInsertStmt(into interface{}, excludeColumns ...string) (string, int) {
+	columns := db.BuildColumns(into, excludeColumns...)
 
 	return fmt.Sprintf(
 		`INSERT INTO "%s" ("%s") VALUES (%s)`,
@@ -222,9 +240,9 @@ func (db *DB) BuildInsertStmt(into interface{}) (string, int) {
 
 // BuildInsertIgnoreStmt returns an INSERT statement for the specified struct for
 // which the database ignores rows that have already been inserted.
-func (db *DB) BuildInsertIgnoreStmt(into interface{}) (string, int) {
+func (db *DB) BuildInsertIgnoreStmt(into interface{}, excludes ...string) (string, int) {
 	table := TableName(into)
-	columns := db.BuildColumns(into)
+	columns := db.BuildColumns(into, excludes...)
 	var clause string
 
 	switch db.DriverName() {
@@ -232,7 +250,14 @@ func (db *DB) BuildInsertIgnoreStmt(into interface{}) (string, int) {
 		// MySQL treats UPDATE id = id as a no-op.
 		clause = fmt.Sprintf(`ON DUPLICATE KEY UPDATE "%s" = "%s"`, columns[0], columns[0])
 	case driver.PostgreSQL:
-		clause = fmt.Sprintf("ON CONFLICT ON CONSTRAINT pk_%s DO NOTHING", table)
+		var constraint string
+		if constrainter, ok := into.(Constrainter); ok {
+			constraint = constrainter.Constraint()
+		} else {
+			constraint = "pk_" + table
+		}
+
+		clause = fmt.Sprintf("ON CONFLICT ON CONSTRAINT %s DO NOTHING", constraint)
 	}
 
 	return fmt.Sprintf(
@@ -262,8 +287,9 @@ func (db *DB) BuildSelectStmt(table interface{}, columns interface{}) string {
 }
 
 // BuildUpdateStmt returns an UPDATE statement for the given struct.
-func (db *DB) BuildUpdateStmt(update interface{}) (string, int) {
-	columns := db.BuildColumns(update)
+// You can exclude specific columns from an UPDATE query by providing the excludes param.
+func (db *DB) BuildUpdateStmt(update interface{}, excludeColumns ...string) (string, int) {
+	columns := db.BuildColumns(update, excludeColumns...)
 	set := make([]string, 0, len(columns))
 
 	for _, col := range columns {
@@ -278,8 +304,9 @@ func (db *DB) BuildUpdateStmt(update interface{}) (string, int) {
 }
 
 // BuildUpsertStmt returns an upsert statement for the given struct.
-func (db *DB) BuildUpsertStmt(subject interface{}) (stmt string, placeholders int) {
-	insertColumns := db.BuildColumns(subject)
+// You can exclude specific columns from an upsert query by providing the excludes param.
+func (db *DB) BuildUpsertStmt(subject interface{}, excludeColumns ...string) (stmt string, placeholders int) {
+	insertColumns := db.BuildColumns(subject, excludeColumns...)
 	table := TableName(subject)
 	var updateColumns []string
 
@@ -295,7 +322,14 @@ func (db *DB) BuildUpsertStmt(subject interface{}) (stmt string, placeholders in
 		clause = "ON DUPLICATE KEY UPDATE"
 		setFormat = `"%[1]s" = VALUES("%[1]s")`
 	case driver.PostgreSQL:
-		clause = fmt.Sprintf("ON CONFLICT ON CONSTRAINT pk_%s DO UPDATE SET", table)
+		var constraint string
+		if constrainter, ok := subject.(Constrainter); ok {
+			constraint = constrainter.Constraint()
+		} else {
+			constraint = "pk_" + table
+		}
+
+		clause = fmt.Sprintf("ON CONFLICT ON CONSTRAINT %s DO UPDATE SET", constraint)
 		setFormat = `"%[1]s" = EXCLUDED."%[1]s"`
 	}
 
@@ -729,6 +763,30 @@ func (db *DB) GetSemaphoreForTable(table string) *semaphore.Weighted {
 	}
 }
 
+// RunInTx allows running a function in a database transaction without requiring manual transaction handling.
+//
+// A new transaction is started on db which is then passed to fn. After fn returns, the transaction is
+// committed unless an error was returned. If fn returns an error, that error is returned, otherwise an
+// error is returned if a database operation fails.
+func (db *DB) RunInTx(ctx context.Context, f func(tx *sqlx.Tx) error) error {
+	tx, err := db.BeginTxx(ctx, nil)
+	if err != nil {
+		return errors.Wrap(err, "failed to start a database transaction")
+	}
+	// We don't expect meaningful errors from rolling back the tx other than the sql.ErrTxDone, so just ignore it.
+	defer func() { _ = tx.Rollback() }()
+
+	if err = f(tx); err != nil {
+		return err
+	}
+
+	if err = tx.Commit(); err != nil {
+		return errors.Wrap(err, "can't commit a database transaction")
+	}
+
+	return nil
+}
+
 func (db *DB) log(ctx context.Context, query string, counter *com.Counter) periodic.Stopper {
 	return periodic.Start(ctx, db.logger.Interval(), func(tick periodic.Tick) {
 		if count := counter.Reset(); count > 0 {
@@ -737,4 +795,48 @@ func (db *DB) log(ctx context.Context, query string, counter *com.Counter) perio
 	}, periodic.OnStop(func(tick periodic.Tick) {
 		db.logger.Debugf("Finished executing %q with %d rows in %s", query, counter.Total(), tick.Elapsed)
 	}))
+}
+
+// TxOrDB is just a helper interface that can represent a *sqlx.Tx or *DB instance.
+type TxOrDB interface {
+	sqlx.ExtContext
+	sqlx.PreparerContext
+
+	PrepareNamedContext(ctx context.Context, query string) (*sqlx.NamedStmt, error)
+}
+
+// InsertObtainID executes the given query and fetches the last inserted ID.
+//
+// Using this method for database tables that don't define an auto-incrementing ID, or none at all,
+// will not work. The only supported column that can be retrieved with this method is id.
+// This function expects TxOrDB as an argument, which represents a *sqlx.Tx or *DB instance.
+// Returns types.Int on success and error on any database inserting/fetching failure.
+func InsertObtainID(ctx context.Context, conn TxOrDB, stmt string, arg any) (types.Int, error) {
+	if conn.DriverName() == driver.PostgreSQL {
+		preparedStmt, err := conn.PrepareNamedContext(ctx, stmt+" RETURNING id")
+		if err != nil {
+			return types.Int{}, errors.Wrap(err, "failed to create a prepared statement")
+		}
+		defer func() { _ = preparedStmt.Close() }()
+
+		var id types.Int
+		err = preparedStmt.Get(&id, arg)
+		if err != nil {
+			return types.Int{}, errors.Wrap(err, "failed to fetch last inserted ID")
+		}
+
+		return id, nil
+	}
+
+	result, err := sqlx.NamedExecContext(ctx, conn, stmt, arg)
+	if err != nil {
+		return types.Int{}, errors.Wrap(err, "failed to insert entry")
+	}
+
+	id, err := result.LastInsertId()
+	if err != nil {
+		return types.Int{}, errors.Wrap(err, "failed to fetch last inserted ID")
+	}
+
+	return types.Int{NullInt64: sql.NullInt64{Int64: id, Valid: true}}, nil
 }
