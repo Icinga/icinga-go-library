@@ -258,6 +258,11 @@ func (db *DB) MarshalLogObject(encoder zapcore.ObjectEncoder) error {
 	return nil
 }
 
+// QueryBuilder returns a fully initialised and ready to use *[QueryBuilder] instance for the given subject/struct.
+func (db *DB) QueryBuilder(subject any) *QueryBuilder {
+	return &QueryBuilder{subject: subject}
+}
+
 // BuildColumns returns all columns of the given struct.
 func (db *DB) BuildColumns(subject interface{}) []string {
 	return slices.Clone(db.columnMap.Columns(subject))
@@ -265,143 +270,34 @@ func (db *DB) BuildColumns(subject interface{}) []string {
 
 // BuildDeleteStmt returns a DELETE statement for the given struct.
 func (db *DB) BuildDeleteStmt(from interface{}) string {
-	return fmt.Sprintf(
-		`DELETE FROM "%s" WHERE id IN (?)`,
-		TableName(from),
-	)
+	return db.QueryBuilder(from).Delete()
 }
 
 // BuildInsertStmt returns an INSERT INTO statement for the given struct.
 func (db *DB) BuildInsertStmt(into interface{}) (string, int) {
-	columns := db.columnMap.Columns(into)
-
-	return fmt.Sprintf(
-		`INSERT INTO "%s" ("%s") VALUES (%s)`,
-		TableName(into),
-		strings.Join(columns, `", "`),
-		fmt.Sprintf(":%s", strings.Join(columns, ", :")),
-	), len(columns)
+	return db.QueryBuilder(into).Insert(db)
 }
 
 // BuildInsertIgnoreStmt returns an INSERT statement for the specified struct for
 // which the database ignores rows that have already been inserted.
 func (db *DB) BuildInsertIgnoreStmt(into interface{}) (string, int) {
-	table := TableName(into)
-	columns := db.columnMap.Columns(into)
-	var clause string
-
-	switch db.DriverName() {
-	case MySQL:
-		// MySQL treats UPDATE id = id as a no-op.
-		clause = fmt.Sprintf(`ON DUPLICATE KEY UPDATE "%s" = "%s"`, columns[0], columns[0])
-	case PostgreSQL:
-		var constraint string
-		if constrainter, ok := into.(PgsqlOnConflictConstrainter); ok {
-			constraint = constrainter.PgsqlOnConflictConstraint()
-		} else {
-			constraint = "pk_" + table
-		}
-
-		clause = fmt.Sprintf("ON CONFLICT ON CONSTRAINT %s DO NOTHING", constraint)
-	}
-
-	return fmt.Sprintf(
-		`INSERT INTO "%s" ("%s") VALUES (%s) %s`,
-		table,
-		strings.Join(columns, `", "`),
-		fmt.Sprintf(":%s", strings.Join(columns, ", :")),
-		clause,
-	), len(columns)
+	return db.QueryBuilder(into).InsertIgnore(db)
 }
 
 // BuildSelectStmt returns a SELECT query that creates the FROM part from the given table struct
 // and the column list from the specified columns struct.
 func (db *DB) BuildSelectStmt(table interface{}, columns interface{}) string {
-	q := fmt.Sprintf(
-		`SELECT "%s" FROM "%s"`,
-		strings.Join(db.columnMap.Columns(columns), `", "`),
-		TableName(table),
-	)
-
-	if scoper, ok := table.(Scoper); ok {
-		where, _ := db.BuildWhere(scoper.Scope())
-		q += ` WHERE ` + where
-	}
-
-	return q
+	return db.QueryBuilder(table).SetColumns(db.columnMap.Columns(columns)...).Select(db)
 }
 
 // BuildUpdateStmt returns an UPDATE statement for the given struct.
 func (db *DB) BuildUpdateStmt(update interface{}) (string, int) {
-	columns := db.columnMap.Columns(update)
-	set := make([]string, 0, len(columns))
-
-	for _, col := range columns {
-		set = append(set, fmt.Sprintf(`"%s" = :%s`, col, col))
-	}
-
-	return fmt.Sprintf(
-		`UPDATE "%s" SET %s WHERE id = :id`,
-		TableName(update),
-		strings.Join(set, ", "),
-	), len(columns) + 1 // +1 because of WHERE id = :id
+	return db.QueryBuilder(update).Update(db)
 }
 
 // BuildUpsertStmt returns an upsert statement for the given struct.
 func (db *DB) BuildUpsertStmt(subject interface{}) (stmt string, placeholders int) {
-	insertColumns := db.columnMap.Columns(subject)
-	table := TableName(subject)
-	var updateColumns []string
-
-	if upserter, ok := subject.(Upserter); ok {
-		updateColumns = db.columnMap.Columns(upserter.Upsert())
-	} else {
-		updateColumns = insertColumns
-	}
-
-	var clause, setFormat string
-	switch db.DriverName() {
-	case MySQL:
-		clause = "ON DUPLICATE KEY UPDATE"
-		setFormat = `"%[1]s" = VALUES("%[1]s")`
-	case PostgreSQL:
-		var constraint string
-		if constrainter, ok := subject.(PgsqlOnConflictConstrainter); ok {
-			constraint = constrainter.PgsqlOnConflictConstraint()
-		} else {
-			constraint = "pk_" + table
-		}
-
-		clause = fmt.Sprintf("ON CONFLICT ON CONSTRAINT %s DO UPDATE SET", constraint)
-		setFormat = `"%[1]s" = EXCLUDED."%[1]s"`
-	}
-
-	set := make([]string, 0, len(updateColumns))
-
-	for _, col := range updateColumns {
-		set = append(set, fmt.Sprintf(setFormat, col))
-	}
-
-	return fmt.Sprintf(
-		`INSERT INTO "%s" ("%s") VALUES (%s) %s %s`,
-		table,
-		strings.Join(insertColumns, `", "`),
-		fmt.Sprintf(":%s", strings.Join(insertColumns, ",:")),
-		clause,
-		strings.Join(set, ","),
-	), len(insertColumns)
-}
-
-// BuildWhere returns a WHERE clause with named placeholder conditions built from the specified struct
-// combined with the AND operator.
-func (db *DB) BuildWhere(subject interface{}) (string, int) {
-	columns := db.columnMap.Columns(subject)
-	where := make([]string, 0, len(columns))
-	for _, col := range columns {
-		where = append(where, fmt.Sprintf(`"%s" = :%s`, col, col))
-	}
-
-	return strings.Join(where, ` AND `), len(columns)
+	return db.QueryBuilder(subject).Upsert(db)
 }
 
 // OnSuccess is a callback for successful (bulk) DML operations.
