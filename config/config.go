@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 )
 
 type Initer interface {
@@ -24,7 +25,7 @@ func FromYAMLFile[T any, P interface {
 	*T
 	Validator
 }](name string) (*T, error) {
-	f, err := os.Open(name)
+	f, err := os.Open(filepath.Clean(name))
 	if err != nil {
 		return nil, errors.Wrap(err, "can't open YAML file "+name)
 	}
@@ -80,7 +81,7 @@ func (t *TLS) MakeConfig(serverName string) (*tls.Config, error) {
 		return nil, nil
 	}
 
-	tlsConfig := &tls.Config{}
+	tlsConfig := &tls.Config{} // #nosec G402 -- TLS MinVersion too low - we can't abandon TLS 1.0 as long as Centos 7 is alive.
 	if t.Cert == "" {
 		if t.Key != "" {
 			return nil, errors.New("private key given, but client certificate missing")

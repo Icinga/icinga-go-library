@@ -136,7 +136,7 @@ func AssertOutput(o string) error {
 func Fatal(err error) {
 	// NewDevelopment to use the console encoder.
 	l, _ := zap.NewDevelopment()
-	defer l.Sync()
+	defer func() { _ = l.Sync() }()
 
 	l.Sugar().Fatal(err)
 }
