@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 	"io/ioutil"
 	"os"
+	"path/filepath"
 )
 
 type Initer interface {
@@ -24,7 +25,7 @@ func FromYAMLFile[T any, P interface {
 	*T
 	Validator
 }](name string) (*T, error) {
-	f, err := os.Open(name)
+	f, err := os.Open(filepath.Clean(name))
 	if err != nil {
 		return nil, errors.Wrap(err, "can't open YAML file "+name)
 	}
