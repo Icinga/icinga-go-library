@@ -2,6 +2,7 @@ package database
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"github.com/go-sql-driver/mysql"
 	"github.com/icinga/icinga-go-library/backoff"
@@ -14,6 +15,7 @@ import (
 	"github.com/icinga/icinga-go-library/utils"
 	"github.com/jmoiron/sqlx"
 	"github.com/jmoiron/sqlx/reflectx"
+	"github.com/lib/pq"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/semaphore"
@@ -94,11 +96,9 @@ func NewDb(db *sqlx.DB, logger *logging.Logger, options *Options) *DB {
 
 // NewDbFromConfig returns a new DB from Config.
 func NewDbFromConfig(c *Config, logger *logging.Logger) (*DB, error) {
-	var dsn string
-	var driverName string
+	var db *sqlx.DB
 	switch c.Type {
 	case "mysql":
-		driverName = driver.MySQL
 		config := mysql.NewConfig()
 
 		config.User = c.User
@@ -132,9 +132,13 @@ func NewDbFromConfig(c *Config, logger *logging.Logger) (*DB, error) {
 			}
 		}
 
-		dsn = config.FormatDSN()
+		c, err := mysql.NewConnector(config)
+		if err != nil {
+			return nil, errors.Wrap(err, "can't open mysql database")
+		}
+
+		db = sqlx.NewDb(sql.OpenDB(driver.NewConnector(c, logger)), driver.MySQL)
 	case "pgsql":
-		driverName = driver.PostgreSQL
 		uri := &url.URL{
 			Scheme: "postgres",
 			User:   url.UserPassword(c.User, c.Password),
@@ -181,14 +185,14 @@ func NewDbFromConfig(c *Config, logger *logging.Logger) (*DB, error) {
 		}
 
 		uri.RawQuery = query.Encode()
-		dsn = uri.String()
+		connector, err := pq.NewConnector(uri.String())
+		if err != nil {
+			return nil, errors.Wrap(err, "can't open pgsql database")
+		}
+
+		db = sqlx.NewDb(sql.OpenDB(driver.NewConnector(connector, logger)), driver.PostgreSQL)
 	default:
 		return nil, unknownDbType(c.Type)
-	}
-
-	db, err := sqlx.Open(driverName, dsn)
-	if err != nil {
-		return nil, errors.Wrap(err, "can't open database")
 	}
 
 	db.SetMaxIdleConns(c.Options.MaxConnections / 3)
