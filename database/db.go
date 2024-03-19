@@ -3,6 +3,7 @@ package database
 import (
 	"context"
 	"database/sql"
+	driver2 "database/sql/driver"
 	"fmt"
 	"github.com/go-sql-driver/mysql"
 	"github.com/icinga/icinga-go-library/backoff"
@@ -132,12 +133,17 @@ func NewDbFromConfig(c *Config, logger *logging.Logger) (*DB, error) {
 			}
 		}
 
-		c, err := mysql.NewConnector(config)
+		connector, err := mysql.NewConnector(config)
 		if err != nil {
 			return nil, errors.Wrap(err, "can't open mysql database")
 		}
 
-		db = sqlx.NewDb(sql.OpenDB(driver.NewConnector(c, logger, nil)), driver.MySQL)
+		wsrepSyncWait := int64(c.Options.WsrepSyncWait)
+		setWsrepSyncWait := func(ctx context.Context, conn driver2.Conn) error {
+			return setGaleraOpts(ctx, conn, wsrepSyncWait)
+		}
+
+		db = sqlx.NewDb(sql.OpenDB(driver.NewConnector(connector, logger, setWsrepSyncWait)), driver.MySQL)
 	case "pgsql":
 		uri := &url.URL{
 			Scheme: "postgres",
