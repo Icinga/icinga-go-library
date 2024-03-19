@@ -137,7 +137,7 @@ func NewDbFromConfig(c *Config, logger *logging.Logger) (*DB, error) {
 			return nil, errors.Wrap(err, "can't open mysql database")
 		}
 
-		db = sqlx.NewDb(sql.OpenDB(driver.NewConnector(c, logger)), driver.MySQL)
+		db = sqlx.NewDb(sql.OpenDB(driver.NewConnector(c, logger, nil)), driver.MySQL)
 	case "pgsql":
 		uri := &url.URL{
 			Scheme: "postgres",
@@ -190,7 +190,7 @@ func NewDbFromConfig(c *Config, logger *logging.Logger) (*DB, error) {
 			return nil, errors.Wrap(err, "can't open pgsql database")
 		}
 
-		db = sqlx.NewDb(sql.OpenDB(driver.NewConnector(connector, logger)), driver.PostgreSQL)
+		db = sqlx.NewDb(sql.OpenDB(driver.NewConnector(connector, logger, nil)), driver.PostgreSQL)
 	default:
 		return nil, unknownDbType(c.Type)
 	}
