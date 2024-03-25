@@ -3,12 +3,11 @@ package database
 import (
 	"context"
 	"database/sql"
-	driver2 "database/sql/driver"
+	"database/sql/driver"
 	"fmt"
 	"github.com/go-sql-driver/mysql"
 	"github.com/icinga/icinga-go-library/backoff"
 	"github.com/icinga/icinga-go-library/com"
-	"github.com/icinga/icinga-go-library/driver"
 	"github.com/icinga/icinga-go-library/logging"
 	"github.com/icinga/icinga-go-library/periodic"
 	"github.com/icinga/icinga-go-library/retry"
@@ -139,11 +138,11 @@ func NewDbFromConfig(c *Config, logger *logging.Logger) (*DB, error) {
 		}
 
 		wsrepSyncWait := int64(c.Options.WsrepSyncWait)
-		setWsrepSyncWait := func(ctx context.Context, conn driver2.Conn) error {
+		setWsrepSyncWait := func(ctx context.Context, conn driver.Conn) error {
 			return setGaleraOpts(ctx, conn, wsrepSyncWait)
 		}
 
-		db = sqlx.NewDb(sql.OpenDB(driver.NewConnector(connector, logger, setWsrepSyncWait)), driver.MySQL)
+		db = sqlx.NewDb(sql.OpenDB(NewConnector(connector, logger, setWsrepSyncWait)), MySQL)
 	case "pgsql":
 		uri := &url.URL{
 			Scheme: "postgres",
@@ -196,7 +195,7 @@ func NewDbFromConfig(c *Config, logger *logging.Logger) (*DB, error) {
 			return nil, errors.Wrap(err, "can't open pgsql database")
 		}
 
-		db = sqlx.NewDb(sql.OpenDB(driver.NewConnector(connector, logger, nil)), driver.PostgreSQL)
+		db = sqlx.NewDb(sql.OpenDB(NewConnector(connector, logger, nil)), PostgreSQL)
 	default:
 		return nil, unknownDbType(c.Type)
 	}
@@ -242,10 +241,10 @@ func (db *DB) BuildInsertIgnoreStmt(into interface{}) (string, int) {
 	var clause string
 
 	switch db.DriverName() {
-	case driver.MySQL:
+	case MySQL:
 		// MySQL treats UPDATE id = id as a no-op.
 		clause = fmt.Sprintf(`ON DUPLICATE KEY UPDATE "%s" = "%s"`, columns[0], columns[0])
-	case driver.PostgreSQL:
+	case PostgreSQL:
 		var constraint string
 		if constrainter, ok := into.(PgsqlOnConflictConstrainter); ok {
 			constraint = constrainter.PgsqlOnConflictConstraint()
@@ -312,10 +311,10 @@ func (db *DB) BuildUpsertStmt(subject interface{}) (stmt string, placeholders in
 
 	var clause, setFormat string
 	switch db.DriverName() {
-	case driver.MySQL:
+	case MySQL:
 		clause = "ON DUPLICATE KEY UPDATE"
 		setFormat = `"%[1]s" = VALUES("%[1]s")`
-	case driver.PostgreSQL:
+	case PostgreSQL:
 		var constraint string
 		if constrainter, ok := subject.(PgsqlOnConflictConstrainter); ok {
 			constraint = constrainter.PgsqlOnConflictConstraint()
