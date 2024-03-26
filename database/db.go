@@ -132,6 +132,8 @@ func NewDbFromConfig(c *Config, logger *logging.Logger) (*DB, error) {
 			}
 		}
 
+		_ = mysql.SetLogger(MysqlFuncLogger(logger.Debug))
+
 		connector, err := mysql.NewConnector(config)
 		if err != nil {
 			return nil, errors.Wrap(err, "can't open mysql database")
