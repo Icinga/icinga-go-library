@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"cmp"
 	"context"
 	"crypto/sha1" // #nosec G505 -- Blocklisted import crypto/sha1
 	"fmt"
@@ -11,6 +12,7 @@ import (
 	"net"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 )
@@ -162,4 +164,28 @@ func ChanFromSlice[T any](values []T) <-chan T {
 func PrintErrorThenExit(err error, exitCode int) {
 	fmt.Fprintln(os.Stderr, err)
 	os.Exit(exitCode)
+}
+
+// IterateOrderedMap implements iter.Seq2 to iterate over a map in the key's order.
+//
+// This function returns a func yielding key-value-pairs from a given map in the order of their keys, if their type
+// is cmp.Ordered.
+//
+// Please note that currently - being at Go 1.22 - rangefuncs are still an experimental feature and cannot be directly
+// used unless compiled with `GOEXPERIMENT=rangefunc`. However, they can still be invoked normally.
+// https://go.dev/wiki/RangefuncExperiment
+func IterateOrderedMap[K cmp.Ordered, V any](m map[K]V) func(func(K, V) bool) {
+	keys := make([]K, 0, len(m))
+	for key := range m {
+		keys = append(keys, key)
+	}
+	slices.Sort(keys)
+
+	return func(yield func(K, V) bool) {
+		for _, key := range keys {
+			if !yield(key, m[key]) {
+				return
+			}
+		}
+	}
 }
