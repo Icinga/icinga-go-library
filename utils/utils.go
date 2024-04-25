@@ -83,11 +83,6 @@ func Checksum(data interface{}) []byte {
 	return chksm[:]
 }
 
-// Fatal panics with the given error.
-func Fatal(err error) {
-	panic(err)
-}
-
 // IsDeadlock returns whether the given error signals serialization failure.
 func IsDeadlock(err error) bool {
 	var e *mysql.MySQLError

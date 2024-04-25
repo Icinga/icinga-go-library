@@ -117,3 +117,20 @@ func (l *Logging) GetChildLogger(name string) *Logger {
 func (l *Logging) GetLogger() *Logger {
 	return l.logger
 }
+
+// Fatal logs the given error and its stack trace to the console and then exits.
+// This function is to be used if Logging has not yet been created or could not be created:
+//
+//	logs, err := logging.NewLoggingFromConfig(utils.AppName(), logging.Config{})
+//	if err != nil {
+//		logging.Fatal(errors.Wrap(err, "can't configure logging"))
+//	}
+func Fatal(err error) {
+	// NewDevelopment to use the console encoder.
+	l, _ := zap.NewDevelopment()
+	defer func(l *zap.Logger) {
+		_ = l.Sync()
+	}(l)
+
+	l.Sugar().Fatal(err)
+}
