@@ -67,13 +67,16 @@ func (t *UnixMilli) Scan(src interface{}) error {
 	switch v := src.(type) {
 	case []byte:
 		return t.fromByteString(v)
+	// https://github.com/go-sql-driver/mysql/pull/1452
+	case uint64:
+		*t = UnixMilli(time.UnixMilli(int64(v)))
 	case int64:
 		*t = UnixMilli(time.UnixMilli(v))
-
-		return nil
 	default:
-		return errors.Errorf("bad int64/[]byte type assertion from %#v", src)
+		return errors.Errorf("bad (u)int64/[]byte type assertion from %[1]v (%[1]T)", src)
 	}
+
+	return nil
 }
 
 // Value implements the driver.Valuer interface.
