@@ -22,7 +22,6 @@ import (
 	"golang.org/x/sync/semaphore"
 	"net"
 	"net/url"
-	"reflect"
 	"strconv"
 	"strings"
 	"sync"
@@ -36,6 +35,7 @@ type DB struct {
 
 	Options *Options
 
+	columnMap         ColumnMap
 	logger            *logging.Logger
 	tableSemaphores   map[string]*semaphore.Weighted
 	tableSemaphoresMu sync.Mutex
@@ -94,6 +94,7 @@ func (o *Options) Validate() error {
 func NewDb(db *sqlx.DB, logger *logging.Logger, options *Options) *DB {
 	return &DB{
 		DB:              db,
+		columnMap:       NewColumnMap(db.Mapper),
 		logger:          logger,
 		Options:         options,
 		tableSemaphores: make(map[string]*semaphore.Weighted),
@@ -223,20 +224,6 @@ func NewDbFromConfig(c *Config, logger *logging.Logger, connectorCallbacks Retry
 	return NewDb(db, logger, &c.Options), nil
 }
 
-// BuildColumns returns all columns of the given struct.
-func (db *DB) BuildColumns(subject interface{}) []string {
-	fields := db.Mapper.TypeMap(reflect.TypeOf(subject)).Names
-	columns := make([]string, 0, len(fields))
-	for _, f := range fields {
-		if f.Field.Tag == "" {
-			continue
-		}
-		columns = append(columns, f.Name)
-	}
-
-	return columns
-}
-
 // BuildDeleteStmt returns a DELETE statement for the given struct.
 func (db *DB) BuildDeleteStmt(from interface{}) string {
 	return fmt.Sprintf(
@@ -247,7 +234,7 @@ func (db *DB) BuildDeleteStmt(from interface{}) string {
 
 // BuildInsertStmt returns an INSERT INTO statement for the given struct.
 func (db *DB) BuildInsertStmt(into interface{}) (string, int) {
-	columns := db.BuildColumns(into)
+	columns := db.columnMap.Columns(into)
 
 	return fmt.Sprintf(
 		`INSERT INTO "%s" ("%s") VALUES (%s)`,
@@ -261,7 +248,7 @@ func (db *DB) BuildInsertStmt(into interface{}) (string, int) {
 // which the database ignores rows that have already been inserted.
 func (db *DB) BuildInsertIgnoreStmt(into interface{}) (string, int) {
 	table := TableName(into)
-	columns := db.BuildColumns(into)
+	columns := db.columnMap.Columns(into)
 	var clause string
 
 	switch db.DriverName() {
@@ -286,7 +273,7 @@ func (db *DB) BuildInsertIgnoreStmt(into interface{}) (string, int) {
 func (db *DB) BuildSelectStmt(table interface{}, columns interface{}) string {
 	q := fmt.Sprintf(
 		`SELECT "%s" FROM "%s"`,
-		strings.Join(db.BuildColumns(columns), `", "`),
+		strings.Join(db.columnMap.Columns(columns), `", "`),
 		TableName(table),
 	)
 
@@ -300,7 +287,7 @@ func (db *DB) BuildSelectStmt(table interface{}, columns interface{}) string {
 
 // BuildUpdateStmt returns an UPDATE statement for the given struct.
 func (db *DB) BuildUpdateStmt(update interface{}) (string, int) {
-	columns := db.BuildColumns(update)
+	columns := db.columnMap.Columns(update)
 	set := make([]string, 0, len(columns))
 
 	for _, col := range columns {
@@ -316,12 +303,12 @@ func (db *DB) BuildUpdateStmt(update interface{}) (string, int) {
 
 // BuildUpsertStmt returns an upsert statement for the given struct.
 func (db *DB) BuildUpsertStmt(subject interface{}) (stmt string, placeholders int) {
-	insertColumns := db.BuildColumns(subject)
+	insertColumns := db.columnMap.Columns(subject)
 	table := TableName(subject)
 	var updateColumns []string
 
 	if upserter, ok := subject.(Upserter); ok {
-		updateColumns = db.BuildColumns(upserter.Upsert())
+		updateColumns = db.columnMap.Columns(upserter.Upsert())
 	} else {
 		updateColumns = insertColumns
 	}
@@ -355,7 +342,7 @@ func (db *DB) BuildUpsertStmt(subject interface{}) (stmt string, placeholders in
 // BuildWhere returns a WHERE clause with named placeholder conditions built from the specified struct
 // combined with the AND operator.
 func (db *DB) BuildWhere(subject interface{}) (string, int) {
-	columns := db.BuildColumns(subject)
+	columns := db.columnMap.Columns(subject)
 	where := make([]string, 0, len(columns))
 	for _, col := range columns {
 		where = append(where, fmt.Sprintf(`"%s" = :%s`, col, col))
