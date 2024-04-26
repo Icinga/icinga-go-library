@@ -1,0 +1,119 @@
+package types
+
+import (
+	"github.com/google/uuid"
+	"testing"
+)
+
+func TestUUID_Value(t *testing.T) {
+	// Generate a new UUID
+	originalUUID, err := uuid.NewRandom()
+	if err != nil {
+		t.Fatalf("Failed to generate UUID: %v", err)
+	}
+
+	// Wrap it in our custom UUID type
+	customUUID := UUID{originalUUID}
+
+	// Call the Value method to get the driver.Value representation
+	val, err := customUUID.Value()
+	if err != nil {
+		t.Errorf("Expected no error from Value(), got %v", err)
+	}
+
+	// Assert that the value is a byte slice and matches the original UUID bytes
+	if bytes, ok := val.([]byte); ok {
+		if !uuid.Equal(uuid.UUID(bytes), originalUUID) {
+			t.Errorf("Expected bytes to match original UUID, got %v", bytes)
+		}
+	} else {
+		t.Errorf("Expected Value() to return []byte, got %T", val)
+	}
+}
+
+func TestUUID_TextUnmarshaler(t *testing.T) {
+	// Generate a new UUID
+	originalUUID, err := uuid.NewRandom()
+	if err != nil {
+		t.Fatalf("Failed to generate UUID: %v", err)
+	}
+
+	// Convert it to text
+	textUUID := originalUUID.String()
+
+	// Create an empty UUID and unmarshal the text into it
+	var customUUID UUID
+	if err := customUUID.UnmarshalText([]byte(textUUID)); err != nil {
+		t.Fatalf("Failed to unmarshal text: %v", err)
+	}
+
+	// Assert that the unmarshaled UUID matches the original
+	if customUUID.UUID != originalUUID {
+		t.Errorf("Expected unmarshaled UUID to match original, got %v", customUUID.UUID)
+	}
+}
+
+func TestUUID_UnmarshalText_InvalidUUID(t *testing.T) {
+	var customUUID UUID
+	err := customUUID.UnmarshalText([]byte("invalid-uuid"))
+	if err == nil {
+		t.Errorf("Expected error when unmarshaling invalid UUID, got nil")
+	}
+}
+
+func TestUUID_Value_ZeroUUID(t *testing.T) {
+	// Create a UUID with zero value
+	var customUUID UUID
+
+	// Call the Value method to get the driver.Value representation
+	val, err := customUUID.Value()
+	if err != nil {
+		t.Errorf("Expected no error from Value() for zero UUID, got %v", err)
+	}
+
+	// Assert that the value is a byte slice of length 16 with all zeros
+	if bytes, ok := val.([]byte); ok {
+		if len(bytes) != 16 {
+			t.Errorf("Expected byte slice of length 16, got %d", len(bytes))
+		}
+		for _, b := range bytes {
+			if b != 0 {
+				t.Errorf("Expected byte slice with all zeros for zero UUID")
+				break
+			}
+		}
+	} else {
+		t.Errorf("Expected Value() to return []byte for zero UUID, got %T", val)
+	}
+}
+
+// Assuming you add a Scan method to comply with sql.Scanner
+func TestUUID_Scan(t *testing.T) {
+	// Generate a new UUID
+	originalUUID, err := uuid.NewRandom()
+	if err != nil {
+		t.Fatalf("Failed to generate UUID: %v", err)
+	}
+
+	// Convert it to bytes as it would be in SQL
+	uuidBytes := originalUUID[:]
+
+	// Create an empty UUID and scan the bytes into it
+	var customUUID UUID
+	if err := customUUID.Scan(uuidBytes); err != nil {
+		t.Fatalf("Failed to scan UUID bytes: %v", err)
+	}
+
+	// Assert that the scanned UUID matches the original
+	if customUUID.UUID != originalUUID {
+		t.Errorf("Expected scanned UUID to match original, got %v", customUUID.UUID)
+	}
+}
+
+func TestUUID_Scan_InvalidType(t *testing.T) {
+	var customUUID UUID
+	err := customUUID.Scan("not-a-byte-slice")
+	if err == nil {
+		t.Errorf("Expected error when scanning from invalid type, got nil")
+	}
+}

@@ -43,9 +43,14 @@ func BatchSliceOfStrings(ctx context.Context, keys []string, count int) <-chan [
 			}
 
 			select {
-			case batches <- keys[i:end]:
 			case <-ctx.Done():
 				return
+			default:
+				select {
+				case batches <- keys[i:end]:
+				case <-ctx.Done():
+					return
+				}
 			}
 		}
 	}()
@@ -106,6 +111,8 @@ func Ellipsize(s string, limit int) string {
 	case utf8.RuneCount() <= limit:
 		return s
 	case utf8.RuneCount() <= ellipsis.RuneCount():
+		return ellipsis.String()
+	case limit < ellipsis.RuneCount():
 		return ellipsis.String()
 	default:
 		return utf8.Slice(0, limit-ellipsis.RuneCount()) + ellipsis.String()

@@ -76,6 +76,12 @@ func (b *Bulker[T]) run(ch <-chan T, count int, splitPolicyFactory BulkChunkSpli
 	})
 
 	g.Go(func() error {
+		buf := make([]T, 0, count)
+
+		return nil
+	})
+
+	g.Go(func() error {
 		for done := false; !done; {
 			buf := make([]T, 0, count)
 			timeout := time.After(256 * time.Millisecond)

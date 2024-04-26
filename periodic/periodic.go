@@ -23,6 +23,7 @@ type Stopper interface {
 type Tick struct {
 	Elapsed time.Duration
 	Time    time.Time
+	Count   int64
 }
 
 // Immediate starts the periodic task immediately instead of after the first tick.
@@ -55,45 +56,57 @@ func Start(ctx context.Context, interval time.Duration, callback func(Tick), opt
 		option.apply(t)
 	}
 
-	ctx, cancelCtx := context.WithCancel(ctx)
-
 	start := time.Now()
 
-	go func() {
-		done := false
-
-		if !t.immediate {
-			select {
-			case <-time.After(interval):
-			case <-ctx.Done():
-				done = true
-			}
-		}
-
-		if !done {
-			ticker := time.NewTicker(t.interval)
-			defer ticker.Stop()
-
-			for tickTime := time.Now(); !done; {
-				t.callback(Tick{
-					Elapsed: tickTime.Sub(start),
-					Time:    tickTime,
-				})
-
-				select {
-				case tickTime = <-ticker.C:
-				case <-ctx.Done():
-					done = true
-				}
-			}
-		}
-
+	select {
+	case <-ctx.Done():
 		if t.onStop != nil {
-			now := time.Now()
 			t.onStop(Tick{
-				Elapsed: now.Sub(start),
-				Time:    now,
+				Time: start,
 			})
+		}
+
+		return stoperFunc(func() {
+		})
+	default:
+	}
+
+	var count int64
+
+	if t.immediate {
+		count++
+		t.callback(Tick{
+			Time:  start,
+			Count: count,
+		})
+	}
+
+	ctx, cancelCtx := context.WithCancel(ctx)
+	go func() {
+		ticker := time.NewTicker(t.interval)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case tick := <-ticker.C:
+				count++
+				t.callback(Tick{
+					Elapsed: tick.Sub(start),
+					Time:    tick,
+					Count:   count,
+				})
+			case <-ctx.Done():
+				if t.onStop != nil {
+					now := time.Now()
+					t.onStop(Tick{
+						Elapsed: now.Sub(start),
+						Time:    now,
+						Count:   count,
+					})
+				}
+
+				return
+			}
 		}
 	}()
 

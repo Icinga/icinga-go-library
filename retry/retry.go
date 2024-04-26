@@ -59,6 +59,12 @@ func WithBackoff(
 	start := time.Now()
 	timedOut := false
 	for attempt := uint64(1); ; /* true */ attempt++ {
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		default:
+		}
+
 		prevErr := err
 
 		if err = retryableFunc(ctx); err == nil {
@@ -126,7 +132,10 @@ func WithBackoff(
 // it is automatically drained as if the timer had never expired.
 func ResetTimeout(t *time.Timer, d time.Duration) {
 	if !t.Stop() {
-		<-t.C
+		select {
+		case <-t.C:
+		default:
+		}
 	}
 
 	t.Reset(d)
