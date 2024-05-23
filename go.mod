@@ -3,6 +3,7 @@ module github.com/icinga/icinga-go-library
 go 1.18
 
 require (
+	github.com/Icinga/go-libs v0.0.0-20220420130327-ef58ad52edd8
 	github.com/creasty/defaults v1.7.0
 	github.com/go-redis/redis/v8 v8.11.5
 	github.com/go-sql-driver/mysql v1.7.1
