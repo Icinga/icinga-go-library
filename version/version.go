@@ -124,7 +124,7 @@ func (o *osRelease) DisplayVersion() string {
 // readOsRelease reads and parses the os-release file.
 func readOsRelease() (*osRelease, error) {
 	for _, path := range []string{"/etc/os-release", "/usr/lib/os-release"} {
-		f, err := os.Open(path)
+		f, err := os.Open(path) // #nosec G304 -- Potential file inclusion via variable - Hard-coded files, so not affected by this issue.
 		if err != nil {
 			if os.IsNotExist(err) {
 				continue // Try next path.
