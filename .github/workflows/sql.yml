@@ -1,0 +1,69 @@
+name: SQL
+
+on:
+  push:
+    branches:
+      - main
+  pull_request: {}
+
+jobs:
+  mysql:
+    name: ${{ matrix.database.name }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        database:
+          - {name: MySQL 5.7,      image: "mysql:5.7"}
+          - {name: MySQL 8.0,      image: "mysql:8.0"}
+          - {name: MySQL latest,   image: "mysql:latest"}
+          - {name: MariaDB 10.1,   image: "mariadb:10.1"}
+          - {name: MariaDB 10.2,   image: "mariadb:10.2"}
+          - {name: MariaDB 10.3,   image: "mariadb:10.3"}
+          - {name: MariaDB 10.4,   image: "mariadb:10.4"}
+          - {name: MariaDB 10.5,   image: "mariadb:10.5"}
+          - {name: MariaDB 10.6,   image: "mariadb:10.6"}
+          - {name: MariaDB 10.7,   image: "mariadb:10.7"}
+          - {name: MariaDB 10.11,  image: "mariadb:10.11"}
+          - {name: MariaDB 11.0,   image: "mariadb:11.0"}
+          - {name: MariaDB latest, image: "mariadb:latest"}
+
+    env:
+      ICINGAGOLIBRARY_TESTS_DB_TYPE: mysql
+      ICINGAGOLIBRARY_TESTS_DB: icinga_unittest
+      ICINGAGOLIBRARY_TESTS_DB_USER: root
+      ICINGAGOLIBRARY_TESTS_DB_PASSWORD: password
+      ICINGAGOLIBRARY_TESTS_DB_HOST: 127.0.0.1
+      ICINGAGOLIBRARY_TESTS_DB_PORT: 3306
+
+    services:
+      mysql:
+        image: ${{ matrix.database.image }}
+        env:
+          MYSQL_ROOT_PASSWORD: ${{ env.ICINGAGOLIBRARY_TESTS_DB_PASSWORD }}
+          MYSQL_DATABASE: ${{ env.ICINGAGOLIBRARY_TESTS_DB }}
+        # Wait for the containers to become ready
+        options: >-
+          --health-cmd "${{ (startsWith(matrix.database.image, 'mysql:') || startsWith(matrix.database.image, 'mariadb:10')) && 'mysqladmin ping' || 'healthcheck.sh --connect --innodb_initialized' }}"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 10
+        ports:
+          - 3306:3306
+
+    steps:
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: stable
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Download dependencies
+        run: go get -v -t -d ./...
+
+      - name: Run tests
+        timeout-minutes: 10
+        run: go test -v -timeout 5m ./...
