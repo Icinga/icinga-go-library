@@ -39,5 +39,5 @@ func jitter(n int64) int64 {
 		return 0
 	}
 
-	return n/2 + rand.Int63n(n/2)
+	return n/2 + rand.Int63n(n/2) // #nosec G404 -- Use of weak random number generator - we don't need crypto/rand here though.
 }
