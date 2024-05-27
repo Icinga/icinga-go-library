@@ -141,7 +141,13 @@ func NewDbFromConfig(c *Config, logger *logging.Logger, connectorCallbacks Retry
 				}
 			}
 
-			return setGaleraOpts(ctx, conn, int64(c.Options.WsrepSyncWait))
+			// Set the "wsrep_sync_wait" variable for each session and ensures that causality checks are performed
+			// before execution and that each statement is executed on a fully synchronized node. Doing so prevents
+			// foreign key violation when inserting into dependent tables on different MariaDB/MySQL nodes. When using
+			// MySQL single nodes, the "SET SESSION" command will fail with "Unknown system variable (1193)" and will
+			// therefore be silently dropped.
+			// https://mariadb.com/kb/en/galera-cluster-system-variables/#wsrep_sync_wait
+			return unsafeSetSessionVariableIfExists(ctx, conn, "wsrep_sync_wait", fmt.Sprint(c.Options.WsrepSyncWait))
 		}
 
 		addr = config.Addr
