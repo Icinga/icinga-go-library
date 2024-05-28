@@ -26,8 +26,8 @@ jobs:
           - {name: MariaDB 10.6,   image: "mariadb:10.6"}
           - {name: MariaDB 10.7,   image: "mariadb:10.7"}
           - {name: MariaDB 10.11,  image: "mariadb:10.11"}
-          - {name: MariaDB 11.0,   image: "mariadb:11.0", incompat: true}
-          - {name: MariaDB latest, image: "mariadb:latest", incompat: true}
+          - {name: MariaDB 11.0,   image: "mariadb:11.0"}
+          - {name: MariaDB latest, image: "mariadb:latest"}
 
     env:
       ICINGAGOLIBRARY_TESTS_DB_TYPE: mysql
@@ -45,11 +45,6 @@ jobs:
           MYSQL_DATABASE: icinga_unittest
           MARIADB_ROOT_PASSWORD: password # mariadb >= 11
           MARIADB_DATABASE: icinga_unittest # mariadb >= 11
-        options: >-
-          --health-cmd ${{ matrix.database.incompat == 'true' && '"healthcheck.sh --connect --innodb_initialized"' || '"mysqladmin ping"' }}
-          --health-interval 10s
-          --health-timeout 5s
-          --health-retries 10
         ports:
           - 3306:3306
 
