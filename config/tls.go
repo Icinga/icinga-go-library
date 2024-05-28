@@ -22,7 +22,7 @@ func (t *TLS) MakeConfig(serverName string) (*tls.Config, error) {
 		return nil, nil
 	}
 
-	tlsConfig := &tls.Config{}
+	tlsConfig := &tls.Config{MinVersion: tls.VersionTLS12}
 	if t.Cert == "" {
 		if t.Key != "" {
 			return nil, errors.New("private key given, but client certificate missing")

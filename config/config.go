@@ -25,6 +25,7 @@ func FromYAMLFile(name string, v Validator) error {
 		return errors.Wrapf(ErrInvalidArgument, "non-nil pointer expected, got %T", v)
 	}
 
+	// #nosec G304 -- Potential file inclusion via variable - Its purpose is to load any file name that is passed to it, so doesn't need to validate anything.
 	f, err := os.Open(name)
 	if err != nil {
 		return errors.Wrap(err, "can't open YAML file "+name)

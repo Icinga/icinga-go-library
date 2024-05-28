@@ -2,7 +2,7 @@ package utils
 
 import (
 	"context"
-	"crypto/sha1"
+	"crypto/sha1" // #nosec G505 -- Blocklisted import crypto/sha1
 	"fmt"
 	"github.com/go-sql-driver/mysql"
 	"github.com/lib/pq"
@@ -64,8 +64,10 @@ func Checksum(data interface{}) []byte {
 
 	switch data := data.(type) {
 	case string:
+		// #nosec G401 -- Use of weak cryptographic primitive - we don't intend to change this anytime soon.
 		chksm = sha1.Sum([]byte(data))
 	case []byte:
+		// #nosec G401 -- Use of weak cryptographic primitive - we don't intend to change this anytime soon.
 		chksm = sha1.Sum(data)
 	default:
 		panic(fmt.Sprintf("Unable to create checksum for type %T", data))
