@@ -22,6 +22,7 @@ import (
 	"golang.org/x/sync/semaphore"
 	"net"
 	"net/url"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -225,6 +226,11 @@ func NewDbFromConfig(c *Config, logger *logging.Logger, connectorCallbacks Retry
 // GetAddr returns the database host:port or Unix socket address.
 func (db *DB) GetAddr() string {
 	return db.addr
+}
+
+// BuildColumns returns all columns of the given struct.
+func (db *DB) BuildColumns(subject interface{}) []string {
+	return slices.Clone(db.columnMap.Columns(subject))
 }
 
 // BuildDeleteStmt returns a DELETE statement for the given struct.
