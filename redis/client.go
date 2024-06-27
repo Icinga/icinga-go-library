@@ -219,6 +219,13 @@ func (c *Client) XReadUntilResult(ctx context.Context, a *redis.XReadArgs) ([]re
 				continue
 			}
 
+			var timeout interface {
+				Timeout() bool
+			}
+			if errors.As(err, &timeout) && timeout.Timeout() {
+				continue
+			}
+
 			return streams, WrapCmdErr(cmd)
 		}
 
