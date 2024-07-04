@@ -49,3 +49,24 @@ func TestString_MarshalJSON(t *testing.T) {
 		})
 	}
 }
+
+func TestString_UnmarshalText(t *testing.T) {
+	subtests := []struct {
+		name string
+		io   string
+	}{
+		{"empty", ""},
+		{"nul", "\x00"},
+		{"space", " "},
+		{"multiple", "abc"},
+	}
+
+	for _, st := range subtests {
+		t.Run(st.name, func(t *testing.T) {
+			var actual String
+
+			require.NoError(t, actual.UnmarshalText([]byte(st.io)))
+			require.Equal(t, String{NullString: sql.NullString{String: st.io, Valid: true}}, actual)
+		})
+	}
+}
