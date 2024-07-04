@@ -70,3 +70,32 @@ func TestString_UnmarshalText(t *testing.T) {
 		})
 	}
 }
+
+func TestString_UnmarshalJSON(t *testing.T) {
+	subtests := []struct {
+		name   string
+		input  string
+		output sql.NullString
+		error  bool
+	}{
+		{"null", `null`, sql.NullString{}, false},
+		{"bool", `false`, sql.NullString{}, true},
+		{"number", `0`, sql.NullString{}, true},
+		{"empty", `""`, sql.NullString{String: "", Valid: true}, false},
+		{"nul", `"\u0000"`, sql.NullString{String: "\x00", Valid: true}, false},
+		{"space", `" "`, sql.NullString{String: " ", Valid: true}, false},
+		{"multiple", `"abc"`, sql.NullString{String: "abc", Valid: true}, false},
+	}
+
+	for _, st := range subtests {
+		t.Run(st.name, func(t *testing.T) {
+			var actual String
+			if err := actual.UnmarshalJSON([]byte(st.input)); st.error {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, String{NullString: st.output}, actual)
+			}
+		})
+	}
+}
