@@ -131,6 +131,25 @@ func TestEllipsize(t *testing.T) {
 	}
 }
 
+func TestMaxInt(t *testing.T) {
+	subtests := []struct {
+		name   string
+		x      int
+		y      int
+		output int
+	}{
+		{"less", 23, 42, 42},
+		{"equal", 42, 42, 42},
+		{"greater", 42, 23, 42},
+	}
+
+	for _, st := range subtests {
+		t.Run(st.name, func(t *testing.T) {
+			require.Equal(t, st.output, MaxInt(st.x, st.y))
+		})
+	}
+}
+
 func TestChanFromSlice(t *testing.T) {
 	t.Run("Nil", func(t *testing.T) {
 		ch := ChanFromSlice[int](nil)
