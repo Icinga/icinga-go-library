@@ -24,6 +24,25 @@ func TestBinary_Valid(t *testing.T) {
 	}
 }
 
+func TestBinary_String(t *testing.T) {
+	subtests := []struct {
+		name   string
+		input  Binary
+		output string
+	}{
+		{"nil", nil, ""},
+		{"nul", Binary{0}, "00"},
+		{"hex", Binary{10}, "0a"},
+		{"multiple", Binary{1, 254}, "01fe"},
+	}
+
+	for _, st := range subtests {
+		t.Run(st.name, func(t *testing.T) {
+			require.Equal(t, st.output, st.input.String())
+		})
+	}
+}
+
 func TestBinary_MarshalJSON(t *testing.T) {
 	subtests := []struct {
 		name   string
