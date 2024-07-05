@@ -43,6 +43,33 @@ func TestBinary_String(t *testing.T) {
 	}
 }
 
+func TestBinary_UnmarshalText(t *testing.T) {
+	subtests := []struct {
+		name   string
+		input  string
+		output Binary
+		error  bool
+	}{
+		{"empty", "", Binary{}, false},
+		{"invalid_length", "0", Binary{}, true},
+		{"invalid_char", "0g", Binary{}, true},
+		{"hex", "0a", Binary{10}, false},
+		{"multiple", "01fe", Binary{1, 254}, false},
+	}
+
+	for _, st := range subtests {
+		t.Run(st.name, func(t *testing.T) {
+			var actual Binary
+			if err := actual.UnmarshalText([]byte(st.input)); st.error {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, st.output, actual)
+			}
+		})
+	}
+}
+
 func TestBinary_MarshalJSON(t *testing.T) {
 	subtests := []struct {
 		name   string
