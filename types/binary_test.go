@@ -114,3 +114,34 @@ func TestBinary_MarshalJSON(t *testing.T) {
 		})
 	}
 }
+
+func TestBinary_UnmarshalJSON(t *testing.T) {
+	subtests := []struct {
+		name   string
+		input  string
+		output Binary
+		error  bool
+	}{
+		{"null", `null`, nil, false},
+		{"bool", `false`, nil, true},
+		{"number", `10`, nil, true},
+		{"invalid_length", `"0"`, nil, true},
+		{"invalid_char", `"0g"`, nil, true},
+		{"empty", `""`, make(Binary, 0, 1), false},
+		{"nul", `"00"`, Binary{0}, false},
+		{"hex", `"0a"`, Binary{10}, false},
+		{"multiple", `"01fe"`, Binary{1, 254}, false},
+	}
+
+	for _, st := range subtests {
+		t.Run(st.name, func(t *testing.T) {
+			var actual Binary
+			if err := actual.UnmarshalJSON([]byte(st.input)); st.error {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, st.output, actual)
+			}
+		})
+	}
+}
