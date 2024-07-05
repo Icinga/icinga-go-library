@@ -113,3 +113,25 @@ func TestBool_Scan(t *testing.T) {
 		})
 	}
 }
+
+func TestBool_Value(t *testing.T) {
+	subtests := []struct {
+		name   string
+		input  Bool
+		output any
+	}{
+		{"nil", Bool{}, nil},
+		{"invalid", Bool{Bool: true, Valid: false}, nil},
+		{"false", Bool{Bool: false, Valid: true}, "n"},
+		{"true", Bool{Bool: true, Valid: true}, "y"},
+	}
+
+	for _, st := range subtests {
+		t.Run(st.name, func(t *testing.T) {
+			actual, err := st.input.Value()
+
+			require.NoError(t, err)
+			require.Equal(t, st.output, actual)
+		})
+	}
+}
