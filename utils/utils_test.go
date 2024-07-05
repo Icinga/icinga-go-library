@@ -2,6 +2,7 @@ package utils
 
 import (
 	"context"
+	"encoding/hex"
 	"fmt"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -56,6 +57,44 @@ func TestBatchSliceOfStrings(t *testing.T) {
 	for _, i := range []int{0, -1, -2, -30} {
 		t.Run(fmt.Sprint(i), func(t *testing.T) {
 			require.Panics(t, func() { BatchSliceOfStrings(context.Background(), nil, i) })
+		})
+	}
+}
+
+func TestChecksum(t *testing.T) {
+	subtests := []struct {
+		name   string
+		input  any
+		output string
+	}{
+		{"empty_string", "", "da39a3ee5e6b4b0d3255bfef95601890afd80709"},
+		{"empty_bytes", []byte(nil), "da39a3ee5e6b4b0d3255bfef95601890afd80709"},
+		{"space_string", " ", "b858cb282617fb0956d960215c8e84d1ccf909c6"},
+		{"space_bytes", []byte(" "), "b858cb282617fb0956d960215c8e84d1ccf909c6"},
+	}
+
+	for _, st := range subtests {
+		t.Run(st.name, func(t *testing.T) {
+			require.Equal(t, st.output, hex.EncodeToString(Checksum(st.input)))
+		})
+	}
+
+	unsupported := []struct {
+		name  string
+		input any
+	}{
+		{"nil", nil},
+		{"bool", false},
+		{"int", 0},
+		{"float", 0.0},
+		{"struct", struct{}{}},
+		{"slice", []string{}},
+		{"map", map[string]string{}},
+	}
+
+	for _, st := range unsupported {
+		t.Run(st.name, func(t *testing.T) {
+			require.Panics(t, func() { Checksum(st.input) })
 		})
 	}
 }
