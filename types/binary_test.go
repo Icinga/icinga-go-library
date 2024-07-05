@@ -145,3 +145,33 @@ func TestBinary_UnmarshalJSON(t *testing.T) {
 		})
 	}
 }
+
+func TestBinary_Scan(t *testing.T) {
+	subtests := []struct {
+		name   string
+		input  any
+		output Binary
+		error  bool
+	}{
+		{"nil", nil, nil, false},
+		{"bool", false, nil, true},
+		{"number", 10, nil, true},
+		{"string", "10", nil, true},
+		{"empty", make([]byte, 0, 1), nil, false},
+		{"nul", []byte{0}, Binary{0}, false},
+		{"hex", []byte{10}, Binary{10}, false},
+		{"multiple", []byte{1, 254}, Binary{1, 254}, false},
+	}
+
+	for _, st := range subtests {
+		t.Run(st.name, func(t *testing.T) {
+			var actual Binary
+			if err := actual.Scan(st.input); st.error {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, st.output, actual)
+			}
+		})
+	}
+}
