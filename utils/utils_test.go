@@ -52,6 +52,27 @@ func TestBatchSliceOfStrings(t *testing.T) {
 	}
 }
 
+func TestChecksum(t *testing.T) {
+	subtests := []struct {
+		name  string
+		input any
+	}{
+		{"empty_string", ""},
+		{"empty_bytes", []byte(nil)},
+		{"space_string", " "},
+		{"space_bytes", []byte(" ")},
+	}
+
+	for _, st := range subtests {
+		t.Run(st.name, func(t *testing.T) {
+			actual := Checksum(st.input)
+
+			require.Len(t, actual, 20)
+			require.NotEqual(t, make([]byte, 20), actual)
+		})
+	}
+}
+
 func TestChanFromSlice(t *testing.T) {
 	t.Run("Nil", func(t *testing.T) {
 		ch := ChanFromSlice[int](nil)
