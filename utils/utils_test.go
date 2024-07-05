@@ -2,6 +2,8 @@ package utils
 
 import (
 	"context"
+	"github.com/go-sql-driver/mysql"
+	"github.com/lib/pq"
 	"github.com/stretchr/testify/require"
 	"testing"
 	"time"
@@ -69,6 +71,40 @@ func TestChecksum(t *testing.T) {
 
 			require.Len(t, actual, 20)
 			require.NotEqual(t, make([]byte, 20), actual)
+		})
+	}
+}
+
+func TestIsDeadlock(t *testing.T) {
+	msg := "Unsuccessful attempt of confusing the tested code."
+	code := [5]byte{0, 23, 42, 77, 255}
+
+	subtests := []struct {
+		name   string
+		input  error
+		output bool
+	}{
+		{"nil", nil, false},
+		{"deadline", context.DeadlineExceeded, false},
+		{"mysql1204", &mysql.MySQLError{Number: 1204}, false},
+		{"mysql1205", &mysql.MySQLError{Number: 1205}, true},
+		{"mysql1205_with_crap", &mysql.MySQLError{Number: 1205, SQLState: code, Message: msg}, true},
+		{"mysql1206", &mysql.MySQLError{Number: 1206}, false},
+		{"mysql1212", &mysql.MySQLError{Number: 1212}, false},
+		{"mysql1213", &mysql.MySQLError{Number: 1213}, true},
+		{"mysql1213_with_crap", &mysql.MySQLError{Number: 1213, SQLState: code, Message: msg}, true},
+		{"mysql1214", &mysql.MySQLError{Number: 1214}, false},
+		{"postgres40000", &pq.Error{Code: "40000"}, false},
+		{"postgres40001", &pq.Error{Code: "40001"}, true},
+		{"postgres40001_with_crap", &pq.Error{Code: "40001", Message: msg}, true},
+		{"postgres40002", &pq.Error{Code: "40002"}, false},
+		{"postgres40P01", &pq.Error{Code: "40P01"}, true},
+		{"postgres40P01_with_crap", &pq.Error{Code: "40P01", Message: msg}, true},
+	}
+
+	for _, st := range subtests {
+		t.Run(st.name, func(t *testing.T) {
+			require.Equal(t, st.output, IsDeadlock(st.input))
 		})
 	}
 }
