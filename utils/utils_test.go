@@ -177,6 +177,26 @@ func TestIsUnixAddr(t *testing.T) {
 	}
 }
 
+func TestJoinHostPort(t *testing.T) {
+	subtests := []struct {
+		name   string
+		host   string
+		port   int
+		output string
+	}{
+		{"empty", "", 0, ":0"},
+		{"ipv4", "192.0.2.1", 80, "192.0.2.1:80"},
+		{"ipv6", "2001:db8::", 443, "[2001:db8::]:443"},
+		{"unix", "/tmp/sock", 5665, "/tmp/sock"},
+	}
+
+	for _, st := range subtests {
+		t.Run(st.name, func(t *testing.T) {
+			require.Equal(t, st.output, JoinHostPort(st.host, st.port))
+		})
+	}
+}
+
 func TestChanFromSlice(t *testing.T) {
 	t.Run("Nil", func(t *testing.T) {
 		ch := ChanFromSlice[int](nil)
