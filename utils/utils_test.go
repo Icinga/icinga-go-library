@@ -157,6 +157,26 @@ func TestEllipsize(t *testing.T) {
 	}
 }
 
+func TestIsUnixAddr(t *testing.T) {
+	subtests := []struct {
+		name   string
+		input  string
+		output bool
+	}{
+		{"empty", "", false},
+		{"slash", "/", true},
+		{"unix", "/tmp/sock", true},
+		{"ipv4", "192.0.2.1", false},
+		{"ipv6", "2001:db8::", false},
+	}
+
+	for _, st := range subtests {
+		t.Run(st.name, func(t *testing.T) {
+			require.Equal(t, st.output, IsUnixAddr(st.input))
+		})
+	}
+}
+
 func TestChanFromSlice(t *testing.T) {
 	t.Run("Nil", func(t *testing.T) {
 		ch := ChanFromSlice[int](nil)
