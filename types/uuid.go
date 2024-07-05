@@ -20,5 +20,4 @@ func (uuid UUID) Value() (driver.Value, error) {
 var (
 	_ encoding.TextUnmarshaler = (*UUID)(nil)
 	_ driver.Valuer            = UUID{}
-	_ driver.Valuer            = (*UUID)(nil)
 )

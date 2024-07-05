@@ -96,9 +96,9 @@ func (b Bool) Value() (driver.Value, error) {
 
 // Assert interface compliance.
 var (
-	_ json.Marshaler           = (*Bool)(nil)
+	_ json.Marshaler           = Bool{}
 	_ encoding.TextUnmarshaler = (*Bool)(nil)
 	_ json.Unmarshaler         = (*Bool)(nil)
 	_ sql.Scanner              = (*Bool)(nil)
-	_ driver.Valuer            = (*Bool)(nil)
+	_ driver.Valuer            = Bool{}
 )
