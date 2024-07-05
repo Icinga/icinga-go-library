@@ -135,6 +135,28 @@ func TestIsDeadlock(t *testing.T) {
 	}
 }
 
+func TestEllipsize(t *testing.T) {
+	subtests := []struct {
+		name   string
+		s      string
+		limit  int
+		output string
+	}{
+		{"negative", "", -1, "..."},
+		{"empty", "", 0, ""},
+		{"shorter", " ", 2, " "},
+		{"equal", " ", 1, " "},
+		{"longer", " ", 0, "..."},
+		{"unicode", "äöüß€", 4, "ä..."},
+	}
+
+	for _, st := range subtests {
+		t.Run(st.name, func(t *testing.T) {
+			require.Equal(t, st.output, Ellipsize(st.s, st.limit))
+		})
+	}
+}
+
 func TestChanFromSlice(t *testing.T) {
 	t.Run("Nil", func(t *testing.T) {
 		ch := ChanFromSlice[int](nil)
