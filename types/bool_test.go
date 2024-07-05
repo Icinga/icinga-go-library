@@ -84,3 +84,32 @@ func TestBool_UnmarshalJSON(t *testing.T) {
 		})
 	}
 }
+
+func TestBool_Scan(t *testing.T) {
+	subtests := []struct {
+		name   string
+		input  any
+		output Bool
+		error  bool
+	}{
+		{"nil", nil, Bool{}, false},
+		{"bool", false, Bool{}, true},
+		{"int64", int64(0), Bool{}, true},
+		{"string", "false", Bool{}, true},
+		{"n", []byte("n"), Bool{Bool: false, Valid: true}, false},
+		{"y", []byte("y"), Bool{Bool: true, Valid: true}, false},
+		{"invalid", []byte("false"), Bool{}, true},
+	}
+
+	for _, st := range subtests {
+		t.Run(st.name, func(t *testing.T) {
+			var actual Bool
+			if err := actual.Scan(st.input); st.error {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, st.output, actual)
+			}
+		})
+	}
+}
