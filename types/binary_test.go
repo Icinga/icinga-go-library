@@ -6,6 +6,24 @@ import (
 	"unicode/utf8"
 )
 
+func TestBinary_Valid(t *testing.T) {
+	subtests := []struct {
+		name   string
+		input  Binary
+		output bool
+	}{
+		{"nil", nil, false},
+		{"empty", make(Binary, 0, 1), false},
+		{"nul", Binary{0}, true},
+	}
+
+	for _, st := range subtests {
+		t.Run(st.name, func(t *testing.T) {
+			require.Equal(t, st.output, st.input.Valid())
+		})
+	}
+}
+
 func TestBinary_MarshalJSON(t *testing.T) {
 	subtests := []struct {
 		name   string
