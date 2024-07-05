@@ -175,3 +175,25 @@ func TestBinary_Scan(t *testing.T) {
 		})
 	}
 }
+
+func TestBinary_Value(t *testing.T) {
+	subtests := []struct {
+		name   string
+		input  Binary
+		output any
+	}{
+		{"empty", make(Binary, 0, 1), nil},
+		{"nul", Binary{0}, []byte{0}},
+		{"hex", Binary{10}, []byte{10}},
+		{"multiple", Binary{1, 254}, []byte{1, 254}},
+	}
+
+	for _, st := range subtests {
+		t.Run(st.name, func(t *testing.T) {
+			actual, err := st.input.Value()
+
+			require.NoError(t, err)
+			require.Equal(t, st.output, actual)
+		})
+	}
+}
