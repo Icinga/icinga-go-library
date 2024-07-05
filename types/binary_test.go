@@ -43,6 +43,29 @@ func TestBinary_String(t *testing.T) {
 	}
 }
 
+func TestBinary_MarshalText(t *testing.T) {
+	subtests := []struct {
+		name   string
+		input  Binary
+		output string
+	}{
+		{"nil", nil, ""},
+		{"nul", Binary{0}, "00"},
+		{"hex", Binary{10}, "0a"},
+		{"multiple", Binary{1, 254}, "01fe"},
+	}
+
+	for _, st := range subtests {
+		t.Run(st.name, func(t *testing.T) {
+			actual, err := st.input.MarshalText()
+
+			require.NoError(t, err)
+			require.True(t, utf8.Valid(actual))
+			require.Equal(t, st.output, string(actual))
+		})
+	}
+}
+
 func TestBinary_UnmarshalText(t *testing.T) {
 	subtests := []struct {
 		name   string
