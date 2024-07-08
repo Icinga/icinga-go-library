@@ -43,11 +43,7 @@ func WaitAsync(w Waiter) <-chan error {
 // If the channel is closed, it will return nil.
 func ErrgroupReceive(g *errgroup.Group, err <-chan error) {
 	g.Go(func() error {
-		if e := <-err; e != nil {
-			return e
-		}
-
-		return nil
+		return <-err
 	})
 }
 
