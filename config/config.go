@@ -3,6 +3,7 @@ package config
 import (
 	stderrors "errors"
 	"fmt"
+	"github.com/caarlos0/env/v11"
 	"github.com/creasty/defaults"
 	"github.com/goccy/go-yaml"
 	"github.com/jessevdk/go-flags"
@@ -48,6 +49,28 @@ func FromYAMLFile(name string, v Validator) error {
 	}
 
 	return nil
+}
+
+// EnvOptions is a type alias for [env.Options], so that only this package needs to import [env].
+type EnvOptions = env.Options
+
+// FromEnv parses environment variables and stores the result in the value pointed to by v.
+// If v is nil or not a pointer, FromEnv returns an [ErrInvalidArgument] error.
+func FromEnv(v Validator, options EnvOptions) error {
+	rv := reflect.ValueOf(v)
+	if rv.Kind() != reflect.Ptr || rv.IsNil() {
+		return errors.Wrapf(ErrInvalidArgument, "non-nil pointer expected, got %T", v)
+	}
+
+	if err := defaults.Set(v); err != nil {
+		return errors.Wrap(err, "can't set config defaults")
+	}
+
+	if err := env.ParseWithOptions(v, options); err != nil {
+		return errors.Wrap(err, "can't parse environment variables")
+	}
+
+	return errors.Wrap(v.Validate(), "invalid configuration")
 }
 
 // ParseFlags parses CLI flags and stores the result
