@@ -43,3 +43,38 @@ func TestCond_Broadcast(t *testing.T) {
 		require.Fail(t, "cond should be ready")
 	}
 }
+
+func TestCond_Close(t *testing.T) {
+	cond := NewCond(context.Background())
+	done := cond.Done()
+	wait := cond.Wait()
+
+	require.NoError(t, cond.Close())
+
+	select {
+	case _, ok := <-done:
+		if ok {
+			require.Fail(t, "existing cond-closed channel should be closed")
+		}
+	case <-time.After(time.Second / 10):
+		require.Fail(t, "cond should be closed")
+	}
+
+	select {
+	case _, ok := <-cond.Done():
+		if ok {
+			require.Fail(t, "new cond-closed channel should be closed")
+		}
+	case <-time.After(time.Second / 10):
+		require.Fail(t, "cond should be still closed")
+	}
+
+	select {
+	case <-wait:
+		require.Fail(t, "cond should not be ready")
+	case <-time.After(time.Second / 10):
+	}
+
+	require.Panics(t, func() { cond.Wait() }, "cond should panic on Wait after Close")
+	require.Panics(t, func() { cond.Broadcast() }, "cond should panic on Broadcast after Close")
+}
