@@ -79,8 +79,8 @@ func Version(version, gitDescribe, gitHash string) *VersionInfo {
 }
 
 // Print writes verbose version output to stdout.
-func (v *VersionInfo) Print() {
-	fmt.Println("Icinga DB version:", v.Version)
+func (v *VersionInfo) Print(projectName string) {
+	fmt.Printf("%s version: %s\n", projectName, v.Version)
 	fmt.Println()
 
 	fmt.Println("Build information:")
