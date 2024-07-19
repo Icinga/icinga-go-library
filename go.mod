@@ -5,7 +5,7 @@ go 1.22
 require (
 	github.com/creasty/defaults v1.7.0
 	github.com/go-sql-driver/mysql v1.8.1
-	github.com/goccy/go-yaml v1.11.3
+	github.com/goccy/go-yaml v1.12.0
 	github.com/google/uuid v1.6.0
 	github.com/jessevdk/go-flags v1.5.0
 	github.com/jmoiron/sqlx v1.4.0
