@@ -7,24 +7,18 @@ type Atomic[T any] struct {
 	v atomic.Value
 }
 
-func (a *Atomic[T]) Load() (_ T, ok bool) {
-	if v, ok := a.v.Load().(box[T]); ok {
-		return v.v, true
-	}
-
-	return
+func (a *Atomic[T]) Load() (T, bool) {
+	v, ok := a.v.Load().(box[T])
+	return v.v, ok
 }
 
 func (a *Atomic[T]) Store(v T) {
 	a.v.Store(box[T]{v})
 }
 
-func (a *Atomic[T]) Swap(new T) (old T, ok bool) {
-	if old, ok := a.v.Swap(box[T]{new}).(box[T]); ok {
-		return old.v, true
-	}
-
-	return
+func (a *Atomic[T]) Swap(new T) (T, bool) {
+	old, ok := a.v.Swap(box[T]{new}).(box[T])
+	return old.v, ok
 }
 
 func (a *Atomic[T]) CompareAndSwap(old, new T) (swapped bool) {
