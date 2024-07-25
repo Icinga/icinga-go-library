@@ -28,3 +28,110 @@ func TestBool_MarshalJSON(t *testing.T) {
 		})
 	}
 }
+
+func TestBool_UnmarshalText(t *testing.T) {
+	subtests := []struct {
+		name   string
+		input  string
+		output Bool
+		error  bool
+	}{
+		{"empty", "", Bool{}, true},
+		{"negative", "-1", Bool{}, true},
+		{"bool", "false", Bool{}, true},
+		{"b", "f", Bool{}, true},
+		{"float", "0.0", Bool{}, true},
+		{"zero", "0", Bool{Bool: false, Valid: true}, false},
+		{"one", "1", Bool{Bool: true, Valid: true}, false},
+		{"two", "2", Bool{Bool: true, Valid: true}, false},
+	}
+
+	for _, st := range subtests {
+		t.Run(st.name, func(t *testing.T) {
+			var actual Bool
+			if err := actual.UnmarshalText([]byte(st.input)); st.error {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, st.output, actual)
+			}
+		})
+	}
+}
+
+func TestBool_UnmarshalJSON(t *testing.T) {
+	subtests := []struct {
+		name   string
+		input  string
+		output Bool
+		error  bool
+	}{
+		{"null", `null`, Bool{}, false},
+		{"false", `false`, Bool{Bool: false, Valid: true}, false},
+		{"true", `true`, Bool{Bool: true, Valid: true}, false},
+		{"number", `0`, Bool{}, true},
+	}
+
+	for _, st := range subtests {
+		t.Run(st.name, func(t *testing.T) {
+			var actual Bool
+			if err := actual.UnmarshalJSON([]byte(st.input)); st.error {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, st.output, actual)
+			}
+		})
+	}
+}
+
+func TestBool_Scan(t *testing.T) {
+	subtests := []struct {
+		name   string
+		input  any
+		output Bool
+		error  bool
+	}{
+		{"nil", nil, Bool{}, false},
+		{"bool", false, Bool{}, true},
+		{"int64", int64(0), Bool{}, true},
+		{"string", "false", Bool{}, true},
+		{"n", []byte("n"), Bool{Bool: false, Valid: true}, false},
+		{"y", []byte("y"), Bool{Bool: true, Valid: true}, false},
+		{"invalid", []byte("false"), Bool{}, true},
+	}
+
+	for _, st := range subtests {
+		t.Run(st.name, func(t *testing.T) {
+			var actual Bool
+			if err := actual.Scan(st.input); st.error {
+				require.Error(t, err)
+			} else {
+				require.NoError(t, err)
+				require.Equal(t, st.output, actual)
+			}
+		})
+	}
+}
+
+func TestBool_Value(t *testing.T) {
+	subtests := []struct {
+		name   string
+		input  Bool
+		output any
+	}{
+		{"nil", Bool{}, nil},
+		{"invalid", Bool{Bool: true, Valid: false}, nil},
+		{"false", Bool{Bool: false, Valid: true}, "n"},
+		{"true", Bool{Bool: true, Valid: true}, "y"},
+	}
+
+	for _, st := range subtests {
+		t.Run(st.name, func(t *testing.T) {
+			actual, err := st.input.Value()
+
+			require.NoError(t, err)
+			require.Equal(t, st.output, actual)
+		})
+	}
+}
