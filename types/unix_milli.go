@@ -107,10 +107,10 @@ func (t *UnixMilli) fromByteString(data []byte) error {
 
 // Assert interface compliance.
 var (
-	_ encoding.TextMarshaler   = (*UnixMilli)(nil)
+	_ encoding.TextMarshaler   = UnixMilli{}
 	_ encoding.TextUnmarshaler = (*UnixMilli)(nil)
-	_ json.Marshaler           = (*UnixMilli)(nil)
+	_ json.Marshaler           = UnixMilli{}
 	_ json.Unmarshaler         = (*UnixMilli)(nil)
-	_ driver.Valuer            = (*UnixMilli)(nil)
+	_ driver.Valuer            = UnixMilli{}
 	_ sql.Scanner              = (*UnixMilli)(nil)
 )
