@@ -44,6 +44,7 @@ func (o *Options) Validate() error {
 type Config struct {
 	Host       string     `yaml:"host"`
 	Port       int        `yaml:"port"`
+	Username   string     `yaml:"username"`
 	Password   string     `yaml:"password"`
 	Database   int        `yaml:"database" default:"0"`
 	TlsOptions config.TLS `yaml:",inline"`
@@ -54,6 +55,10 @@ type Config struct {
 func (r *Config) Validate() error {
 	if r.Host == "" {
 		return errors.New("Redis host missing")
+	}
+
+	if r.Username != "" && r.Password == "" {
+		return errors.New("Redis password must be set, if username is provided")
 	}
 
 	return r.Options.Validate()
