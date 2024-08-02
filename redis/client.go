@@ -53,7 +53,7 @@ func NewClientFromConfig(c *Config, logger *logging.Logger) (*Client, error) {
 	options := &redis.Options{
 		Dialer:      dialWithLogging(dialer, logger),
 		Password:    c.Password,
-		DB:          0, // Use default DB,
+		DB:          c.Database,
 		ReadTimeout: c.Options.Timeout,
 		TLSConfig:   tlsConfig,
 	}

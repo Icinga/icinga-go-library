@@ -45,6 +45,7 @@ type Config struct {
 	Host       string     `yaml:"host"`
 	Port       int        `yaml:"port"`
 	Password   string     `yaml:"password"`
+	Database   int        `yaml:"database" default:"0"`
 	TlsOptions config.TLS `yaml:",inline"`
 	Options    Options    `yaml:"options"`
 }
