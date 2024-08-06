@@ -5,11 +5,38 @@ import (
 	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
 	"os"
+	"strings"
 	"time"
 )
 
 // Options define child loggers with their desired log level.
 type Options map[string]zapcore.Level
+
+// UnmarshalText implements encoding.TextUnmarshaler to allow Options to be parsed by env.
+//
+// This custom TextUnmarshaler is necessary as - for the moment - env does not support map[T]encoding.TextUnmarshaler.
+// After <https://github.com/caarlos0/env/pull/323> got merged and a new env release was drafted, this method can be
+// removed.
+func (o *Options) UnmarshalText(text []byte) error {
+	optionsMap := make(map[string]zapcore.Level)
+
+	for _, entry := range strings.Split(string(text), ",") {
+		key, valueStr, found := strings.Cut(entry, ":")
+		if !found {
+			return fmt.Errorf("entry %q cannot be unmarshalled as an Option entry", entry)
+		}
+
+		valueLvl, err := zapcore.ParseLevel(valueStr)
+		if err != nil {
+			return fmt.Errorf("entry %q cannot be unmarshalled as level, %w", entry, err)
+		}
+
+		optionsMap[key] = valueLvl
+	}
+
+	*o = optionsMap
+	return nil
+}
 
 // Config defines Logger configuration.
 type Config struct {

@@ -55,17 +55,9 @@ func TestConfig(t *testing.T) {
 			},
 		},
 		{
-			name: "options-as-ints",
-			opts: config.EnvOptions{Environment: map[string]string{"OPTIONS": "foo:-1,bar:0,buz:4"}},
-			expected: Config{
-				Output:   "console",
-				Interval: 20 * time.Second,
-				Options: map[string]zapcore.Level{
-					"foo": zapcore.DebugLevel,
-					"bar": zapcore.InfoLevel,
-					"buz": zapcore.PanicLevel,
-				},
-			},
+			name:  "options-invalid-levels",
+			opts:  config.EnvOptions{Environment: map[string]string{"OPTIONS": "foo:foo,bar:0"}},
+			error: true,
 		},
 	}
 
