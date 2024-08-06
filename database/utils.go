@@ -3,12 +3,12 @@ package database
 import (
 	"context"
 	"database/sql/driver"
+	"fmt"
 	"github.com/go-sql-driver/mysql"
 	"github.com/icinga/icinga-go-library/com"
 	"github.com/icinga/icinga-go-library/strcase"
 	"github.com/icinga/icinga-go-library/types"
 	"github.com/pkg/errors"
-	"strconv"
 )
 
 // CantPerformQuery wraps the given error with the specified query that cannot be executed.
@@ -44,22 +44,19 @@ func SplitOnDupId[T IDer]() com.BulkChunkSplitPolicy[T] {
 	}
 }
 
-// setGaleraOpts sets the "wsrep_sync_wait" variable for each session ensures that causality checks are performed
-// before execution and that each statement is executed on a fully synchronized node. Doing so prevents foreign key
-// violation when inserting into dependent tables on different MariaDB/MySQL nodes. When using MySQL single nodes,
-// the "SET SESSION" command will fail with "Unknown system variable (1193)" and will therefore be silently dropped.
+// setSessionVariableIfExists sets the given MySQL/MariaDB system variable for the specified database session.
 //
-// https://mariadb.com/kb/en/galera-cluster-system-variables/#wsrep_sync_wait
-func setGaleraOpts(ctx context.Context, conn driver.Conn, wsrepSyncWait int64) error {
-	galeraOpts := "SET SESSION wsrep_sync_wait=" + strconv.FormatInt(wsrepSyncWait, 10)
-
-	_, err := conn.(driver.ExecerContext).ExecContext(ctx, galeraOpts, nil)
+// When the "SET SESSION" command fails with "Unknown system variable (1193)", the error will be silently
+// dropped but returns all other database errors.
+func setSessionVariableIfExists(ctx context.Context, conn driver.Conn, variable string, value any) error {
+	stmt := fmt.Sprintf("SET SESSION %s=%v", variable, value)
+	_, err := conn.(driver.ExecerContext).ExecContext(ctx, stmt, nil)
 	if err != nil {
 		if errors.Is(err, &mysql.MySQLError{Number: 1193}) { // Unknown system variable
 			return nil
 		}
 
-		return errors.Wrap(err, "cannot execute "+galeraOpts)
+		return CantPerformQuery(err, stmt)
 	}
 
 	return nil
