@@ -48,17 +48,35 @@ func TestFromEnv(t *testing.T) {
 		io    Validator
 		error bool
 	}{
-		{"nil", EnvOptions{}, nil, true},
-		{"nonptr", EnvOptions{}, simpleValidator{}, true},
-		{"nilptr", EnvOptions{}, (*simpleValidator)(nil), true},
-		{"defaulterr", EnvOptions{}, new(nonStructValidator), true},
-		{"parseeerr", EnvOptions{Environment: map[string]string{"FOO": "bar"}}, &simpleValidator{}, true},
-		{"invalid", EnvOptions{Environment: map[string]string{"FOO": "23"}}, &simpleValidator{}, true},
-		{"simple", EnvOptions{Environment: map[string]string{"FOO": "42"}}, &simpleValidator{42}, false},
-		{"default", EnvOptions{}, &defaultValidator{42}, false},
-		{"override", EnvOptions{Environment: map[string]string{"FOO": "23"}}, &defaultValidator{23}, false},
-		{"prefix", EnvOptions{Environment: map[string]string{"PREFIX_FOO": "42"}, Prefix: "PREFIX_"}, &simpleValidator{42}, false},
-		{"nested", EnvOptions{Environment: map[string]string{"PREFIX_FOO": "42"}}, &prefixValidator{simpleValidator{42}}, false},
+		{name: "nil", error: true},
+		{name: "nonptr", io: simpleValidator{}, error: true},
+		{name: "nilptr", io: (*simpleValidator)(nil), error: true},
+		{name: "defaulterr", io: new(nonStructValidator), error: true},
+		{
+			name:  "parseeerr",
+			opts:  EnvOptions{Environment: map[string]string{"FOO": "bar"}},
+			io:    &simpleValidator{},
+			error: true,
+		},
+		{
+			name:  "invalid",
+			opts:  EnvOptions{Environment: map[string]string{"FOO": "23"}},
+			io:    &simpleValidator{},
+			error: true,
+		},
+		{name: "simple", opts: EnvOptions{Environment: map[string]string{"FOO": "42"}}, io: &simpleValidator{42}},
+		{name: "default", io: &defaultValidator{42}},
+		{name: "override", opts: EnvOptions{Environment: map[string]string{"FOO": "23"}}, io: &defaultValidator{23}},
+		{
+			name: "prefix",
+			opts: EnvOptions{Environment: map[string]string{"PREFIX_FOO": "42"}, Prefix: "PREFIX_"},
+			io:   &simpleValidator{42},
+		},
+		{
+			name: "nested",
+			opts: EnvOptions{Environment: map[string]string{"PREFIX_FOO": "42"}},
+			io:   &prefixValidator{simpleValidator{42}},
+		},
 	}
 
 	for _, st := range subtests {
