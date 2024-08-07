@@ -41,7 +41,7 @@ func (c *Cond) Broadcast() {
 	}
 }
 
-// Close stops the controller loop, waits for it to finish, and returns an error if any.
+// Close stops the controller loop and waits for it to finish.
 // Implements the io.Closer interface.
 func (c *Cond) Close() error {
 	c.cancel()
