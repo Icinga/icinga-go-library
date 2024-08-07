@@ -14,12 +14,12 @@ type Options map[string]zapcore.Level
 // Config defines Logger configuration.
 type Config struct {
 	// zapcore.Level at 0 is for info level.
-	Level  zapcore.Level `yaml:"level" default:"0"`
-	Output string        `yaml:"output"`
+	Level  zapcore.Level `yaml:"level" env:"LEVEL" default:"0"`
+	Output string        `yaml:"output" env:"OUTPUT"`
 	// Interval for periodic logging.
-	Interval time.Duration `yaml:"interval" default:"20s"`
+	Interval time.Duration `yaml:"interval" env:"INTERVAL" default:"20s"`
 
-	Options `yaml:"options"`
+	Options `yaml:"options" env:"OPTIONS"`
 }
 
 // Validate checks constraints in the configuration and returns an error if they are violated.

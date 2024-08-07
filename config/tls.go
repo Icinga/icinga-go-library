@@ -9,11 +9,11 @@ import (
 
 // TLS provides TLS configuration options.
 type TLS struct {
-	Enable   bool   `yaml:"tls"`
-	Cert     string `yaml:"cert"`
-	Key      string `yaml:"key"`
-	Ca       string `yaml:"ca"`
-	Insecure bool   `yaml:"insecure"`
+	Enable   bool   `yaml:"tls" env:"TLS"`
+	Cert     string `yaml:"cert" env:"CERT"`
+	Key      string `yaml:"key" env:"KEY"`
+	Ca       string `yaml:"ca" env:"CA"`
+	Insecure bool   `yaml:"insecure" env:"INSECURE"`
 }
 
 // MakeConfig assembles a tls.Config from t and serverName.
