@@ -216,7 +216,7 @@ func (c *Client) XReadUntilResult(ctx context.Context, a *redis.XReadArgs) ([]re
 		cmd := c.XRead(ctx, a)
 		streams, err := cmd.Result()
 		if err != nil {
-			if errors.Is(err, redis.Nil) {
+			if (errors.Is(err, redis.Nil) || retry.Retryable(err)) && ctx.Err() == nil {
 				continue
 			}
 
