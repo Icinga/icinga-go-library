@@ -18,6 +18,7 @@ import (
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/semaphore"
 	"net"
@@ -108,6 +109,7 @@ func NewDbFromConfig(c *Config, logger *logging.Logger, connectorCallbacks Retry
 		if utils.IsUnixAddr(c.Host) {
 			config.Net = "unix"
 			config.Addr = c.Host
+			addr = "(" + config.Addr + ")"
 		} else {
 			config.Net = "tcp"
 			port := c.Port
@@ -115,6 +117,7 @@ func NewDbFromConfig(c *Config, logger *logging.Logger, connectorCallbacks Retry
 				port = 3306
 			}
 			config.Addr = net.JoinHostPort(c.Host, fmt.Sprint(port))
+			addr = config.Addr
 		}
 
 		config.DBName = c.Database
@@ -150,7 +153,6 @@ func NewDbFromConfig(c *Config, logger *logging.Logger, connectorCallbacks Retry
 			return unsafeSetSessionVariableIfExists(ctx, conn, "wsrep_sync_wait", fmt.Sprint(c.Options.WsrepSyncWait))
 		}
 
-		addr = config.Addr
 		db = sqlx.NewDb(sql.OpenDB(NewConnector(connector, logger, connectorCallbacks)), MySQL)
 	case "pgsql":
 		uri := &url.URL{
@@ -208,10 +210,21 @@ func NewDbFromConfig(c *Config, logger *logging.Logger, connectorCallbacks Retry
 			return nil, errors.Wrap(err, "can't open pgsql database")
 		}
 
-		addr = utils.JoinHostPort(c.Host, port)
+		if utils.IsUnixAddr(c.Host) {
+			// https://www.postgresql.org/docs/17/runtime-config-connection.html#GUC-UNIX-SOCKET-DIRECTORIES
+			addr = fmt.Sprintf("(%s/.s.PGSQL.%d)", strings.TrimRight(c.Host, "/"), port)
+		} else {
+			addr = utils.JoinHostPort(c.Host, port)
+		}
 		db = sqlx.NewDb(sql.OpenDB(NewConnector(connector, logger, connectorCallbacks)), PostgreSQL)
 	default:
 		return nil, unknownDbType(c.Type)
+	}
+
+	if c.TlsOptions.Enable {
+		addr = fmt.Sprintf("%s+tls://%s@%s/%s", c.Type, c.User, addr, c.Database)
+	} else {
+		addr = fmt.Sprintf("%s://%s@%s/%s", c.Type, c.User, addr, c.Database)
 	}
 
 	db.SetMaxIdleConns(c.Options.MaxConnections / 3)
@@ -229,9 +242,20 @@ func NewDbFromConfig(c *Config, logger *logging.Logger, connectorCallbacks Retry
 	}, nil
 }
 
-// GetAddr returns the database host:port or Unix socket address.
+// GetAddr returns a URI-like database connection string.
+//
+// It has the following syntax:
+//
+//	type[+tls]://user@host[:port]/database
 func (db *DB) GetAddr() string {
 	return db.addr
+}
+
+// MarshalLogObject implements [zapcore.ObjectMarshaler], adding the database address [DB.GetAddr] to each log message.
+func (db *DB) MarshalLogObject(encoder zapcore.ObjectEncoder) error {
+	encoder.AddString("database_address", db.GetAddr())
+
+	return nil
 }
 
 // BuildColumns returns all columns of the given struct.
