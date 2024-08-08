@@ -13,6 +13,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/redis/go-redis/v9"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/semaphore"
 	"net"
@@ -79,9 +80,27 @@ func NewClientFromConfig(c *Config, logger *logging.Logger) (*Client, error) {
 	return NewClient(redis.NewClient(options), logger, &c.Options), nil
 }
 
-// GetAddr returns the Redis host:port or Unix socket address.
+// GetAddr returns the Redis connection address in a technical form.
 func (c *Client) GetAddr() string {
-	return c.Client.Options().Addr
+	description := "redis"
+	if c.Client.Options().TLSConfig != nil {
+		description += "+tls"
+	}
+	description += "://"
+	if username := c.Client.Options().Username; username != "" {
+		description += username + "@"
+	}
+	description += c.Client.Options().Addr
+	if db := c.Client.Options().DB; db != 0 {
+		description += fmt.Sprintf("/%d", db)
+	}
+	return description
+}
+
+// MarshalLogObject implements zapcore.ObjectMarshaler, adding the redis connection string to each log message.
+func (c *Client) MarshalLogObject(encoder zapcore.ObjectEncoder) error {
+	encoder.AddString("redis_address", c.GetAddr())
+	return nil
 }
 
 // HPair defines Redis hashes field-value pairs.

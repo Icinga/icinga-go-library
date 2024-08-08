@@ -18,6 +18,7 @@ import (
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/semaphore"
 	"net"
@@ -36,7 +37,7 @@ type DB struct {
 
 	Options *Options
 
-	addr              string
+	addrDescription   string
 	columnMap         ColumnMap
 	logger            *logging.Logger
 	tableSemaphores   map[string]*semaphore.Weighted
@@ -94,8 +95,8 @@ func (o *Options) Validate() error {
 
 // NewDbFromConfig returns a new DB from Config.
 func NewDbFromConfig(c *Config, logger *logging.Logger, connectorCallbacks RetryConnectorCallbacks) (*DB, error) {
-	var addr string
 	var db *sqlx.DB
+	var typeAddr string
 
 	switch c.Type {
 	case "mysql":
@@ -144,8 +145,8 @@ func NewDbFromConfig(c *Config, logger *logging.Logger, connectorCallbacks Retry
 			return setGaleraOpts(ctx, conn, int64(c.Options.WsrepSyncWait))
 		}
 
-		addr = config.Addr
 		db = sqlx.NewDb(sql.OpenDB(NewConnector(connector, logger, connectorCallbacks)), MySQL)
+		typeAddr = config.Addr
 	case "pgsql":
 		uri := &url.URL{
 			Scheme: "postgres",
@@ -202,11 +203,17 @@ func NewDbFromConfig(c *Config, logger *logging.Logger, connectorCallbacks Retry
 			return nil, errors.Wrap(err, "can't open pgsql database")
 		}
 
-		addr = utils.JoinHostPort(c.Host, port)
 		db = sqlx.NewDb(sql.OpenDB(NewConnector(connector, logger, connectorCallbacks)), PostgreSQL)
+		typeAddr = utils.JoinHostPort(c.Host, port)
 	default:
 		return nil, unknownDbType(c.Type)
 	}
+
+	addrDescription := c.Type
+	if c.TlsOptions.Enable {
+		addrDescription += "+tls"
+	}
+	addrDescription += fmt.Sprintf("://%s@%s/%s", c.User, typeAddr, c.Database)
 
 	db.SetMaxIdleConns(c.Options.MaxConnections / 3)
 	db.SetMaxOpenConns(c.Options.MaxConnections)
@@ -217,15 +224,21 @@ func NewDbFromConfig(c *Config, logger *logging.Logger, connectorCallbacks Retry
 		DB:              db,
 		Options:         &c.Options,
 		columnMap:       NewColumnMap(db.Mapper),
-		addr:            addr,
+		addrDescription: addrDescription,
 		logger:          logger,
 		tableSemaphores: make(map[string]*semaphore.Weighted),
 	}, nil
 }
 
-// GetAddr returns the database host:port or Unix socket address.
+// GetAddr returns the Redis connection address in a technical form.
 func (db *DB) GetAddr() string {
-	return db.addr
+	return db.addrDescription
+}
+
+// MarshalLogObject implements zapcore.ObjectMarshaler, adding the database address to each log message.
+func (db *DB) MarshalLogObject(encoder zapcore.ObjectEncoder) error {
+	encoder.AddString("database_address", db.addrDescription)
+	return nil
 }
 
 // BuildColumns returns all columns of the given struct.
