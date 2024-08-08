@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 	"io"
 	"net"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -193,7 +194,7 @@ func Retryable(err error) bool {
 
 	var mye *mysql.MySQLError
 	var pqe *pq.Error
-	if errors.As(err, &mye) || errors.As(err, &pqe) {
+	if errors.As(err, &mye) || errors.As(err, &pqe) || strings.HasPrefix(err.Error(), "pq: ") {
 		return true
 	}
 
