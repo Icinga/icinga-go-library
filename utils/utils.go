@@ -124,15 +124,6 @@ func AppName() string {
 	return filepath.Base(exe)
 }
 
-// MaxInt returns the larger of the given integers.
-func MaxInt(x, y int) int {
-	if x > y {
-		return x
-	}
-
-	return y
-}
-
 // IsUnixAddr indicates whether the given host string represents a Unix socket address.
 //
 // A host string that begins with a forward slash ('/') is considered Unix socket address.
