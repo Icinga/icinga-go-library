@@ -30,7 +30,12 @@ func Timed(start time.Time, callback func(elapsed time.Duration)) {
 }
 
 // BatchSliceOfStrings groups the given keys into chunks of size count and streams them into a returned channel.
+// Panics if count is less than or equal to zero.
 func BatchSliceOfStrings(ctx context.Context, keys []string, count int) <-chan []string {
+	if count <= 0 {
+		panic("chunk size must be greater than zero")
+	}
+
 	batches := make(chan []string)
 
 	go func() {
