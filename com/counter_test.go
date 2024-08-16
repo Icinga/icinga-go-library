@@ -21,7 +21,7 @@ func TestCounter_Reset(t *testing.T) {
 	var c Counter
 
 	c.Add(42)
-	c.Reset()
+	require.Equal(t, uint64(42), c.Reset(), "unexpected reset value")
 
 	require.Equal(t, uint64(0), c.Val(), "unexpected value")
 	require.Equal(t, uint64(42), c.Total(), "unexpected total")
