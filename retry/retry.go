@@ -136,6 +136,11 @@ func ResetTimeout(t *time.Timer, d time.Duration) {
 // i.e. temporary, timeout, DNS, connection refused and reset, host down and unreachable and
 // network down and unreachable errors. In addition, any database error is considered retryable.
 func Retryable(err error) bool {
+	if errors.Is(err, context.DeadlineExceeded) {
+		// context.DeadlineExceeded matches both temporary and timeout below, but we don't want to retry on it.
+		return false
+	}
+
 	var temporary interface {
 		Temporary() bool
 	}
