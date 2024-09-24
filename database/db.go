@@ -574,6 +574,7 @@ func (db *DB) NamedBulkExecTx(
 								if err != nil {
 									return errors.Wrap(err, "can't start transaction")
 								}
+								defer func() { _ = tx.Rollback() }()
 
 								stmt, err := tx.PrepareNamedContext(ctx, query)
 								if err != nil {
