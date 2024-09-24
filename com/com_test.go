@@ -3,6 +3,7 @@ package com
 import (
 	"context"
 	"github.com/stretchr/testify/require"
+	"golang.org/x/sync/errgroup"
 	"io"
 	"testing"
 	"time"
@@ -45,6 +46,71 @@ func TestWaitAsync(t *testing.T) {
 				}
 			case <-time.After(time.Second):
 				require.Fail(t, "channel should not block")
+			}
+		})
+	}
+}
+
+func TestErrgroupReceive(t *testing.T) {
+	subtests := []struct {
+		name  string
+		input []error
+		error bool
+	}{
+		{"nothing", nil, false},
+		{"nil", []error{nil}, false},
+		{"non-nil", []error{io.EOF}, true},
+	}
+
+	latencies := []struct {
+		name    string
+		latency time.Duration
+	}{
+		{"instantly", 0},
+		{"1us", time.Microsecond},
+		{"20ms", 20 * time.Millisecond},
+	}
+
+	for _, st := range subtests {
+		t.Run(st.name, func(t *testing.T) {
+			for _, l := range latencies {
+				t.Run(l.name, func(t *testing.T) {
+					ctx, cancel := context.WithCancel(context.Background())
+					defer cancel()
+
+					gCtx, gCancel := context.WithCancel(context.Background())
+					gCancel()
+
+					g, _ := errgroup.WithContext(gCtx)
+
+					errs := make(chan error)
+					go func() {
+						defer close(errs)
+
+						for _, e := range st.input {
+							if l.latency > 0 {
+								select {
+								case <-time.After(l.latency):
+								case <-ctx.Done():
+									return
+								}
+							}
+
+							select {
+							case errs <- e:
+							case <-ctx.Done():
+								return
+							}
+						}
+					}()
+
+					ErrgroupReceive(g, errs)
+					if err := g.Wait(); st.error {
+						require.Error(t, err)
+					} else {
+						require.NoError(t, err)
+					}
+				})
 			}
 		})
 	}
