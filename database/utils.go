@@ -8,6 +8,7 @@ import (
 	"github.com/icinga/icinga-go-library/com"
 	"github.com/icinga/icinga-go-library/strcase"
 	"github.com/icinga/icinga-go-library/types"
+	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
 )
 
@@ -42,6 +43,42 @@ func SplitOnDupId[T IDer]() com.BulkChunkSplitPolicy[T] {
 
 		return ok
 	}
+}
+
+// InsertObtainID executes the given query and fetches the last inserted ID.
+//
+// Using this method for database tables that don't define an auto-incrementing ID, or none at all,
+// will not work. The only supported column that can be retrieved with this method is id.
+//
+// This function expects [TxOrDB] as an executor of the provided query, and is usually a *[sqlx.Tx] or *[DB] instance.
+//
+// Returns the retrieved ID on success and error on any database inserting/retrieving failure.
+func InsertObtainID(ctx context.Context, conn TxOrDB, stmt string, arg any) (int64, error) {
+	var resultID int64
+	switch conn.DriverName() {
+	case PostgreSQL:
+		stmt = stmt + " RETURNING id"
+		query, args, err := conn.BindNamed(stmt, arg)
+		if err != nil {
+			return 0, errors.Wrapf(err, "can't bind named query %q", stmt)
+		}
+
+		if err := sqlx.GetContext(ctx, conn, &resultID, query, args...); err != nil {
+			return 0, CantPerformQuery(err, query)
+		}
+	default:
+		result, err := sqlx.NamedExecContext(ctx, conn, stmt, arg)
+		if err != nil {
+			return 0, CantPerformQuery(err, stmt)
+		}
+
+		resultID, err = result.LastInsertId()
+		if err != nil {
+			return 0, errors.Wrap(err, "can't retrieve last inserted ID")
+		}
+	}
+
+	return resultID, nil
 }
 
 // unsafeSetSessionVariableIfExists sets the given MySQL/MariaDB system variable for the specified database session.
