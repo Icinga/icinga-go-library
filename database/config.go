@@ -7,14 +7,14 @@ import (
 
 // Config defines database client configuration.
 type Config struct {
-	Type       string     `yaml:"type" default:"mysql"`
-	Host       string     `yaml:"host"`
-	Port       int        `yaml:"port"`
-	Database   string     `yaml:"database"`
-	User       string     `yaml:"user"`
-	Password   string     `yaml:"password"`
+	Type       string     `yaml:"type" env:"TYPE" default:"mysql"`
+	Host       string     `yaml:"host" env:"HOST"`
+	Port       int        `yaml:"port" env:"PORT"`
+	Database   string     `yaml:"database" env:"DATABASE"`
+	User       string     `yaml:"user" env:"USER"`
+	Password   string     `yaml:"password" env:"PASSWORD,unset"`
 	TlsOptions config.TLS `yaml:",inline"`
-	Options    Options    `yaml:"options"`
+	Options    Options    `yaml:"options" envPrefix:"OPTIONS_"`
 }
 
 // Validate checks constraints in the supplied database configuration and returns an error if they are violated.
