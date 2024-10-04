@@ -110,6 +110,21 @@ func FromEnv(v Validator, options EnvOptions) error {
 // ParseFlags prints the help message to [os.Stdout] and exits.
 // Note that errors are not printed automatically,
 // so error handling is the sole responsibility of the caller.
+//
+// Example usage:
+//
+//	type Flags struct {
+//		Config string `short:"c" long:"config" description:"Path to config file" required:"true"`
+//	}
+//
+//	func main() {
+//		var flags Flags
+//		if err := config.ParseFlags(&flags); err != nil {
+//			log.Fatalf("error parsing flags: %v", err)
+//		}
+//
+//		// ...
+//	}
 func ParseFlags(v any) error {
 	rv := reflect.ValueOf(v)
 	if rv.Kind() != reflect.Pointer || rv.IsNil() {
