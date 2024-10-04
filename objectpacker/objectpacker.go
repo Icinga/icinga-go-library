@@ -88,6 +88,7 @@ func packValue(in reflect.Value, out io.Writer) error {
 		}
 
 		l := in.Len()
+		// #nosec G115 -- in.Len() is a non-negative number, thus cannot overflow for conversion to uint64
 		if err := binary.Write(out, binary.BigEndian, uint64(l)); err != nil {
 			return err
 		}
@@ -118,6 +119,7 @@ func packValue(in reflect.Value, out io.Writer) error {
 		}
 
 		l := in.Len()
+		// #nosec G115 -- in.Len() is a non-negative number, thus cannot overflow for conversion to uint64
 		if err := binary.Write(out, binary.BigEndian, uint64(l)); err != nil {
 			return err
 		}
