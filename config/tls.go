@@ -11,6 +11,25 @@ import (
 // It provides options to enable TLS, specify certificate and key files,
 // CA certificate, and whether to skip verification of the server's certificate chain and host name.
 // Use the [TLS.MakeConfig] method to assemble a [*tls.Config] from the TLS struct.
+//
+// Example usage:
+//
+//	func main() {
+//		tlsConfig := &config.TLS{
+//			Enable:   true,
+//			Cert:     "path/to/cert.pem",
+//			Key:      "path/to/key.pem",
+//			Ca:       "path/to/ca.pem",
+//			Insecure: false,
+//		}
+//
+//		cfg, err := tlsConfig.MakeConfig("example.com")
+//		if err != nil {
+//			log.Fatalf("error creating TLS config: %v", err)
+//		}
+//
+//		// ...
+//	}
 type TLS struct {
 	// Enable indicates whether TLS is enabled.
 	Enable bool `yaml:"tls" env:"TLS"`
