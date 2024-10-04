@@ -20,6 +20,30 @@ var ErrInvalidArgument = stderrors.New("invalid argument")
 // FromYAMLFile parses the given YAML file and stores the result
 // in the value pointed to by v. If v is nil or not a pointer,
 // FromYAMLFile returns an [ErrInvalidArgument] error.
+//
+// Example usage:
+//
+//	type Config struct {
+//		ServerAddress string `yaml:"server_address" default:"localhost:8080"`
+//	}
+//
+//	// Validate implements the Validator interface.
+//	func (c *Config) Validate() error {
+//		if _, _, err := net.SplitHostPort(c.ServerAddress); err != nil {
+//			return errors.Wrapf(err, "invalid server address: %s", c.ServerAddress)
+//		}
+//
+//		return nil
+//	}
+//
+//	func main() {
+//		var cfg Config
+//		if err := config.FromYAMLFile("config.yml", &cfg); err != nil {
+//			log.Fatalf("error loading config: %v", err)
+//		}
+//
+//		// ...
+//	}
 func FromYAMLFile(name string, v Validator) error {
 	rv := reflect.ValueOf(v)
 	if rv.Kind() != reflect.Pointer || rv.IsNil() {
