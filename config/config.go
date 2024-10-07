@@ -20,6 +20,9 @@ var ErrInvalidArgument = stderrors.New("invalid argument")
 // FromYAMLFile parses the given YAML file and stores the result
 // in the value pointed to by v. If v is nil or not a pointer,
 // FromYAMLFile returns an [ErrInvalidArgument] error.
+// It is possible to define default values via the struct tag `default`.
+// The function also validates the configuration using the Validate method
+// of the provided [Validator] interface.
 //
 // Example usage:
 //
