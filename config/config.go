@@ -1,3 +1,46 @@
+// Package config provides utilities for configuration parsing and loading.
+// It includes functionality for handling command-line flags and loading configuration from YAML files,
+// with additional support for setting default values and validation.
+// Additionally, it provides a struct that defines common settings for a TLS client.
+//
+// Example usage:
+//
+//	type Config struct {
+//		ServerAddress string     `yaml:"server_address" default:"localhost:8080"`
+//		TLS           config.TLS `yaml:",inline"`
+//	}
+//
+//	// Validate implements the Validator interface.
+//	func (c *Config) Validate() error {
+//		if _, _, err := net.SplitHostPort(c.ServerAddress); err != nil {
+//			return errors.Wrapf(err, "invalid server address: %s", c.ServerAddress)
+//		}
+//
+//		return nil
+//	}
+//
+//	type Flags struct {
+//		Config string `short:"c" long:"config" description:"Path to config file" required:"true"`
+//	}
+//
+//	func main() {
+//		var flags Flags
+//		if err := config.ParseFlags(&flags); err != nil {
+//			log.Fatalf("error parsing flags: %v", err)
+//		}
+//
+//		var cfg Config
+//		if err := config.FromYAMLFile(flags.Config, &cfg); err != nil {
+//			log.Fatalf("error loading config: %v", err)
+//		}
+//
+//		tlsCfg, err := cfg.TLS.MakeConfig("icinga.com")
+//		if err != nil {
+//			log.Fatalf("error creating TLS config: %v", err)
+//		}
+//
+//		// ...
+//	}
 package config
 
 import (
