@@ -540,8 +540,11 @@ func (db *DB) NamedBulkExec(
 // Takes in up to the number of entities specified in count from the arg stream and
 // executes a new transaction that runs a new query for each entity in this set of arguments,
 // until the arg stream has been processed.
+//
 // The transactions are executed in a separate goroutine with a weighting of 1
 // and can be executed concurrently to the extent allowed by the semaphore passed in sem.
+//
+// Note that committing the transaction may not honor the context provided, as described further in [DB.ExecTx].
 func (db *DB) NamedBulkExecTx(
 	ctx context.Context, query string, count int, sem *semaphore.Weighted, arg <-chan Entity,
 ) error {
@@ -776,6 +779,10 @@ func (db *DB) Delete(
 // if the function succeeds. If the function returns an error, the transaction is rolled back.
 //
 // Returns an error if starting the transaction, executing the function, or committing the transaction fails.
+//
+// Note that committing the transaction may not honor the context provided. For some database drivers, once a COMMIT
+// query is started, it will block until the database responds. Therefore, for time-critical scenarios, it is
+// recommended to add a select wrapper against the context.
 func (db *DB) ExecTx(ctx context.Context, fn func(context.Context, *sqlx.Tx) error) error {
 	tx, err := db.BeginTxx(ctx, nil)
 	if err != nil {
