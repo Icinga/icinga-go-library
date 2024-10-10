@@ -216,7 +216,15 @@ func (c *Client) XReadUntilResult(ctx context.Context, a *redis.XReadArgs) ([]re
 		cmd := c.XRead(ctx, a)
 		streams, err := cmd.Result()
 		if err != nil {
-			if errors.Is(err, redis.Nil) {
+			// Our XREADs have to BLOCK for a certain amount of time > 0 (and return redis.Nil),
+			// as XREADs with BLOCK 0 exceed retries on multiple consecutive Redis restarts:
+			// https://github.com/redis/go-redis/issues/2131
+			//
+			// But a BLOCK of > 0 tells the client (and server) to return after that "timeout",
+			// so it also returns on an actual I/O timeout on which we have to retry by ourselves.
+			// However, retry.Retryable() can't distinguish between an I/O timeout and context.DeadlineExceeded,
+			// so we have to check for context termination by ourselves via ctx.Err().
+			if (errors.Is(err, redis.Nil) || retry.Retryable(err)) && ctx.Err() == nil {
 				continue
 			}
 
