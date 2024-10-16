@@ -308,16 +308,14 @@ func TestFromYAMLFile(t *testing.T) {
 	})
 
 	t.Run("Non-existent file", func(t *testing.T) {
-		var config struct{ validateValid }
 		var pathError *fs.PathError
 
-		err := FromYAMLFile("nonexistent.yaml", &config)
+		err := FromYAMLFile("nonexistent.yaml", &validateValid{})
 		require.ErrorAs(t, err, &pathError)
 		require.ErrorIs(t, pathError.Err, fs.ErrNotExist)
 	})
 
 	t.Run("Permission denied", func(t *testing.T) {
-		var config struct{ validateValid }
 		var pathError *fs.PathError
 
 		yamlFile, err := os.CreateTemp("", "*.yaml")
@@ -328,7 +326,7 @@ func TestFromYAMLFile(t *testing.T) {
 			_ = os.Remove(name)
 		}(yamlFile.Name())
 
-		err = FromYAMLFile(yamlFile.Name(), &config)
+		err = FromYAMLFile(yamlFile.Name(), &validateValid{})
 		require.ErrorAs(t, err, &pathError)
 	})
 }
