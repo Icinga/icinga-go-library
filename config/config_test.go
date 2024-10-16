@@ -294,6 +294,19 @@ func TestFromYAMLFile(t *testing.T) {
 		require.ErrorIs(t, err, ErrInvalidArgument)
 	})
 
+	t.Run("Non-struct pointer argument", func(t *testing.T) {
+		testutils.WithYAMLFile(t, `key: value`, func(file *os.File) {
+			var config nonStructValidator
+
+			err := FromYAMLFile(file.Name(), &config)
+			require.Error(t, err)
+			// Struct pointer assertion is done in the defaults library,
+			// so we must ensure that the error returned is not one of our own errors.
+			require.NotErrorIs(t, err, ErrInvalidArgument)
+			require.NotErrorIs(t, err, errInvalidConfiguration)
+		})
+	})
+
 	t.Run("Non-existent file", func(t *testing.T) {
 		var config struct{ validateValid }
 		var pathError *fs.PathError
