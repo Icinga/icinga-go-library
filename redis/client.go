@@ -216,7 +216,19 @@ func (c *Client) XReadUntilResult(ctx context.Context, a *redis.XReadArgs) ([]re
 		cmd := c.XRead(ctx, a)
 		streams, err := cmd.Result()
 		if err != nil {
-			if errors.Is(err, redis.Nil) {
+			// We need to retry the XREAD commands in the following situations:
+			// - If Go Redis returns redis.Nil, it means no data was read from Redis — e.g. when the keys don’t
+			//  exist yet, and we will need to retry the operation again.
+			//
+			// - To prevent surpassing Go Redis's internal maximum retries or any other I/O timeouts [^1], it's
+			//  important to set a block timeout greater than zero for the XREAD commands, see the "a.Block" above.
+			//  However, setting a block timeout means that Go Redis will not retry any errors internally and will
+			//  instead return an I/O timeout error when exceeding the timeout. Thus, we need to handle this here and
+			//  retry it again. On the other hand, an I/O timeout could also mean a context.DeadlineExceeded error,
+			//  which is not retryable, so we have to check for context termination by ourselves via ctx.Err().
+			//
+			// [^1]: https://github.com/redis/go-redis/issues/2131
+			if (errors.Is(err, redis.Nil) || retry.Retryable(err)) && ctx.Err() == nil {
 				continue
 			}
 
