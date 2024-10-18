@@ -9,6 +9,7 @@ import (
 	"github.com/pkg/errors"
 	"io"
 	"net"
+	"strings"
 	"syscall"
 	"time"
 )
@@ -194,6 +195,13 @@ func Retryable(err error) bool {
 	var mye *mysql.MySQLError
 	var pqe *pq.Error
 	if errors.As(err, &mye) || errors.As(err, &pqe) {
+		return true
+	}
+
+	// For errors without a five-digit code, github.com/lib/pq uses fmt.Errorf().
+	// This returns an unexported error type prefixed with "pq: "
+	// Until this gets changed upstream <https://github.com/lib/pq/issues/1169>, we can only check the error message.
+	if strings.HasPrefix(err.Error(), "pq: ") {
 		return true
 	}
 
