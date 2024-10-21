@@ -8,6 +8,7 @@ import (
 	"github.com/jessevdk/go-flags"
 	"github.com/pkg/errors"
 	"os"
+	"reflect"
 )
 
 // ErrInvalidArgument is the error returned by [ParseFlags] or [FromYAMLFile] if
@@ -18,9 +19,10 @@ var ErrInvalidArgument = stderrors.New("invalid argument")
 // FromYAMLFile parses the given YAML file and stores the result
 // in the value pointed to by v. If v is nil or not a pointer,
 // FromYAMLFile returns an [ErrInvalidArgument] error.
-func FromYAMLFile[T any, V validatorPtr[T]](name string, v V) error {
-	if v == nil {
-		return errors.Wrap(ErrInvalidArgument, "got nil pointer")
+func FromYAMLFile(name string, v Validator) error {
+	rv := reflect.ValueOf(v)
+	if rv.Kind() != reflect.Pointer || rv.IsNil() {
+		return errors.Wrapf(ErrInvalidArgument, "non-nil pointer expected, got %T", v)
 	}
 
 	// #nosec G304 -- Potential file inclusion via variable - Its purpose is to load any file name that is passed to it, so doesn't need to validate anything.
@@ -57,9 +59,10 @@ func FromYAMLFile[T any, V validatorPtr[T]](name string, v V) error {
 // ParseFlags prints the help message to [os.Stdout] and exits.
 // Note that errors are not printed automatically,
 // so error handling is the sole responsibility of the caller.
-func ParseFlags[T any](v *T) error {
-	if v == nil {
-		return errors.Wrap(ErrInvalidArgument, "got nil pointer")
+func ParseFlags(v any) error {
+	rv := reflect.ValueOf(v)
+	if rv.Kind() != reflect.Pointer || rv.IsNil() {
+		return errors.Wrapf(ErrInvalidArgument, "non-nil pointer expected, got %T", v)
 	}
 
 	parser := flags.NewParser(v, flags.Default^flags.PrintErrors)
