@@ -25,7 +25,7 @@ func FromYAMLFile(name string, v Validator) error {
 		return errors.WithStack(err)
 	}
 
-	// #nosec G304 -- Potential file inclusion via variable - Its purpose is to load any file name that is passed to it, so doesn't need to validate anything.
+	// #nosec G304 -- Accept user-controlled input for config file.
 	f, err := os.Open(name)
 	if err != nil {
 		return errors.Wrap(err, "can't open YAML file "+name)
