@@ -94,7 +94,7 @@ func ParseFlags(v any) error {
 	if _, err := parser.Parse(); err != nil {
 		var flagErr *flags.Error
 		if errors.As(err, &flagErr) && errors.Is(flagErr.Type, flags.ErrHelp) {
-			fmt.Fprintln(os.Stdout, flagErr)
+			_, _ = fmt.Fprintln(os.Stdout, flagErr)
 			os.Exit(0)
 		}
 
