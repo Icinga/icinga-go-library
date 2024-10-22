@@ -70,7 +70,11 @@ func FromEnv(v Validator, options EnvOptions) error {
 		return errors.Wrap(err, "can't parse environment variables")
 	}
 
-	return errors.Wrap(v.Validate(), "invalid configuration")
+	if err := v.Validate(); err != nil {
+		return errors.Wrap(err, "invalid configuration")
+	}
+
+	return nil
 }
 
 // ParseFlags parses CLI flags and stores the result
