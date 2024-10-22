@@ -3,6 +3,7 @@ package config
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/icinga/icinga-go-library/testutils"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"io/fs"
@@ -33,50 +34,50 @@ func (_ *validateInvalid) Validate() error {
 
 // simpleConfig is an always valid test configuration struct with only one key.
 type simpleConfig struct {
-	Key string `yaml:"key"`
+	Key string `yaml:"key" env:"KEY"`
 	validateValid
 }
 
 // inlinedConfigPart is a part of a test configuration that will be inlined.
 type inlinedConfigPart struct {
-	Key string `yaml:"inlined-key"`
+	Key string `yaml:"inlined-key" env:"INLINED_KEY"`
 }
 
 // inlinedConfig is an always valid test configuration struct with a key and an inlined part from inlinedConfigPart.
 type inlinedConfig struct {
-	Key     string            `yaml:"key"`
+	Key     string            `yaml:"key" env:"KEY"`
 	Inlined inlinedConfigPart `yaml:",inline"`
 	validateValid
 }
 
 // embeddedConfigPart is a part of a test configuration that will be embedded.
 type embeddedConfigPart struct {
-	Key string `yaml:"embedded-key"`
+	Key string `yaml:"embedded-key" env:"EMBEDDED_KEY"`
 }
 
 // embeddedConfig is an always valid test configuration struct with a key and an embedded part from embeddedConfigPart.
 type embeddedConfig struct {
-	Key      string             `yaml:"key"`
-	Embedded embeddedConfigPart `yaml:"embedded"`
+	Key      string             `yaml:"key" env:"KEY"`
+	Embedded embeddedConfigPart `yaml:"embedded" envPrefix:"EMBEDDED_"`
 	validateValid
 }
 
 // defaultConfigPart is a part of a test configuration that defines a default value.
 type defaultConfigPart struct {
-	Key string `yaml:"default-key" default:"default-value"`
+	Key string `yaml:"default-key" env:"DEFAULT_KEY" default:"default-value"`
 }
 
 // defaultConfig is an always valid test configuration struct with a key and
 // an inlined part with defaults from defaultConfigPart.
 type defaultConfig struct {
-	Key     string            `yaml:"key"`
+	Key     string            `yaml:"key"  env:"KEY"`
 	Default defaultConfigPart `yaml:",inline"`
 	validateValid
 }
 
 // invalidConfig is an always invalid test configuration struct with only one key.
 type invalidConfig struct {
-	Key string `yaml:"key"`
+	Key string `yaml:"key" env:"KEY"`
 	validateInvalid
 }
 
@@ -87,70 +88,169 @@ type invalidConfig struct {
 // This approach is necessary because the defaults package does not return errors for parsing scalar types,
 // which was quite unexpected when writing the test.
 type configWithInvalidDefault struct {
-	Key                string      `yaml:"key"`
-	InvalidDefaultJson map[any]any `yaml:"valid" default:"a"`
+	Key                string      `yaml:"key" env:"KEY"`
+	InvalidDefaultJson map[any]any `yaml:"invalid" envPrefix:"INVALID_" default:"a"`
 	validateValid
 }
 
+// nonStructValidator is a non-struct type that implements the Validator interface but
+// cannot be used in FromEnv and FromYAMLFile to parse configuration into.
+type nonStructValidator int
+
+func (nonStructValidator) Validate() error {
+	return nil
+}
+
+// configTests specifies common test cases for the FromEnv and FromYAMLFile functions.
+var configTests = []testutils.TestCase[Validator, testutils.ConfigTestData]{
+	{
+		Name: "Simple Config",
+		Data: testutils.ConfigTestData{
+			Yaml: `key: value`,
+			Env:  map[string]string{"KEY": "value"},
+		},
+		Expected: &simpleConfig{
+			Key: "value",
+		},
+	},
+	{
+		Name: "Inlined Config",
+		Data: testutils.ConfigTestData{
+			Yaml: `
+key: value
+inlined-key: inlined-value`,
+			Env: map[string]string{
+				"KEY":         "value",
+				"INLINED_KEY": "inlined-value",
+			}},
+		Expected: &inlinedConfig{
+			Key:     "value",
+			Inlined: inlinedConfigPart{Key: "inlined-value"},
+		},
+	},
+	{
+		Name: "Embedded Config",
+		Data: testutils.ConfigTestData{
+			Yaml: `
+key: value
+embedded:
+  embedded-key: embedded-value`,
+			Env: map[string]string{
+				"KEY":                   "value",
+				"EMBEDDED_EMBEDDED_KEY": "embedded-value",
+			}},
+		Expected: &embeddedConfig{
+			Key:      "value",
+			Embedded: embeddedConfigPart{Key: "embedded-value"},
+		},
+	},
+	{
+		Name: "Defaults",
+		Data: testutils.ConfigTestData{
+			Yaml: `key: value`,
+			Env:  map[string]string{"KEY": "value"}},
+		Expected: &defaultConfig{
+			Key:     "value",
+			Default: defaultConfigPart{Key: "default-value"},
+		},
+	},
+	{
+		Name: "Overriding Defaults",
+		Data: testutils.ConfigTestData{
+			Yaml: `
+key: value
+default-key: overridden-value`,
+			Env: map[string]string{
+				"KEY":         "value",
+				"DEFAULT_KEY": "overridden-value",
+			}},
+		Expected: &defaultConfig{
+			Key:     "value",
+			Default: defaultConfigPart{Key: "overridden-value"},
+		},
+	},
+	{
+		Name: "Validate invalid",
+		Data: testutils.ConfigTestData{
+			Yaml: `key: value`,
+			Env:  map[string]string{"KEY": "value"},
+		},
+		Expected: &invalidConfig{
+			Key: "value",
+		},
+		Error: testutils.ErrorIs(errInvalidConfiguration),
+	},
+	{
+		Name: "Error propagation from defaults.Set()",
+		Data: testutils.ConfigTestData{
+			Yaml: `key: value`,
+			Env:  map[string]string{"KEY": "value"},
+		},
+		Expected: &configWithInvalidDefault{},
+		Error:    testutils.ErrorAs[*json.SyntaxError](),
+	},
+}
+
+func TestFromEnv(t *testing.T) {
+	for _, tc := range configTests {
+		t.Run(tc.Name, tc.F(func(data testutils.ConfigTestData) (Validator, error) {
+			// Since our test cases only define the expected configuration,
+			// we need to create a new instance of that type for FromEnv to parse the configuration into.
+			actual := reflect.New(reflect.TypeOf(tc.Expected).Elem()).Interface().(Validator)
+
+			err := FromEnv(actual, EnvOptions{Environment: data.Env})
+
+			return actual, err
+		}))
+	}
+
+	t.Run("Nil pointer argument", func(t *testing.T) {
+		var config *struct{ Validator }
+
+		err := FromEnv(config, EnvOptions{})
+		require.ErrorIs(t, err, ErrInvalidArgument)
+	})
+
+	t.Run("Nil argument", func(t *testing.T) {
+		err := FromEnv(nil, EnvOptions{})
+		require.ErrorIs(t, err, ErrInvalidArgument)
+	})
+
+	t.Run("Non-struct pointer argument", func(t *testing.T) {
+		var config nonStructValidator
+
+		err := FromEnv(&config, EnvOptions{})
+		// Struct pointer assertion is done in the defaults library,
+		// so we must ensure that the error returned is not one of our own errors.
+		require.NotErrorIs(t, err, ErrInvalidArgument)
+		require.NotErrorIs(t, err, errInvalidConfiguration)
+	})
+}
+
 func TestFromYAMLFile(t *testing.T) {
-	type yamlTestCase struct {
+	for _, tc := range configTests {
+		t.Run(tc.Name, tc.F(func(data testutils.ConfigTestData) (Validator, error) {
+			// Since our test cases only define the expected configuration,
+			// we need to create a new instance of that type for FromYAMLFile to parse the configuration into.
+			actual := reflect.New(reflect.TypeOf(tc.Expected).Elem()).Interface().(Validator)
+
+			var err error
+			testutils.WithYAMLFile(t, data.Yaml, func(file *os.File) {
+				err = FromYAMLFile(file.Name(), actual)
+			})
+
+			return actual, err
+		}))
+	}
+
+	type invalidYamlTestCase struct {
 		// Test case name.
 		name string
 		// Content of the YAML file.
 		content string
-		// Expected configuration. Empty if parsing the content is expected to produce an error.
-		expected Validator
-		// Indicates if the configuration is expected to be invalid (by returning errInvalidConfiguration).
-		invalid bool
 	}
 
-	yamlTests := []yamlTestCase{
-		{
-			name:    "Simple YAML",
-			content: `key: value`,
-			expected: &simpleConfig{
-				Key: "value",
-			},
-		},
-		{
-			name: "Inlined YAML",
-			content: `
-key: value
-inlined-key: inlined-value`,
-			expected: &inlinedConfig{
-				Key:     "value",
-				Inlined: inlinedConfigPart{Key: "inlined-value"},
-			},
-		},
-		{
-			name: "Embedded YAML",
-			content: `
-key: value
-embedded:
-  embedded-key: embedded-value`,
-			expected: &embeddedConfig{
-				Key:      "value",
-				Embedded: embeddedConfigPart{Key: "embedded-value"},
-			},
-		},
-		{
-			name:    "Defaults",
-			content: `key: value`,
-			expected: &defaultConfig{
-				Key:     "value",
-				Default: defaultConfigPart{Key: "default-value"},
-			},
-		},
-		{
-			name: "Overriding Defaults",
-			content: `
-key: value
-default-key: overridden-value`,
-			expected: &defaultConfig{
-				Key:     "value",
-				Default: defaultConfigPart{Key: "overridden-value"},
-			},
-		},
+	invalidYamlTests := []invalidYamlTestCase{
 		{
 			name:    "Empty YAML",
 			content: "",
@@ -164,64 +264,23 @@ default-key: overridden-value`,
 			content: `:\n`,
 		},
 		{
-			name:    "Invalid YAML",
-			content: `key: value`,
-			expected: &invalidConfig{
-				Key: "value",
-			},
-			invalid: true,
+			name:    "Key only",
+			content: `key`,
 		},
 	}
 
-	for _, tc := range yamlTests {
+	for _, tc := range invalidYamlTests {
 		t.Run(tc.name, func(t *testing.T) {
-			yamlFile, err := os.CreateTemp("", "*.yaml")
-			require.NoError(t, err)
-
-			defer func(name string) {
-				_ = os.Remove(name)
-			}(yamlFile.Name())
-
-			require.NoError(t, os.WriteFile(yamlFile.Name(), []byte(tc.content), 0600))
-
-			if tc.expected != nil {
-				// Since our test cases only define the expected configuration,
-				// we need to create a new instance of that type for FromYAMLFile to parse the configuration into.
-				actual := reflect.New(reflect.TypeOf(tc.expected).Elem()).Interface().(Validator)
-				err := FromYAMLFile(yamlFile.Name(), actual)
-				if !tc.invalid {
-					require.NoError(t, err)
-				} else {
-					require.ErrorIs(t, err, errInvalidConfiguration)
-				}
-
-				require.Equal(t, tc.expected, actual)
-			} else {
-				err := FromYAMLFile(yamlFile.Name(), &validateValid{})
+			testutils.WithYAMLFile(t, tc.content, func(file *os.File) {
+				err := FromYAMLFile(file.Name(), &validateValid{})
 				require.Error(t, err)
-				// Assert that error is a parsing error.
+				// Since the YAML library does not export all possible error types,
+				// we must ensure that the error returned is not one of our own errors.
 				require.NotErrorIs(t, err, ErrInvalidArgument)
 				require.NotErrorIs(t, err, errInvalidConfiguration)
-			}
+			})
 		})
 	}
-
-	t.Run("Error propagation from defaults.Set()", func(t *testing.T) {
-		var config configWithInvalidDefault
-		var syntaxError *json.SyntaxError
-
-		yamlFile, err := os.CreateTemp("", "*.yaml")
-		require.NoError(t, err)
-		require.NoError(t, yamlFile.Close())
-		defer func(name string) {
-			_ = os.Remove(name)
-		}(yamlFile.Name())
-
-		require.NoError(t, os.WriteFile(yamlFile.Name(), []byte(`key: value`), 0600))
-
-		err = FromYAMLFile(yamlFile.Name(), &config)
-		require.ErrorAs(t, err, &syntaxError)
-	})
 
 	t.Run("Nil pointer argument", func(t *testing.T) {
 		var config *struct{ Validator }
@@ -235,17 +294,28 @@ default-key: overridden-value`,
 		require.ErrorIs(t, err, ErrInvalidArgument)
 	})
 
+	t.Run("Non-struct pointer argument", func(t *testing.T) {
+		testutils.WithYAMLFile(t, `key: value`, func(file *os.File) {
+			var config nonStructValidator
+
+			err := FromYAMLFile(file.Name(), &config)
+			require.Error(t, err)
+			// Struct pointer assertion is done in the defaults library,
+			// so we must ensure that the error returned is not one of our own errors.
+			require.NotErrorIs(t, err, ErrInvalidArgument)
+			require.NotErrorIs(t, err, errInvalidConfiguration)
+		})
+	})
+
 	t.Run("Non-existent file", func(t *testing.T) {
-		var config struct{ validateValid }
 		var pathError *fs.PathError
 
-		err := FromYAMLFile("nonexistent.yaml", &config)
+		err := FromYAMLFile("nonexistent.yaml", &validateValid{})
 		require.ErrorAs(t, err, &pathError)
 		require.ErrorIs(t, pathError.Err, fs.ErrNotExist)
 	})
 
 	t.Run("Permission denied", func(t *testing.T) {
-		var config struct{ validateValid }
 		var pathError *fs.PathError
 
 		yamlFile, err := os.CreateTemp("", "*.yaml")
@@ -256,7 +326,7 @@ default-key: overridden-value`,
 			_ = os.Remove(name)
 		}(yamlFile.Name())
 
-		err = FromYAMLFile(yamlFile.Name(), &config)
+		err = FromYAMLFile(yamlFile.Name(), &validateValid{})
 		require.ErrorAs(t, err, &pathError)
 	})
 }
