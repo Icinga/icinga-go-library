@@ -220,10 +220,7 @@ func TestFromEnv(t *testing.T) {
 		var config nonStructValidator
 
 		err := FromEnv(&config, EnvOptions{})
-		// Struct pointer assertion is done in the defaults library,
-		// so we must ensure that the error returned is not one of our own errors.
-		require.NotErrorIs(t, err, ErrInvalidArgument)
-		require.NotErrorIs(t, err, errInvalidConfiguration)
+		require.ErrorIs(t, err, ErrInvalidArgument)
 	})
 }
 
@@ -299,11 +296,7 @@ func TestFromYAMLFile(t *testing.T) {
 			var config nonStructValidator
 
 			err := FromYAMLFile(file.Name(), &config)
-			require.Error(t, err)
-			// Struct pointer assertion is done in the defaults library,
-			// so we must ensure that the error returned is not one of our own errors.
-			require.NotErrorIs(t, err, ErrInvalidArgument)
-			require.NotErrorIs(t, err, errInvalidConfiguration)
+			require.ErrorIs(t, err, ErrInvalidArgument)
 		})
 	})
 
@@ -359,6 +352,13 @@ func TestParseFlags(t *testing.T) {
 
 	t.Run("Nil argument", func(t *testing.T) {
 		err := ParseFlags(nil)
+		require.ErrorIs(t, err, ErrInvalidArgument)
+	})
+
+	t.Run("Non-struct pointer argument", func(t *testing.T) {
+		var flags int
+
+		err := ParseFlags(&flags)
 		require.ErrorIs(t, err, ErrInvalidArgument)
 	})
 
