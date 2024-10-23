@@ -1,3 +1,46 @@
+// Package config provides utilities for configuration parsing and loading.
+// It includes functionality for handling command-line flags and loading configuration from YAML files,
+// with additional support for setting default values and validation.
+// Additionally, it provides a struct that defines common settings for a TLS client.
+//
+// Example usage:
+//
+//	type Config struct {
+//		ServerAddress string     `yaml:"server_address" default:"localhost:8080"`
+//		TLS           config.TLS `yaml:",inline"`
+//	}
+//
+//	// Validate implements the Validator interface.
+//	func (c *Config) Validate() error {
+//		if _, _, err := net.SplitHostPort(c.ServerAddress); err != nil {
+//			return errors.Wrapf(err, "invalid server address: %s", c.ServerAddress)
+//		}
+//
+//		return nil
+//	}
+//
+//	type Flags struct {
+//		Config string `short:"c" long:"config" description:"Path to config file" required:"true"`
+//	}
+//
+//	func main() {
+//		var flags Flags
+//		if err := config.ParseFlags(&flags); err != nil {
+//			log.Fatalf("error parsing flags: %v", err)
+//		}
+//
+//		var cfg Config
+//		if err := config.FromYAMLFile(flags.Config, &cfg); err != nil {
+//			log.Fatalf("error loading config: %v", err)
+//		}
+//
+//		tlsCfg, err := cfg.TLS.MakeConfig("icinga.com")
+//		if err != nil {
+//			log.Fatalf("error creating TLS config: %v", err)
+//		}
+//
+//		// ...
+//	}
 package config
 
 import (
@@ -20,6 +63,33 @@ var ErrInvalidArgument = stderrors.New("invalid argument")
 // FromYAMLFile parses the given YAML file and stores the result
 // in the value pointed to by v. If v is nil or not a pointer,
 // FromYAMLFile returns an [ErrInvalidArgument] error.
+// It is possible to define default values via the struct tag `default`.
+// The function also validates the configuration using the Validate method
+// of the provided [Validator] interface.
+//
+// Example usage:
+//
+//	type Config struct {
+//		ServerAddress string `yaml:"server_address" default:"localhost:8080"`
+//	}
+//
+//	// Validate implements the Validator interface.
+//	func (c *Config) Validate() error {
+//		if _, _, err := net.SplitHostPort(c.ServerAddress); err != nil {
+//			return errors.Wrapf(err, "invalid server address: %s", c.ServerAddress)
+//		}
+//
+//		return nil
+//	}
+//
+//	func main() {
+//		var cfg Config
+//		if err := config.FromYAMLFile("config.yml", &cfg); err != nil {
+//			log.Fatalf("error loading config: %v", err)
+//		}
+//
+//		// ...
+//	}
 func FromYAMLFile(name string, v Validator) error {
 	rv := reflect.ValueOf(v)
 	if rv.Kind() != reflect.Pointer || rv.IsNil() {
@@ -86,6 +156,21 @@ func FromEnv(v Validator, options EnvOptions) error {
 // ParseFlags prints the help message to [os.Stdout] and exits.
 // Note that errors are not printed automatically,
 // so error handling is the sole responsibility of the caller.
+//
+// Example usage:
+//
+//	type Flags struct {
+//		Config string `short:"c" long:"config" description:"Path to config file" required:"true"`
+//	}
+//
+//	func main() {
+//		var flags Flags
+//		if err := config.ParseFlags(&flags); err != nil {
+//			log.Fatalf("error parsing flags: %v", err)
+//		}
+//
+//		// ...
+//	}
 func ParseFlags(v any) error {
 	rv := reflect.ValueOf(v)
 	if rv.Kind() != reflect.Pointer || rv.IsNil() {
