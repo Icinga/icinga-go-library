@@ -39,6 +39,19 @@ func (o *Options) UnmarshalText(text []byte) error {
 	return nil
 }
 
+// UnmarshalYAML implements yaml.InterfaceUnmarshaler to allow Options to be parsed go-yaml.
+func (o *Options) UnmarshalYAML(unmarshal func(any) error) error {
+	optionsMap := make(map[string]zapcore.Level)
+
+	if err := unmarshal(&optionsMap); err != nil {
+		return err
+	}
+
+	*o = optionsMap
+
+	return nil
+}
+
 // Config defines Logger configuration.
 type Config struct {
 	// zapcore.Level at 0 is for info level.
@@ -46,8 +59,7 @@ type Config struct {
 	Output string        `yaml:"output" env:"OUTPUT"`
 	// Interval for periodic logging.
 	Interval time.Duration `yaml:"interval" env:"INTERVAL" default:"20s"`
-
-	Options `yaml:"options" env:"OPTIONS"`
+	Options  Options       `yaml:"options" env:"OPTIONS"`
 }
 
 // SetDefaults implements defaults.Setter to configure the log output if it is not set:
