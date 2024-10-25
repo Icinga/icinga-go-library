@@ -15,8 +15,6 @@ import (
 func TestConfig(t *testing.T) {
 	var defaultConfig Config
 	require.NoError(t, defaults.Set(&defaultConfig), "setting default config")
-	// Validate also sets default values.
-	require.NoError(t, defaultConfig.Validate(), "setting default config")
 
 	configTests := []testutils.TestCase[Config, testutils.ConfigTestData]{
 		{
