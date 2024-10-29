@@ -2,6 +2,7 @@ package logging
 
 import (
 	"fmt"
+	"github.com/creasty/defaults"
 	"github.com/pkg/errors"
 	"go.uber.org/zap/zapcore"
 	"os"
@@ -38,6 +39,19 @@ func (o *Options) UnmarshalText(text []byte) error {
 	return nil
 }
 
+// UnmarshalYAML implements yaml.InterfaceUnmarshaler to allow Options to be parsed go-yaml.
+func (o *Options) UnmarshalYAML(unmarshal func(any) error) error {
+	optionsMap := make(map[string]zapcore.Level)
+
+	if err := unmarshal(&optionsMap); err != nil {
+		return err
+	}
+
+	*o = optionsMap
+
+	return nil
+}
+
 // Config defines Logger configuration.
 type Config struct {
 	// zapcore.Level at 0 is for info level.
@@ -45,32 +59,32 @@ type Config struct {
 	Output string        `yaml:"output" env:"OUTPUT"`
 	// Interval for periodic logging.
 	Interval time.Duration `yaml:"interval" env:"INTERVAL" default:"20s"`
-
-	Options `yaml:"options" env:"OPTIONS"`
+	Options  Options       `yaml:"options" env:"OPTIONS"`
 }
 
-// Validate checks constraints in the configuration and returns an error if they are violated.
-// Also configures the log output if it is not configured:
+// SetDefaults implements defaults.Setter to configure the log output if it is not set:
 // systemd-journald is used when Icinga DB is running under systemd, otherwise stderr.
-func (l *Config) Validate() error {
-	if l.Interval <= 0 {
-		return errors.New("periodic logging interval must be positive")
-	}
-
-	if l.Output == "" {
+func (c *Config) SetDefaults() {
+	if defaults.CanUpdate(c.Output) {
 		if _, ok := os.LookupEnv("NOTIFY_SOCKET"); ok {
 			// When started by systemd, NOTIFY_SOCKET is set by systemd for Type=notify supervised services,
 			// which is the default setting for the Icinga DB service.
 			// This assumes that Icinga DB is running under systemd, so set output to systemd-journald.
-			l.Output = JOURNAL
+			c.Output = JOURNAL
 		} else {
 			// Otherwise set it to console, i.e. write log messages to stderr.
-			l.Output = CONSOLE
+			c.Output = CONSOLE
 		}
 	}
+}
 
-	// To be on the safe side, always call AssertOutput.
-	return AssertOutput(l.Output)
+// Validate checks constraints in the configuration and returns an error if they are violated.
+func (c *Config) Validate() error {
+	if c.Interval <= 0 {
+		return errors.New("periodic logging interval must be positive")
+	}
+
+	return AssertOutput(c.Output)
 }
 
 // AssertOutput returns an error if output is not a valid logger output.

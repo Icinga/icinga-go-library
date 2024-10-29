@@ -15,7 +15,7 @@ import (
 // TestCase represents a generic test case structure.
 // It is parameterized by T, the type of the expected result, and D, the type of the test data.
 // This struct is useful for defining test cases with expected outcomes and associated data.
-type TestCase[T comparable, D any] struct {
+type TestCase[T any, D any] struct {
 	// Name is the identifier for the test case, used for reporting purposes.
 	Name string
 	// Expected is the anticipated result of the test. It should be left empty if an error is expected.
