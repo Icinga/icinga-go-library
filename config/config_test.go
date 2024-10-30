@@ -324,6 +324,138 @@ func TestFromYAMLFile(t *testing.T) {
 	})
 }
 
+// testFlags is a struct that implements the Flags interface.
+// It holds information about the configuration file path and whether it was explicitly set.
+type testFlags struct {
+	configPath         string // The path to the configuration file.
+	explicitConfigPath bool   // Indicates if the config path was explicitly set.
+}
+
+// GetConfigPath returns the path to the configuration file.
+func (f testFlags) GetConfigPath() string {
+	return f.configPath
+}
+
+// IsExplicitConfigPath indicates whether the configuration file path was explicitly set.
+func (f testFlags) IsExplicitConfigPath() bool {
+	return f.explicitConfigPath
+}
+
+func TestLoad(t *testing.T) {
+	loadTests := []testutils.TestCase[Validator, testutils.ConfigTestData]{
+		{
+			Name: "Load from YAML only",
+			Data: testutils.ConfigTestData{
+				Yaml: `key: value`,
+			},
+			Expected: &simpleConfig{
+				Key: "value",
+			},
+		},
+		{
+			Name: "Load from Env only",
+			Data: testutils.ConfigTestData{
+				Env: map[string]string{"KEY": "value"},
+			},
+			Expected: &simpleConfig{
+				Key: "value",
+			},
+		},
+		{
+			Name: "YAML and Env; Env overrides",
+			Data: testutils.ConfigTestData{
+				Yaml: `key: yaml-value`,
+				Env:  map[string]string{"KEY": "env-value"},
+			},
+			Expected: &simpleConfig{
+				Key: "env-value",
+			},
+		},
+		{
+			Name: "YAML and Env; Env overrides defaults",
+			Data: testutils.ConfigTestData{
+				Yaml: `key: yaml-value`,
+				Env: map[string]string{
+					"DEFAULT_KEY": "env-value",
+				}},
+			Expected: &defaultConfig{
+				Key:     "yaml-value",
+				Default: defaultConfigPart{Key: "env-value"},
+			},
+		},
+		{
+			Name: "YAML and Env; Env supplements",
+			Data: testutils.ConfigTestData{
+				Yaml: `key: yaml-value`,
+				Env:  map[string]string{"EMBEDDED_EMBEDDED_KEY": "env-value"}},
+			Expected: &embeddedConfig{
+				Key:      "yaml-value",
+				Embedded: embeddedConfigPart{Key: "env-value"},
+			},
+		},
+		{
+			Name: "Validate invalid",
+			Data: testutils.ConfigTestData{
+				Yaml: `key: value`,
+				Env:  map[string]string{"KEY": "value"},
+			},
+			Expected: &invalidConfig{
+				Key: "value",
+			},
+			Error: testutils.ErrorIs(errInvalidConfiguration),
+		},
+	}
+
+	for _, tc := range loadTests {
+		t.Run(tc.Name, tc.F(func(data testutils.ConfigTestData) (Validator, error) {
+			// Since our test cases only define the expected configuration,
+			// we need to create a new instance of that type for Load to parse the configuration into.
+			actual := reflect.New(reflect.TypeOf(tc.Expected).Elem()).Interface().(Validator)
+
+			var err error
+			if data.Yaml != "" {
+				testutils.WithYAMLFile(t, data.Yaml, func(file *os.File) {
+					err = Load(actual, LoadOptions{
+						Flags: testFlags{
+							configPath:         file.Name(),
+							explicitConfigPath: true,
+						},
+						EnvOptions: EnvOptions{Environment: data.Env},
+					})
+				})
+			} else {
+				err = Load(actual, LoadOptions{Flags: testFlags{}, EnvOptions: EnvOptions{Environment: data.Env}})
+			}
+
+			return actual, err
+		}))
+	}
+
+	t.Run("Nil pointer argument", func(t *testing.T) {
+		var config *struct{ Validator }
+
+		err := Load(config, LoadOptions{})
+		require.ErrorIs(t, err, ErrInvalidArgument)
+	})
+
+	t.Run("Nil argument", func(t *testing.T) {
+		err := Load(nil, LoadOptions{})
+		require.ErrorIs(t, err, ErrInvalidArgument)
+	})
+
+	t.Run("Non-struct pointer argument", func(t *testing.T) {
+		var config nonStructValidator
+
+		err := Load(config, LoadOptions{})
+		require.ErrorIs(t, err, ErrInvalidArgument)
+	})
+
+	t.Run("Explicit config; file does not exist", func(t *testing.T) {
+		err := Load(&validateValid{}, LoadOptions{Flags: testFlags{explicitConfigPath: true}})
+		require.ErrorIs(t, err, fs.ErrNotExist)
+	})
+}
+
 func TestParseFlags(t *testing.T) {
 	t.Run("Simple flags", func(t *testing.T) {
 		originalArgs := os.Args
