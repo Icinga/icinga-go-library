@@ -1,5 +1,5 @@
 // Package config provides utilities for configuration parsing and loading.
-// It includes functionality for handling command-line flags and loading configuration from YAML files,
+// It includes functionality for handling command-line flags and loading configuration from YAML files
 // with additional support for setting default values and validation.
 // Additionally, it provides a struct that defines common settings for a TLS client.
 //
@@ -56,12 +56,12 @@ import (
 	"reflect"
 )
 
-// ErrInvalidArgument is the error returned by [ParseFlags] or [FromYAMLFile] if
-// its parsing result cannot be stored in the value pointed to by the designated passed argument which
-// must be a non-nil struct pointer.
+// ErrInvalidArgument is the error returned by any function that loads configuration if
+// the parsing result cannot be stored in the value pointed to by the specified argument,
+// which must be a non-nil struct pointer.
 var ErrInvalidArgument = stderrors.New("invalid argument")
 
-// ErrInvalidConfiguration is attached to errors returned by [FromYAMLFile] or [FromEnv] when
+// ErrInvalidConfiguration is attached to errors returned by any function that loads configuration when
 // the configuration is invalid,
 // i.e. if the Validate method of the provided [Validator] interface returns an error,
 // which is then propagated by these functions.
