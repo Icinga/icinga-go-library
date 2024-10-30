@@ -15,3 +15,17 @@ type Validator interface {
 	// returns an error if any value is invalid or missing when required.
 	Validate() error
 }
+
+// Flags is an interface that provides methods related to access the
+// configuration file path specified via command line flags.
+// This interface is meant to be implemented by flag structs containing
+// a switch for the configuration file path.
+type Flags interface {
+	// GetConfigPath retrieves the path to the configuration file as specified by command line flags,
+	// or returns a default path if none was provided.
+	GetConfigPath() string
+
+	// IsExplicitConfigPath indicates whether the configuration file path was
+	// explicitly set through command line flags.
+	IsExplicitConfigPath() bool
+}
