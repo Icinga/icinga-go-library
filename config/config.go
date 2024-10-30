@@ -110,6 +110,10 @@ func FromYAMLFile(name string, v Validator) error {
 
 	d := yaml.NewDecoder(f, yaml.DisallowUnknownField())
 	if err := d.Decode(v); err != nil {
+		// The PrettyPrint() method of the yaml parser errors doesn't get triggered automatically, so we've to do
+		// it via the `yaml.FormatError` helper function. If the provided error implements `yaml.errors.PrettyPrinter`
+		// we'll get the prettified string of that type, otherwise just error string.
+		err = errors.New(yaml.FormatError(err, true, true))
 		return errors.Wrap(err, "can't parse YAML file "+name)
 	}
 
