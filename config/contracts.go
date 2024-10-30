@@ -1,6 +1,6 @@
 package config
 
-// Validator is an interface that must be implemented by any configuration struct used in [FromYAMLFile].
+// Validator is an interface that must be implemented by any struct into which configuration is intended to be loaded.
 //
 // The Validate method checks the configuration values and
 // returns an error if any value is invalid or missing when required.
