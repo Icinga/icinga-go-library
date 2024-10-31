@@ -301,11 +301,8 @@ func TestFromYAMLFile(t *testing.T) {
 	})
 
 	t.Run("Non-existent file", func(t *testing.T) {
-		var pathError *fs.PathError
-
 		err := FromYAMLFile("nonexistent.yaml", &validateValid{})
-		require.ErrorAs(t, err, &pathError)
-		require.ErrorIs(t, pathError.Err, fs.ErrNotExist)
+		require.ErrorIs(t, err, fs.ErrNotExist)
 	})
 
 	t.Run("Permission denied", func(t *testing.T) {
