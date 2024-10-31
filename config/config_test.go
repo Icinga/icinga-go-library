@@ -194,9 +194,7 @@ default-key: overridden-value`,
 func TestFromEnv(t *testing.T) {
 	for _, tc := range configTests {
 		t.Run(tc.Name, tc.F(func(data testutils.ConfigTestData) (Validator, error) {
-			// Since our test cases only define the expected configuration,
-			// we need to create a new instance of that type for FromEnv to parse the configuration into.
-			actual := reflect.New(reflect.TypeOf(tc.Expected).Elem()).Interface().(Validator)
+			actual := createValidatorInstance(tc.Expected)
 
 			err := FromEnv(actual, EnvOptions{Environment: data.Env})
 
@@ -227,9 +225,7 @@ func TestFromEnv(t *testing.T) {
 func TestFromYAMLFile(t *testing.T) {
 	for _, tc := range configTests {
 		t.Run(tc.Name, tc.F(func(data testutils.ConfigTestData) (Validator, error) {
-			// Since our test cases only define the expected configuration,
-			// we need to create a new instance of that type for FromYAMLFile to parse the configuration into.
-			actual := reflect.New(reflect.TypeOf(tc.Expected).Elem()).Interface().(Validator)
+			actual := createValidatorInstance(tc.Expected)
 
 			var err error
 			testutils.WithYAMLFile(t, data.Yaml, func(file *os.File) {
@@ -405,9 +401,7 @@ func TestLoad(t *testing.T) {
 
 	for _, tc := range loadTests {
 		t.Run(tc.Name, tc.F(func(data testutils.ConfigTestData) (Validator, error) {
-			// Since our test cases only define the expected configuration,
-			// we need to create a new instance of that type for Load to parse the configuration into.
-			actual := reflect.New(reflect.TypeOf(tc.Expected).Elem()).Interface().(Validator)
+			actual := createValidatorInstance(tc.Expected)
 
 			var err error
 			if data.Yaml != "" {
@@ -527,4 +521,12 @@ func TestParseFlags(t *testing.T) {
 		// including "-h, --help Show this help message" (whitespace may vary).
 		require.Contains(t, string(out), "-h, --help")
 	})
+}
+
+// createValidatorInstance creates a new instance of the same type as the provided value.
+//
+// Since our test cases only define the expected configuration,
+// we need to create a new instance of that type for our functions to parse the configuration into.
+func createValidatorInstance(v Validator) Validator {
+	return reflect.New(reflect.TypeOf(v).Elem()).Interface().(Validator)
 }
