@@ -6,7 +6,7 @@ require (
 	github.com/caarlos0/env/v11 v11.2.2
 	github.com/creasty/defaults v1.8.0
 	github.com/go-sql-driver/mysql v1.8.1
-	github.com/goccy/go-yaml v1.13.0
+	github.com/goccy/go-yaml v1.13.1
 	github.com/google/uuid v1.6.0
 	github.com/jessevdk/go-flags v1.6.1
 	github.com/jmoiron/sqlx v1.4.0
