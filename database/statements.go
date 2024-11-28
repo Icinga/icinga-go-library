@@ -63,6 +63,37 @@ func (i *insertStatement) ExcludedColumns() []string {
 	return i.excludedColumns
 }
 
+type InsertSelectStatement interface {
+	InsertStatement
+
+	SetSelect(stmt SelectStatement) InsertSelectStatement
+
+	Select() SelectStatement
+}
+
+func NewInsertSelect(entity Entity) InsertSelectStatement {
+	return &insertSelectStatement{
+		insertStatement: insertStatement{
+			entity: entity,
+		},
+	}
+}
+
+type insertSelectStatement struct {
+	insertStatement
+	selectStmt SelectStatement
+}
+
+func (i *insertSelectStatement) SetSelect(stmt SelectStatement) InsertSelectStatement {
+	i.selectStmt = stmt
+
+	return i
+}
+
+func (i *insertSelectStatement) Select() SelectStatement {
+	return i.selectStmt
+}
+
 type SelectStatement interface {
 	From(table string) SelectStatement
 
