@@ -20,6 +20,8 @@ type QueryBuilder interface {
 
 	UpdateStatement(stmt UpdateStatement) (string, error)
 
+	UpdateAllStatement(stmt UpdateStatement) (string, error)
+
 	DeleteStatement(stmt DeleteStatement) (string, error)
 
 	DeleteAllStatement(stmt DeleteStatement) (string, error)
@@ -126,8 +128,8 @@ func (qb *queryBuilder) UpdateStatement(stmt UpdateStatement) (string, error) {
 		return "", errors.New("set cannot be empty")
 	}
 	where := stmt.Where()
-	if where != "" {
-		where = fmt.Sprintf(" WHERE %s", where)
+	if where == "" {
+		return "", errors.New("cannot use UpdateStatement() without where statement - use UpdateAllStatement() instead")
 	}
 
 	return fmt.Sprintf(
@@ -135,6 +137,27 @@ func (qb *queryBuilder) UpdateStatement(stmt UpdateStatement) (string, error) {
 		table,
 		set,
 		where,
+	), nil
+}
+
+func (qb *queryBuilder) UpdateAllStatement(stmt UpdateStatement) (string, error) {
+	table := stmt.Table()
+	if table == "" {
+		table = TableName(stmt.Entity())
+	}
+	set := stmt.Set()
+	if set == "" {
+		return "", errors.New("set cannot be empty")
+	}
+	where := stmt.Where()
+	if where != "" {
+		return "", errors.New("cannot use UpdateAllStatement() with where statement - use UpdateStatement() instead")
+	}
+
+	return fmt.Sprintf(
+		`UPDATE "%s" SET %s`,
+		table,
+		set,
 	), nil
 }
 
