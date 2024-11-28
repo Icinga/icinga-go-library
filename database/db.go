@@ -299,6 +299,10 @@ func (db *DB) BuildSelectStatement(stmt SelectStatement) string {
 	return db.queryBuilder.SelectStatement(stmt)
 }
 
+func (db *DB) BuildDeleteStatement(stmt DeleteStatement) (string, error) {
+	return db.queryBuilder.DeleteStatement(stmt)
+}
+
 // BuildDeleteStmt returns a DELETE statement for the given struct.
 func (db *DB) BuildDeleteStmt(from interface{}) string {
 	return fmt.Sprintf(
