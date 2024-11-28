@@ -18,6 +18,8 @@ type QueryBuilder interface {
 
 	SelectStatement(stmt SelectStatement) string
 
+	UpdateStatement(stmt UpdateStatement) (string, error)
+
 	DeleteStatement(stmt DeleteStatement) (string, error)
 
 	DeleteAllStatement(stmt DeleteStatement) (string, error)
@@ -112,6 +114,28 @@ func (qb *queryBuilder) SelectStatement(stmt SelectStatement) string {
 		from,
 		where,
 	)
+}
+
+func (qb *queryBuilder) UpdateStatement(stmt UpdateStatement) (string, error) {
+	table := stmt.Table()
+	if table == "" {
+		table = TableName(stmt.Entity())
+	}
+	set := stmt.Set()
+	if set == "" {
+		return "", errors.New("set cannot be empty")
+	}
+	where := stmt.Where()
+	if where != "" {
+		where = fmt.Sprintf(" WHERE %s", where)
+	}
+
+	return fmt.Sprintf(
+		`UPDATE "%s" SET %s%s`,
+		table,
+		set,
+		where,
+	), nil
 }
 
 func (qb *queryBuilder) DeleteStatement(stmt DeleteStatement) (string, error) {
