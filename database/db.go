@@ -303,6 +303,10 @@ func (db *DB) BuildSelectStatement(stmt SelectStatement) string {
 	return db.queryBuilder.SelectStatement(stmt)
 }
 
+func (db *DB) BuildUpdateStatement(stmt UpdateStatement) (string, error) {
+	return db.queryBuilder.UpdateStatement(stmt)
+}
+
 func (db *DB) BuildDeleteStatement(stmt DeleteStatement) (string, error) {
 	return db.queryBuilder.DeleteStatement(stmt)
 }
