@@ -18,6 +18,8 @@ type QueryBuilder interface {
 
 	DeleteStatement(stmt DeleteStatement) (string, error)
 
+	DeleteAllStatement(stmt DeleteStatement) (string, error)
+
 	BuildColumns(entity Entity, columns []string, excludedColumns []string) []string
 }
 
@@ -92,13 +94,29 @@ func (qb *queryBuilder) DeleteStatement(stmt DeleteStatement) (string, error) {
 	if where != "" {
 		where = fmt.Sprintf(" WHERE %s", where)
 	} else {
-		return "", errors.New("cannot use DeleteStatement() without where statement")
+		return "", errors.New("cannot use DeleteStatement() without where statement - use DeleteAllStatement() instead")
 	}
 
 	return fmt.Sprintf(
 		`DELETE FROM "%s"%s`,
 		from,
 		where,
+	), nil
+}
+
+func (qb *queryBuilder) DeleteAllStatement(stmt DeleteStatement) (string, error) {
+	from := stmt.Table()
+	if from == "" {
+		from = TableName(stmt.Entity())
+	}
+	where := stmt.Where()
+	if where != "" {
+		return "", errors.New("cannot use DeleteAllStatement() with where statement - use DeleteStatement() instead")
+	}
+
+	return fmt.Sprintf(
+		`DELETE FROM "%s"`,
+		from,
 	), nil
 }
 
