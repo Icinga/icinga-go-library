@@ -303,6 +303,10 @@ func (db *DB) BuildDeleteStatement(stmt DeleteStatement) (string, error) {
 	return db.queryBuilder.DeleteStatement(stmt)
 }
 
+func (db *DB) BuildDeleteAllStatement(stmt DeleteStatement) (string, error) {
+	return db.queryBuilder.DeleteAllStatement(stmt)
+}
+
 // BuildDeleteStmt returns a DELETE statement for the given struct.
 func (db *DB) BuildDeleteStmt(from interface{}) string {
 	return fmt.Sprintf(
