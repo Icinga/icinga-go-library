@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"github.com/icinga/icinga-go-library/strcase"
 	"github.com/jmoiron/sqlx/reflectx"
+	"github.com/pkg/errors"
 	"slices"
 	"strings"
 )
@@ -14,6 +15,8 @@ type QueryBuilder interface {
 	InsertSelectStatement(stmt InsertSelectStatement) string
 
 	SelectStatement(stmt SelectStatement) string
+
+	DeleteStatement(stmt DeleteStatement) (string, error)
 
 	BuildColumns(entity Entity, columns []string, excludedColumns []string) []string
 }
@@ -78,6 +81,25 @@ func (qb *queryBuilder) SelectStatement(stmt SelectStatement) string {
 		from,
 		where,
 	)
+}
+
+func (qb *queryBuilder) DeleteStatement(stmt DeleteStatement) (string, error) {
+	from := stmt.Table()
+	if from == "" {
+		from = TableName(stmt.Entity())
+	}
+	where := stmt.Where()
+	if where != "" {
+		where = fmt.Sprintf(" WHERE %s", where)
+	} else {
+		return "", errors.New("cannot use DeleteStatement() without where statement")
+	}
+
+	return fmt.Sprintf(
+		`DELETE FROM "%s"%s`,
+		from,
+		where,
+	), nil
 }
 
 func (qb *queryBuilder) BuildColumns(entity Entity, columns []string, excludedColumns []string) []string {
