@@ -12,6 +12,8 @@ import (
 type QueryBuilder interface {
 	InsertStatement(stmt InsertStatement) string
 
+	InsertIgnoreStatement(stmt InsertStatement) (string, error)
+
 	InsertSelectStatement(stmt InsertSelectStatement) string
 
 	SelectStatement(stmt SelectStatement) string
@@ -48,6 +50,33 @@ func (qb *queryBuilder) InsertStatement(stmt InsertStatement) string {
 		strings.Join(columns, `", "`),
 		fmt.Sprintf(":%s", strings.Join(columns, ", :")),
 	)
+}
+
+func (qb *queryBuilder) InsertIgnoreStatement(stmt InsertStatement) (string, error) {
+	columns := qb.BuildColumns(stmt.Entity(), stmt.Columns(), stmt.ExcludedColumns())
+	into := stmt.Table()
+	if into == "" {
+		into = TableName(stmt.Entity())
+	}
+
+	switch qb.driver {
+	case MySQL:
+		return fmt.Sprintf(
+			`INSERT IGNORE INTO "%s" ("%s") VALUES (%s)`,
+			into,
+			strings.Join(columns, `", "`),
+			fmt.Sprintf(":%s", strings.Join(columns, ", :")),
+		), nil
+	case PostgreSQL:
+		return fmt.Sprintf(
+			`INSERT INTO "%s" ("%s") VALUES (%s) ON CONFLICT DO NOTHING`,
+			into,
+			strings.Join(columns, `", "`),
+			fmt.Sprintf(":%s", strings.Join(columns, ", :")),
+		), nil
+	default:
+		return "", errors.New("unknown database driver")
+	}
 }
 
 func (qb *queryBuilder) InsertSelectStatement(stmt InsertSelectStatement) string {
