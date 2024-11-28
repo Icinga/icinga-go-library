@@ -307,6 +307,10 @@ func (db *DB) BuildUpdateStatement(stmt UpdateStatement) (string, error) {
 	return db.queryBuilder.UpdateStatement(stmt)
 }
 
+func (db *DB) BuildUpdateAllStatement(stmt UpdateStatement) (string, error) {
+	return db.queryBuilder.UpdateAllStatement(stmt)
+}
+
 func (db *DB) BuildDeleteStatement(stmt DeleteStatement) (string, error) {
 	return db.queryBuilder.DeleteStatement(stmt)
 }
