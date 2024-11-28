@@ -287,6 +287,10 @@ func (db *DB) BuildColumns(subject interface{}) []string {
 	return slices.Clone(db.columnMap.Columns(subject))
 }
 
+func (db *DB) BuildInsertStatement(stmt InsertStatement) string {
+	return db.queryBuilder.InsertStatement(stmt)
+}
+
 // BuildDeleteStmt returns a DELETE statement for the given struct.
 func (db *DB) BuildDeleteStmt(from interface{}) string {
 	return fmt.Sprintf(
