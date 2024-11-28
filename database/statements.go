@@ -95,7 +95,6 @@ type selectStatement struct {
 	columns         []string
 	excludedColumns []string
 	where           string
-	whereValues     []any
 }
 
 func (s *selectStatement) From(table string) SelectStatement {
