@@ -11,6 +11,8 @@ import (
 type QueryBuilder interface {
 	InsertStatement(stmt InsertStatement) string
 
+	InsertSelectStatement(stmt InsertSelectStatement) string
+
 	SelectStatement(stmt SelectStatement) string
 
 	BuildColumns(entity Entity, columns []string, excludedColumns []string) []string
@@ -40,6 +42,22 @@ func (qb *queryBuilder) InsertStatement(stmt InsertStatement) string {
 		into,
 		strings.Join(columns, `", "`),
 		fmt.Sprintf(":%s", strings.Join(columns, ", :")),
+	)
+}
+
+func (qb *queryBuilder) InsertSelectStatement(stmt InsertSelectStatement) string {
+	selectStmt := qb.SelectStatement(stmt.Select())
+	columns := qb.BuildColumns(stmt.Entity(), stmt.Columns(), stmt.ExcludedColumns())
+	into := stmt.Table()
+	if into == "" {
+		into = TableName(stmt.Entity())
+	}
+
+	return fmt.Sprintf(
+		`INSERT INTO "%s" ("%s") %s`,
+		into,
+		strings.Join(columns, `", "`),
+		selectStmt,
 	)
 }
 
