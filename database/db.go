@@ -39,6 +39,7 @@ type DB struct {
 
 	addr              string
 	columnMap         ColumnMap
+	queryBuilder      QueryBuilder
 	logger            *logging.Logger
 	tableSemaphores   map[string]*semaphore.Weighted
 	tableSemaphoresMu sync.Mutex
@@ -236,6 +237,7 @@ func NewDbFromConfig(c *Config, logger *logging.Logger, connectorCallbacks Retry
 		DB:              db,
 		Options:         &c.Options,
 		columnMap:       NewColumnMap(db.Mapper),
+		queryBuilder:    NewQueryBuilder(db.DriverName()),
 		addr:            addr,
 		logger:          logger,
 		tableSemaphores: make(map[string]*semaphore.Weighted),
