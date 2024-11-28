@@ -291,6 +291,10 @@ func (db *DB) BuildInsertStatement(stmt InsertStatement) string {
 	return db.queryBuilder.InsertStatement(stmt)
 }
 
+func (db *DB) BuildInsertIgnoreStatement(stmt InsertStatement) (string, error) {
+	return db.queryBuilder.InsertIgnoreStatement(stmt)
+}
+
 func (db *DB) BuildInsertSelectStatement(stmt InsertSelectStatement) string {
 	return db.queryBuilder.InsertSelectStatement(stmt)
 }
