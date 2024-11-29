@@ -33,13 +33,13 @@ type QueryBuilder interface {
 
 func NewQueryBuilder(driver string) QueryBuilder {
 	return &queryBuilder{
-		driver:    driver,
+		dbDriver:  driver,
 		columnMap: NewColumnMap(reflectx.NewMapperFunc("db", strcase.Snake)),
 	}
 }
 
 type queryBuilder struct {
-	driver    string
+	dbDriver  string
 	columnMap ColumnMap
 }
 
@@ -50,7 +50,7 @@ func (qb *queryBuilder) UpsertStatement(stmt InsertStatement) (string, error) {
 		into = TableName(stmt.Entity())
 	}
 	var setFormat, clause string
-	switch qb.driver {
+	switch qb.dbDriver {
 	case MySQL:
 		clause = "ON DUPLICATE KEY UPDATE"
 		setFormat = `"%[1]s" = VALUES("%[1]s")`
@@ -101,7 +101,7 @@ func (qb *queryBuilder) InsertIgnoreStatement(stmt InsertStatement) (string, err
 		into = TableName(stmt.Entity())
 	}
 
-	switch qb.driver {
+	switch qb.dbDriver {
 	case MySQL:
 		return fmt.Sprintf(
 			`INSERT IGNORE INTO "%s" ("%s") VALUES (%s)`,
