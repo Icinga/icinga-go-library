@@ -287,6 +287,10 @@ func (db *DB) BuildColumns(subject interface{}) []string {
 	return slices.Clone(db.columnMap.Columns(subject))
 }
 
+func (db *DB) BuildUpsertStatement(stmt InsertStatement) (string, error) {
+	return db.queryBuilder.UpsertStatement(stmt)
+}
+
 func (db *DB) BuildInsertStatement(stmt InsertStatement) string {
 	return db.queryBuilder.InsertStatement(stmt)
 }
