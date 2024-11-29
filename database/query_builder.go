@@ -1,10 +1,10 @@
 package database
 
 import (
+	"errors"
 	"fmt"
 	"github.com/icinga/icinga-go-library/strcase"
 	"github.com/jmoiron/sqlx/reflectx"
-	"github.com/pkg/errors"
 	"slices"
 	"strings"
 )
