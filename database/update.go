@@ -16,49 +16,49 @@ type UpdateStatement interface {
 	Where() string
 }
 
-func NewUpdate(entity Entity) UpdateStatement {
-	return &updateStatement{
+func NewUpdate[T any, V EntityConstraint[T]](entity V) UpdateStatement {
+	return &updateStatement[T, V]{
 		entity: entity,
 	}
 }
 
-type updateStatement struct {
-	entity Entity
+type updateStatement[T any, V EntityConstraint[T]] struct {
+	entity V
 	table  string
 	set    string
 	where  string
 }
 
-func (u *updateStatement) SetTable(table string) UpdateStatement {
+func (u *updateStatement[T, V]) SetTable(table string) UpdateStatement {
 	u.table = table
 
 	return u
 }
 
-func (u *updateStatement) SetSet(set string) UpdateStatement {
+func (u *updateStatement[T, V]) SetSet(set string) UpdateStatement {
 	u.set = set
 
 	return u
 }
 
-func (u *updateStatement) SetWhere(where string) UpdateStatement {
+func (u *updateStatement[T, V]) SetWhere(where string) UpdateStatement {
 	u.where = where
 
 	return u
 }
 
-func (u *updateStatement) Entity() Entity {
+func (u *updateStatement[T, V]) Entity() Entity {
 	return u.entity
 }
 
-func (u *updateStatement) Table() string {
+func (u *updateStatement[T, V]) Table() string {
 	return u.table
 }
 
-func (u *updateStatement) Set() string {
+func (u *updateStatement[T, V]) Set() string {
 	return u.set
 }
 
-func (u *updateStatement) Where() string {
+func (u *updateStatement[T, V]) Where() string {
 	return u.where
 }
