@@ -10,6 +10,8 @@ import (
 )
 
 type QueryBuilder interface {
+	UpsertStatement(stmt InsertStatement) (string, error)
+
 	InsertStatement(stmt InsertStatement) string
 
 	InsertIgnoreStatement(stmt InsertStatement) (string, error)
@@ -39,6 +41,42 @@ func NewQueryBuilder(driver string) QueryBuilder {
 type queryBuilder struct {
 	driver    string
 	columnMap ColumnMap
+}
+
+func (qb *queryBuilder) UpsertStatement(stmt InsertStatement) (string, error) {
+	columns := qb.BuildColumns(stmt.Entity(), stmt.Columns(), stmt.ExcludedColumns())
+	into := stmt.Table()
+	if into == "" {
+		into = TableName(stmt.Entity())
+	}
+	var setFormat, clause string
+	switch qb.driver {
+	case MySQL:
+		clause = "ON DUPLICATE KEY UPDATE"
+		setFormat = `"%[1]s" = VALUES("%[1]s")`
+	case PostgreSQL:
+		clause = fmt.Sprintf(
+			"ON CONFLICT ON CONSTRAINT %s DO UPDATE SET",
+			qb.getPgsqlOnConflictConstraint(stmt.Entity()),
+		)
+		setFormat = `"%[1]s" = EXCLUDED."%[1]s"`
+	default:
+		return "", errors.New("unknown database driver")
+	}
+
+	set := make([]string, 0, len(columns))
+	for _, column := range columns {
+		set = append(set, fmt.Sprintf(setFormat, column))
+	}
+
+	return fmt.Sprintf(
+		`INSERT INTO "%s" ("%s") VALUES (%s) %s %s`,
+		into,
+		strings.Join(columns, `", "`),
+		fmt.Sprintf(":%s", strings.Join(columns, ", :")),
+		clause,
+		strings.Join(set, ", "),
+	), nil
 }
 
 func (qb *queryBuilder) InsertStatement(stmt InsertStatement) string {
@@ -214,4 +252,15 @@ func (qb *queryBuilder) BuildColumns(entity Entity, columns []string, excludedCo
 	}
 
 	return deltaColumns[:len(deltaColumns):len(deltaColumns)]
+}
+
+// getPgsqlOnConflictConstraint returns the constraint name of the current [QueryBuilderOld]'s subject.
+// If the subject does not implement the PgsqlOnConflictConstrainter interface, it will simply return
+// the table name prefixed with `pk_`.
+func (qb *queryBuilder) getPgsqlOnConflictConstraint(entity Entity) string {
+	if constrainter, ok := entity.(PgsqlOnConflictConstrainter); ok {
+		return constrainter.PgsqlOnConflictConstraint()
+	}
+
+	return "pk_" + TableName(entity)
 }
