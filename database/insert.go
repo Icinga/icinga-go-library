@@ -16,50 +16,50 @@ type InsertStatement interface {
 	ExcludedColumns() []string
 }
 
-func NewInsert(entity Entity) InsertStatement {
-	return &insertStatement{
+func NewInsert[T any, V EntityConstraint[T]](entity V) InsertStatement {
+	return &insertStatement[T, V]{
 		entity: entity,
 	}
 }
 
-type insertStatement struct {
-	entity          Entity
+type insertStatement[T any, V EntityConstraint[T]] struct {
+	entity          V
 	table           string
 	columns         []string
 	excludedColumns []string
 }
 
-func (i *insertStatement) Into(table string) InsertStatement {
+func (i *insertStatement[T, V]) Into(table string) InsertStatement {
 	i.table = table
 
 	return i
 }
 
-func (i *insertStatement) SetColumns(columns ...string) InsertStatement {
+func (i *insertStatement[T, V]) SetColumns(columns ...string) InsertStatement {
 	i.columns = columns
 
 	return i
 }
 
-func (i *insertStatement) SetExcludedColumns(columns ...string) InsertStatement {
+func (i *insertStatement[T, V]) SetExcludedColumns(columns ...string) InsertStatement {
 	i.excludedColumns = columns
 
 	return i
 }
 
-func (i *insertStatement) Entity() Entity {
+func (i *insertStatement[T, V]) Entity() Entity {
 	return i.entity
 }
 
-func (i *insertStatement) Table() string {
+func (i *insertStatement[T, V]) Table() string {
 	return i.table
 }
 
-func (i *insertStatement) Columns() []string {
+func (i *insertStatement[T, V]) Columns() []string {
 	return i.columns
 }
 
-func (i *insertStatement) ExcludedColumns() []string {
+func (i *insertStatement[T, V]) ExcludedColumns() []string {
 	return i.excludedColumns
 }
 
@@ -71,25 +71,25 @@ type InsertSelectStatement interface {
 	Select() SelectStatement
 }
 
-func NewInsertSelect(entity Entity) InsertSelectStatement {
-	return &insertSelectStatement{
-		insertStatement: insertStatement{
+func NewInsertSelect[T any, V EntityConstraint[T]](entity V) InsertSelectStatement {
+	return &insertSelectStatement[T, V]{
+		insertStatement: insertStatement[T, V]{
 			entity: entity,
 		},
 	}
 }
 
-type insertSelectStatement struct {
-	insertStatement
+type insertSelectStatement[T any, V EntityConstraint[T]] struct {
+	insertStatement[T, V]
 	selectStmt SelectStatement
 }
 
-func (i *insertSelectStatement) SetSelect(stmt SelectStatement) InsertSelectStatement {
+func (i *insertSelectStatement[T, V]) SetSelect(stmt SelectStatement) InsertSelectStatement {
 	i.selectStmt = stmt
 
 	return i
 }
 
-func (i *insertSelectStatement) Select() SelectStatement {
+func (i *insertSelectStatement[T, V]) Select() SelectStatement {
 	return i.selectStmt
 }

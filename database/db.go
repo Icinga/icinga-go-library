@@ -41,7 +41,6 @@ type DB struct {
 
 	addr              string
 	columnMap         ColumnMap
-	queryBuilder      QueryBuilder
 	logger            *logging.Logger
 	tableSemaphores   map[string]*semaphore.Weighted
 	tableSemaphoresMu sync.Mutex
@@ -259,7 +258,6 @@ func NewDbFromConfig(c *Config, logger *logging.Logger, connectorCallbacks Retry
 		DB:              db,
 		Options:         &c.Options,
 		columnMap:       NewColumnMap(db.Mapper),
-		queryBuilder:    NewQueryBuilder(db.DriverName()),
 		addr:            addr,
 		logger:          logger,
 		tableSemaphores: make(map[string]*semaphore.Weighted),
@@ -285,42 +283,6 @@ func (db *DB) MarshalLogObject(encoder zapcore.ObjectEncoder) error {
 // BuildColumns returns all columns of the given struct.
 func (db *DB) BuildColumns(subject interface{}) []string {
 	return slices.Clone(db.columnMap.Columns(subject))
-}
-
-func (db *DB) BuildUpsertStatement(stmt InsertStatement) (string, error) {
-	return db.queryBuilder.UpsertStatement(stmt)
-}
-
-func (db *DB) BuildInsertStatement(stmt InsertStatement) string {
-	return db.queryBuilder.InsertStatement(stmt)
-}
-
-func (db *DB) BuildInsertIgnoreStatement(stmt InsertStatement) (string, error) {
-	return db.queryBuilder.InsertIgnoreStatement(stmt)
-}
-
-func (db *DB) BuildInsertSelectStatement(stmt InsertSelectStatement) string {
-	return db.queryBuilder.InsertSelectStatement(stmt)
-}
-
-func (db *DB) BuildSelectStatement(stmt SelectStatement) string {
-	return db.queryBuilder.SelectStatement(stmt)
-}
-
-func (db *DB) BuildUpdateStatement(stmt UpdateStatement) (string, error) {
-	return db.queryBuilder.UpdateStatement(stmt)
-}
-
-func (db *DB) BuildUpdateAllStatement(stmt UpdateStatement) (string, error) {
-	return db.queryBuilder.UpdateAllStatement(stmt)
-}
-
-func (db *DB) BuildDeleteStatement(stmt DeleteStatement) (string, error) {
-	return db.queryBuilder.DeleteStatement(stmt)
-}
-
-func (db *DB) BuildDeleteAllStatement(stmt DeleteStatement) (string, error) {
-	return db.queryBuilder.DeleteAllStatement(stmt)
 }
 
 // BuildDeleteStmt returns a DELETE statement for the given struct.
@@ -969,6 +931,42 @@ func (db *DB) Log(ctx context.Context, query string, counter *com.Counter) perio
 	}, periodic.OnStop(func(tick periodic.Tick) {
 		db.logger.Debugf("Finished executing %q with %d rows in %s", query, counter.Total(), tick.Elapsed)
 	}))
+}
+
+func BuildUpsertStatement(db *DB, stmt InsertStatement) (string, error) {
+	return NewQueryBuilder(db.DriverName()).UpsertStatement(stmt)
+}
+
+func BuildInsertStatement(db *DB, stmt InsertStatement) string {
+	return NewQueryBuilder(db.DriverName()).InsertStatement(stmt)
+}
+
+func BuildInsertIgnoreStatement(db *DB, stmt InsertStatement) (string, error) {
+	return NewQueryBuilder(db.DriverName()).InsertIgnoreStatement(stmt)
+}
+
+func BuildInsertSelectStatement(db *DB, stmt InsertSelectStatement) string {
+	return NewQueryBuilder(db.DriverName()).InsertSelectStatement(stmt)
+}
+
+func BuildSelectStatement(db *DB, stmt SelectStatement) string {
+	return NewQueryBuilder(db.DriverName()).SelectStatement(stmt)
+}
+
+func BuildUpdateStatement(db *DB, stmt UpdateStatement) (string, error) {
+	return NewQueryBuilder(db.DriverName()).UpdateStatement(stmt)
+}
+
+func BuildUpdateAllStatement(db *DB, stmt UpdateStatement) (string, error) {
+	return NewQueryBuilder(db.DriverName()).UpdateAllStatement(stmt)
+}
+
+func BuildDeleteStatement(db *DB, stmt DeleteStatement) (string, error) {
+	return NewQueryBuilder(db.DriverName()).DeleteStatement(stmt)
+}
+
+func BuildDeleteAllStatement(db *DB, stmt DeleteStatement) (string, error) {
+	return NewQueryBuilder(db.DriverName()).DeleteAllStatement(stmt)
 }
 
 var (
