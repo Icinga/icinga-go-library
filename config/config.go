@@ -60,12 +60,23 @@ import (
 // must be a non-nil struct pointer.
 var ErrInvalidArgument = stderrors.New("invalid argument")
 
+// ErrInvalidConfiguration is attached to errors returned by [FromYAMLFile] or [FromEnv] when
+// the configuration is invalid,
+// i.e. if the Validate method of the provided [Validator] interface returns an error,
+// which is then propagated by these functions.
+// Note that for such errors, errors.Is() will recognize both ErrInvalidConfiguration and
+// the original errors returned from Validate.
+var ErrInvalidConfiguration = stderrors.New("invalid configuration")
+
 // FromYAMLFile parses the given YAML file and stores the result
 // in the value pointed to by v. If v is nil or not a struct pointer,
 // FromYAMLFile returns an [ErrInvalidArgument] error.
 // It is possible to define default values via the struct tag `default`.
 // The function also validates the configuration using the Validate method
 // of the provided [Validator] interface.
+// Any error returned from Validate is propagated with [ErrInvalidConfiguration] attached,
+// allowing errors.Is() checks on the returned errors to recognize both ErrInvalidConfiguration and
+// the original errors returned from Validate.
 //
 // Example usage:
 //
@@ -114,7 +125,7 @@ func FromYAMLFile(name string, v Validator) error {
 	}
 
 	if err := v.Validate(); err != nil {
-		return errors.Wrap(err, "invalid configuration")
+		return fmt.Errorf("%w: %w", ErrInvalidConfiguration, errors.WithStack(err))
 	}
 
 	return nil
@@ -125,6 +136,9 @@ type EnvOptions = env.Options
 
 // FromEnv parses environment variables and stores the result in the value pointed to by v.
 // If v is nil or not a struct pointer, FromEnv returns an [ErrInvalidArgument] error.
+// Any error returned from Validate is propagated with [ErrInvalidConfiguration] attached,
+// allowing errors.Is() checks on the returned errors to recognize both ErrInvalidConfiguration and
+// the original errors returned from Validate.
 func FromEnv(v Validator, options EnvOptions) error {
 	if err := validateNonNilStructPointer(v); err != nil {
 		return errors.WithStack(err)
@@ -139,7 +153,7 @@ func FromEnv(v Validator, options EnvOptions) error {
 	}
 
 	if err := v.Validate(); err != nil {
-		return errors.Wrap(err, "invalid configuration")
+		return fmt.Errorf("%w: %w", ErrInvalidConfiguration, errors.WithStack(err))
 	}
 
 	return nil
