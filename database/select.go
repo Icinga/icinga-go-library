@@ -20,60 +20,60 @@ type SelectStatement interface {
 	Where() string
 }
 
-func NewSelect[T any, V EntityConstraint[T]](entity V) SelectStatement {
-	return &selectStatement[T, V]{
+func NewSelect(entity Entity) SelectStatement {
+	return &selectStatement{
 		entity: entity,
 	}
 }
 
-type selectStatement[T any, V EntityConstraint[T]] struct {
-	entity          V
+type selectStatement struct {
+	entity          Entity
 	table           string
 	columns         []string
 	excludedColumns []string
 	where           string
 }
 
-func (s *selectStatement[T, V]) From(table string) SelectStatement {
+func (s *selectStatement) From(table string) SelectStatement {
 	s.table = table
 
 	return s
 }
 
-func (s *selectStatement[T, V]) SetColumns(columns ...string) SelectStatement {
+func (s *selectStatement) SetColumns(columns ...string) SelectStatement {
 	s.columns = columns
 
 	return s
 }
 
-func (s *selectStatement[T, V]) SetExcludedColumns(columns ...string) SelectStatement {
+func (s *selectStatement) SetExcludedColumns(columns ...string) SelectStatement {
 	s.excludedColumns = columns
 
 	return s
 }
 
-func (s *selectStatement[T, V]) SetWhere(where string) SelectStatement {
+func (s *selectStatement) SetWhere(where string) SelectStatement {
 	s.where = where
 
 	return s
 }
 
-func (s *selectStatement[T, V]) Entity() Entity {
+func (s *selectStatement) Entity() Entity {
 	return s.entity
 }
 
-func (s *selectStatement[T, V]) Table() string {
+func (s *selectStatement) Table() string {
 	return s.table
 }
 
-func (s *selectStatement[T, V]) Columns() []string {
+func (s *selectStatement) Columns() []string {
 	return s.columns
 }
 
-func (s *selectStatement[T, V]) ExcludeColumns() []string {
+func (s *selectStatement) ExcludeColumns() []string {
 	return s.excludedColumns
 }
 
-func (s *selectStatement[T, V]) Where() string {
+func (s *selectStatement) Where() string {
 	return s.where
 }
