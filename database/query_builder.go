@@ -10,7 +10,7 @@ import (
 )
 
 type QueryBuilder interface {
-	UpsertStatement(stmt InsertStatement) (string, error)
+	UpsertStatement(stmt UpsertStatement) (string, error)
 
 	InsertStatement(stmt InsertStatement) string
 
@@ -43,7 +43,7 @@ type queryBuilder struct {
 	columnMap ColumnMap
 }
 
-func (qb *queryBuilder) UpsertStatement(stmt InsertStatement) (string, error) {
+func (qb *queryBuilder) UpsertStatement(stmt UpsertStatement) (string, error) {
 	columns := qb.BuildColumns(stmt.Entity(), stmt.Columns(), stmt.ExcludedColumns())
 	into := stmt.Table()
 	if into == "" {
