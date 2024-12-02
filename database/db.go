@@ -933,7 +933,7 @@ func (db *DB) Log(ctx context.Context, query string, counter *com.Counter) perio
 	}))
 }
 
-func BuildUpsertStatement(db *DB, stmt InsertStatement) (string, error) {
+func BuildUpsertStatement(db *DB, stmt UpsertStatement) (string, error) {
 	return NewQueryBuilder(db.DriverName()).UpsertStatement(stmt)
 }
 
