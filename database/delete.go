@@ -12,38 +12,38 @@ type DeleteStatement interface {
 	Where() string
 }
 
-func NewDelete[V any, T EntityConstraint[V]](entity T) DeleteStatement {
-	return &deleteStatement[V, T]{
+func NewDelete(entity Entity) DeleteStatement {
+	return &deleteStatement{
 		entity: entity,
 	}
 }
 
-type deleteStatement[V any, T EntityConstraint[V]] struct {
-	entity T
+type deleteStatement struct {
+	entity Entity
 	table  string
 	where  string
 }
 
-func (d *deleteStatement[V, T]) From(table string) DeleteStatement {
+func (d *deleteStatement) From(table string) DeleteStatement {
 	d.table = table
 
 	return d
 }
 
-func (d *deleteStatement[V, T]) SetWhere(where string) DeleteStatement {
+func (d *deleteStatement) SetWhere(where string) DeleteStatement {
 	d.where = where
 
 	return d
 }
 
-func (d *deleteStatement[V, T]) Entity() Entity {
+func (d *deleteStatement) Entity() Entity {
 	return d.entity
 }
 
-func (d *deleteStatement[V, T]) Table() string {
+func (d *deleteStatement) Table() string {
 	return d.table
 }
 
-func (d *deleteStatement[V, T]) Where() string {
+func (d *deleteStatement) Where() string {
 	return d.where
 }
