@@ -16,7 +16,7 @@ type UpsertStatement interface {
 	ExcludedColumns() []string
 }
 
-func NewUpsert(entity Entity) UpsertStatement {
+func NewUpsertStatement(entity Entity) UpsertStatement {
 	return &upsertStatement{
 		entity: entity,
 	}
