@@ -20,7 +20,7 @@ type SelectStatement interface {
 	Where() string
 }
 
-func NewSelect(entity Entity) SelectStatement {
+func NewSelectStatement(entity Entity) SelectStatement {
 	return &selectStatement{
 		entity: entity,
 	}
