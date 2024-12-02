@@ -16,7 +16,7 @@ type InsertStatement interface {
 	ExcludedColumns() []string
 }
 
-func NewInsert(entity Entity) InsertStatement {
+func NewInsertStatement(entity Entity) InsertStatement {
 	return &insertStatement{
 		entity: entity,
 	}

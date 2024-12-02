@@ -16,7 +16,7 @@ type UpdateStatement interface {
 	Where() string
 }
 
-func NewUpdate(entity Entity) UpdateStatement {
+func NewUpdateStatement(entity Entity) UpdateStatement {
 	return &updateStatement{
 		entity: entity,
 	}

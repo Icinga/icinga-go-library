@@ -12,7 +12,7 @@ type DeleteStatement interface {
 	Where() string
 }
 
-func NewDelete(entity Entity) DeleteStatement {
+func NewDeleteStatement(entity Entity) DeleteStatement {
 	return &deleteStatement{
 		entity: entity,
 	}
