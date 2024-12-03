@@ -14,6 +14,8 @@ type InsertStatement interface {
 	Columns() []string
 
 	ExcludedColumns() []string
+
+	apply(opts *insertOptions)
 }
 
 func NewInsertStatement(entity Entity) InsertStatement {
@@ -63,6 +65,10 @@ func (i *insertStatement) ExcludedColumns() []string {
 	return i.excludedColumns
 }
 
+func (i *insertStatement) apply(opts *insertOptions) {
+	opts.stmt = i
+}
+
 type InsertSelectStatement interface {
 	InsertStatement
 
@@ -92,4 +98,25 @@ func (i *insertSelectStatement) SetSelect(stmt SelectStatement) InsertSelectStat
 
 func (i *insertSelectStatement) Select() SelectStatement {
 	return i.selectStmt
+}
+
+type InsertOption interface {
+	apply(opts *insertOptions)
+}
+
+type InsertOptionFunc func(opts *insertOptions)
+
+func (f InsertOptionFunc) apply(opts *insertOptions) {
+	f(opts)
+}
+
+func WithOnInsert(onInsert ...OnSuccess[any]) InsertOption {
+	return InsertOptionFunc(func(opts *insertOptions) {
+		opts.onInsert = onInsert
+	})
+}
+
+type insertOptions struct {
+	stmt     InsertStatement
+	onInsert []OnSuccess[any]
 }
