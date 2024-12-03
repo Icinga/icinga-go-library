@@ -61,7 +61,7 @@ func (qb *queryBuilder) UpsertStatement(stmt UpsertStatement) (string, int, erro
 		)
 		setFormat = `"%[1]s" = EXCLUDED."%[1]s"`
 	default:
-		return "", 0, errors.New(fmt.Sprintf("unsupported driver: %s", qb.dbDriver))
+		return "", 0, fmt.Errorf("unsupported database driver: %s", qb.dbDriver)
 	}
 
 	set := make([]string, 0, len(columns))
@@ -117,7 +117,7 @@ func (qb *queryBuilder) InsertIgnoreStatement(stmt InsertStatement) (string, err
 			fmt.Sprintf(":%s", strings.Join(columns, ", :")),
 		), nil
 	default:
-		return "", errors.New(fmt.Sprintf("unsupported driver: %s", qb.dbDriver))
+		return "", fmt.Errorf("unsupported database driver: %s", qb.dbDriver)
 	}
 }
 
