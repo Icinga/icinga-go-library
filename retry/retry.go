@@ -3,6 +3,7 @@ package retry
 import (
 	"context"
 	"database/sql/driver"
+	stderrors "errors"
 	"github.com/go-sql-driver/mysql"
 	"github.com/icinga/icinga-go-library/backoff"
 	"github.com/lib/pq"
@@ -16,6 +17,8 @@ import (
 
 // DefaultTimeout is our opinionated default timeout for retrying database and Redis operations.
 const DefaultTimeout = 5 * time.Minute
+
+var ErrNotRetryable = stderrors.New("error not retryable")
 
 // RetryableFunc is a retryable function.
 type RetryableFunc func(context.Context) error
@@ -137,6 +140,10 @@ func ResetTimeout(t *time.Timer, d time.Duration) {
 // i.e. temporary, timeout, DNS, connection refused and reset, host down and unreachable and
 // network down and unreachable errors. In addition, any database error is considered retryable.
 func Retryable(err error) bool {
+	if errors.Is(err, ErrNotRetryable) {
+		return false
+	}
+
 	var temporary interface {
 		Temporary() bool
 	}
