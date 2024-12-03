@@ -14,6 +14,8 @@ type UpdateStatement interface {
 	Set() string
 
 	Where() string
+
+	apply(opts *updateOptions)
 }
 
 func NewUpdateStatement(entity Entity) UpdateStatement {
@@ -61,4 +63,29 @@ func (u *updateStatement) Set() string {
 
 func (u *updateStatement) Where() string {
 	return u.where
+}
+
+func (u *updateStatement) apply(opts *updateOptions) {
+	opts.stmt = u
+}
+
+type UpdateOption interface {
+	apply(opts *updateOptions)
+}
+
+type UpdateOptionFunc func(opts *updateOptions)
+
+func (f UpdateOptionFunc) apply(opts *updateOptions) {
+	f(opts)
+}
+
+func WithOnUpdate(onUpdate ...OnSuccess[any]) UpdateOption {
+	return UpdateOptionFunc(func(opts *updateOptions) {
+		opts.onUpdate = onUpdate
+	})
+}
+
+type updateOptions struct {
+	stmt     UpdateStatement
+	onUpdate []OnSuccess[any]
 }
