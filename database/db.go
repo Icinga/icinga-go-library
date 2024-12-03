@@ -175,7 +175,7 @@ func NewDbFromConfig(c *Config, logger *logging.Logger, connectorCallbacks Retry
 		if port == 0 {
 			port = 5432
 		}
-		query["port"] = []string{strconv.FormatInt(int64(port), 10)}
+		query.Set("port", strconv.FormatInt(int64(port), 10))
 
 		if _, err := c.TlsOptions.MakeConfig(c.Host); err != nil {
 			return nil, err
@@ -183,24 +183,24 @@ func NewDbFromConfig(c *Config, logger *logging.Logger, connectorCallbacks Retry
 
 		if c.TlsOptions.Enable {
 			if c.TlsOptions.Insecure {
-				query["sslmode"] = []string{"require"}
+				query.Set("sslmode", "require")
 			} else {
-				query["sslmode"] = []string{"verify-full"}
+				query.Set("sslmode", "verify-full")
 			}
 
 			if c.TlsOptions.Cert != "" {
-				query["sslcert"] = []string{c.TlsOptions.Cert}
+				query.Set("sslcert", c.TlsOptions.Cert)
 			}
 
 			if c.TlsOptions.Key != "" {
-				query["sslkey"] = []string{c.TlsOptions.Key}
+				query.Set("sslkey", c.TlsOptions.Key)
 			}
 
 			if c.TlsOptions.Ca != "" {
-				query["sslrootcert"] = []string{c.TlsOptions.Ca}
+				query.Set("sslrootcert", c.TlsOptions.Ca)
 			}
 		} else {
-			query["sslmode"] = []string{"disable"}
+			query.Set("sslmode", "disable")
 		}
 
 		uri.RawQuery = query.Encode()
