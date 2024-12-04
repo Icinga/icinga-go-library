@@ -183,39 +183,49 @@ func (qb *queryBuilder) SelectStatement(stmt SelectStatement) string {
 }
 
 func (qb *queryBuilder) UpdateStatement(stmt UpdateStatement) (string, error) {
+	columns := qb.BuildColumns(stmt.Entity(), stmt.Columns(), stmt.ExcludedColumns())
+
 	table := stmt.Table()
 	if table == "" {
 		table = TableName(stmt.Entity())
 	}
-	set := stmt.Set()
-	if set == "" {
-		return "", errors.New("set cannot be empty")
-	}
+
 	where := stmt.Where()
 	if where == "" {
-		return "", errors.New("cannot use UpdateStatement() without where statement - use UpdateAllStatement() instead")
+		return "", fmt.Errorf("%w: %s", ErrMissingStatementPart, "where statement - use UpdateAllStatement() instead")
+	}
+
+	var set []string
+
+	for _, col := range columns {
+		set = append(set, fmt.Sprintf(`"%[1]s" = :%[1]s`, col))
 	}
 
 	return fmt.Sprintf(
-		`UPDATE "%s" SET %s%s`,
+		`UPDATE "%s" SET %s WHERE %s`,
 		table,
-		set,
+		strings.Join(set, ", "),
 		where,
 	), nil
 }
 
 func (qb *queryBuilder) UpdateAllStatement(stmt UpdateStatement) (string, error) {
+	columns := qb.BuildColumns(stmt.Entity(), stmt.Columns(), stmt.ExcludedColumns())
+
 	table := stmt.Table()
 	if table == "" {
 		table = TableName(stmt.Entity())
 	}
-	set := stmt.Set()
-	if set == "" {
-		return "", errors.New("set cannot be empty")
-	}
+
 	where := stmt.Where()
 	if where != "" {
 		return "", errors.New("cannot use UpdateAllStatement() with where statement - use UpdateStatement() instead")
+	}
+
+	var set []string
+
+	for _, col := range columns {
+		set = append(set, fmt.Sprintf(`"%[1]s" = :%[1]s`, col))
 	}
 
 	return fmt.Sprintf(
