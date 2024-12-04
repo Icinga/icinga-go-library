@@ -6,6 +6,7 @@ import (
 	"github.com/icinga/icinga-go-library/strcase"
 	"github.com/jmoiron/sqlx/reflectx"
 	"slices"
+	"sort"
 	"strings"
 )
 
@@ -43,9 +44,21 @@ func NewQueryBuilder(driver string) QueryBuilder {
 	}
 }
 
+func NewTestQueryBuilder(driver string) QueryBuilder {
+	return &queryBuilder{
+		dbDriver:  driver,
+		columnMap: NewColumnMap(reflectx.NewMapperFunc("db", strcase.Snake)),
+		sort:      true,
+	}
+}
+
 type queryBuilder struct {
 	dbDriver  string
 	columnMap ColumnMap
+
+	// Indicates whether the generated columns should be sorted in ascending order before generating the
+	// actual statements. This is intended for unit tests only and shouldn't be necessary for production code.
+	sort bool
 }
 
 func (qb *queryBuilder) UpsertStatement(stmt UpsertStatement) (string, int, error) {
@@ -254,6 +267,12 @@ func (qb *queryBuilder) BuildColumns(entity Entity, columns []string, excludedCo
 				return slices.Contains(excludedColumns, column)
 			},
 		)
+	}
+
+	if qb.sort {
+		// The order in which the columns appear is not guaranteed as we extract the columns dynamically
+		// from the struct. So, we've to sort them here to be able to test the generated statements.
+		sort.Strings(deltaColumns)
 	}
 
 	return deltaColumns[:len(deltaColumns):len(deltaColumns)]
