@@ -86,34 +86,90 @@ func (i *insertStatement) apply(opts *insertOptions) {
 
 // InsertSelectStatement is the interface for building INSERT SELECT statements.
 type InsertSelectStatement interface {
-	InsertStatement
+	// Into sets the table name for the INSERT SELECT statement.
+	// Overrides the table name provided by the entity.
+	Into(table string) InsertSelectStatement
+
+	// SetColumns sets the columns to be inserted.
+	SetColumns(columns ...string) InsertSelectStatement
+
+	// SetExcludedColumns sets the columns to be excluded from the INSERT SELECT statement.
+	// Excludes also columns set by SetColumns.
+	SetExcludedColumns(columns ...string) InsertSelectStatement
 
 	// SetSelect sets the SELECT statement for the INSERT SELECT statement.
 	SetSelect(stmt SelectStatement) InsertSelectStatement
+
+	// Entity returns the entity associated with the INSERT SELECT statement.
+	Entity() Entity
+
+	// Table returns the table name for the INSERT SELECT statement.
+	Table() string
+
+	// Columns returns the columns to be inserted.
+	Columns() []string
+
+	// ExcludedColumns returns the columns to be excluded from the INSERT statement.
+	ExcludedColumns() []string
 
 	// Select returns the SELECT statement for the INSERT SELECT statement.
 	Select() SelectStatement
 }
 
-// NewInsertSelect returns a new insertSelectStatement for the given entity.
-func NewInsertSelect(entity Entity) InsertSelectStatement {
+// NewInsertSelectStatement returns a new insertSelectStatement for the given entity.
+func NewInsertSelectStatement(entity Entity) InsertSelectStatement {
 	return &insertSelectStatement{
-		insertStatement: insertStatement{
-			entity: entity,
-		},
+		entity: entity,
 	}
 }
 
 // insertSelectStatement is the default implementation of the InsertSelectStatement interface.
 type insertSelectStatement struct {
-	insertStatement
-	selectStmt SelectStatement
+	entity          Entity
+	table           string
+	columns         []string
+	excludedColumns []string
+	selectStmt      SelectStatement
+}
+
+func (i *insertSelectStatement) Into(table string) InsertSelectStatement {
+	i.table = table
+
+	return i
+}
+
+func (i *insertSelectStatement) SetColumns(columns ...string) InsertSelectStatement {
+	i.columns = columns
+
+	return i
+}
+
+func (i *insertSelectStatement) SetExcludedColumns(columns ...string) InsertSelectStatement {
+	i.excludedColumns = columns
+
+	return i
 }
 
 func (i *insertSelectStatement) SetSelect(stmt SelectStatement) InsertSelectStatement {
 	i.selectStmt = stmt
 
 	return i
+}
+
+func (i *insertSelectStatement) Entity() Entity {
+	return i.entity
+}
+
+func (i *insertSelectStatement) Table() string {
+	return i.table
+}
+
+func (i *insertSelectStatement) Columns() []string {
+	return i.columns
+}
+
+func (i *insertSelectStatement) ExcludedColumns() []string {
+	return i.excludedColumns
 }
 
 func (i *insertSelectStatement) Select() SelectStatement {

@@ -22,7 +22,7 @@ type QueryBuilder interface {
 
 	InsertIgnoreStatement(stmt InsertStatement) (string, error)
 
-	InsertSelectStatement(stmt InsertSelectStatement) string
+	InsertSelectStatement(stmt InsertSelectStatement) (string, error)
 
 	SelectStatement(stmt SelectStatement) string
 
@@ -139,9 +139,15 @@ func (qb *queryBuilder) InsertIgnoreStatement(stmt InsertStatement) (string, err
 	}
 }
 
-func (qb *queryBuilder) InsertSelectStatement(stmt InsertSelectStatement) string {
-	selectStmt := qb.SelectStatement(stmt.Select())
+func (qb *queryBuilder) InsertSelectStatement(stmt InsertSelectStatement) (string, error) {
 	columns := qb.BuildColumns(stmt.Entity(), stmt.Columns(), stmt.ExcludedColumns())
+
+	sel := stmt.Select()
+	if sel == nil {
+		return "", fmt.Errorf("%w: %s", ErrMissingStatementPart, "select statement")
+	}
+	selectStmt := qb.SelectStatement(sel)
+
 	into := stmt.Table()
 	if into == "" {
 		into = TableName(stmt.Entity())
@@ -152,15 +158,17 @@ func (qb *queryBuilder) InsertSelectStatement(stmt InsertSelectStatement) string
 		into,
 		strings.Join(columns, `", "`),
 		selectStmt,
-	)
+	), nil
 }
 
 func (qb *queryBuilder) SelectStatement(stmt SelectStatement) string {
 	columns := qb.BuildColumns(stmt.Entity(), stmt.Columns(), stmt.ExcludedColumns())
+
 	from := stmt.Table()
 	if from == "" {
 		from = TableName(stmt.Entity())
 	}
+
 	where := stmt.Where()
 	if where != "" {
 		where = fmt.Sprintf(" WHERE %s", where)

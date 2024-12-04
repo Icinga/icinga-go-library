@@ -945,7 +945,7 @@ func BuildInsertIgnoreStatement(db *DB, stmt InsertStatement) (string, error) {
 	return NewQueryBuilder(db.DriverName()).InsertIgnoreStatement(stmt)
 }
 
-func BuildInsertSelectStatement(db *DB, stmt InsertSelectStatement) string {
+func BuildInsertSelectStatement(db *DB, stmt InsertSelectStatement) (string, error) {
 	return NewQueryBuilder(db.DriverName()).InsertSelectStatement(stmt)
 }
 
