@@ -11,8 +11,8 @@ import (
 )
 
 var (
-	ErrInvalidColumnName = errors.New("invalid column name")
-	ErrUnsupportedDriver = errors.New("unsupported database driver")
+	ErrUnsupportedDriver    = errors.New("unsupported database driver")
+	ErrMissingStatementPart = errors.New("missing statement part")
 )
 
 type QueryBuilder interface {
