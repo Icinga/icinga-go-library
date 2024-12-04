@@ -8,8 +8,12 @@ type UpdateStatement interface {
 	// Overrides the table name provided by the entity.
 	SetTable(table string) UpdateStatement
 
-	// SetSet sets the set clause for the UPDATE statement.
-	SetSet(set string) UpdateStatement
+	// SetColumns sets the columns to be updated.
+	SetColumns(columns ...string) UpdateStatement
+
+	// SetExcludedColumns sets the columns to be excluded from the UPDATE statement.
+	// Excludes also columns set by SetColumns.
+	SetExcludedColumns(columns ...string) UpdateStatement
 
 	// SetWhere sets the where clause for the UPDATE statement.
 	SetWhere(where string) UpdateStatement
@@ -20,8 +24,11 @@ type UpdateStatement interface {
 	// Table returns the table name for the UPDATE statement.
 	Table() string
 
-	// Set returns the set clause for the UPDATE statement.
-	Set() string
+	// Columns returns the columns to be updated.
+	Columns() []string
+
+	// ExcludedColumns returns the columns to be excluded from the UPDATE statement.
+	ExcludedColumns() []string
 
 	// Where returns the where clause for the UPDATE statement.
 	Where() string
@@ -39,10 +46,11 @@ func NewUpdateStatement(entity Entity) UpdateStatement {
 
 // updateStatement is the default implementation of the UpdateStatement interface.
 type updateStatement struct {
-	entity Entity
-	table  string
-	set    string
-	where  string
+	entity          Entity
+	table           string
+	columns         []string
+	excludedColumns []string
+	where           string
 }
 
 func (u *updateStatement) SetTable(table string) UpdateStatement {
@@ -51,8 +59,14 @@ func (u *updateStatement) SetTable(table string) UpdateStatement {
 	return u
 }
 
-func (u *updateStatement) SetSet(set string) UpdateStatement {
-	u.set = set
+func (u *updateStatement) SetColumns(columns ...string) UpdateStatement {
+	u.columns = columns
+
+	return u
+}
+
+func (u *updateStatement) SetExcludedColumns(columns ...string) UpdateStatement {
+	u.excludedColumns = columns
 
 	return u
 }
@@ -71,8 +85,12 @@ func (u *updateStatement) Table() string {
 	return u.table
 }
 
-func (u *updateStatement) Set() string {
-	return u.set
+func (u *updateStatement) Columns() []string {
+	return u.columns
+}
+
+func (u *updateStatement) ExcludedColumns() []string {
+	return u.excludedColumns
 }
 
 func (u *updateStatement) Where() string {
