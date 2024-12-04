@@ -867,3 +867,39 @@ func (db *DB) Log(ctx context.Context, query string, counter *com.Counter) perio
 		db.logger.Debugf("Finished executing %q with %d rows in %s", query, counter.Total(), tick.Elapsed)
 	}))
 }
+
+func BuildUpsertStatement(db *DB, stmt UpsertStatement) (string, int, error) {
+	return NewQueryBuilder(db.DriverName()).UpsertStatement(stmt)
+}
+
+func BuildInsertStatement(db *DB, stmt InsertStatement) string {
+	return NewQueryBuilder(db.DriverName()).InsertStatement(stmt)
+}
+
+func BuildInsertIgnoreStatement(db *DB, stmt InsertStatement) (string, error) {
+	return NewQueryBuilder(db.DriverName()).InsertIgnoreStatement(stmt)
+}
+
+func BuildInsertSelectStatement(db *DB, stmt InsertSelectStatement) (string, error) {
+	return NewQueryBuilder(db.DriverName()).InsertSelectStatement(stmt)
+}
+
+func BuildSelectStatement(db *DB, stmt SelectStatement) string {
+	return NewQueryBuilder(db.DriverName()).SelectStatement(stmt)
+}
+
+func BuildUpdateStatement(db *DB, stmt UpdateStatement) (string, error) {
+	return NewQueryBuilder(db.DriverName()).UpdateStatement(stmt)
+}
+
+func BuildUpdateAllStatement(db *DB, stmt UpdateStatement) (string, error) {
+	return NewQueryBuilder(db.DriverName()).UpdateAllStatement(stmt)
+}
+
+func BuildDeleteStatement(db *DB, stmt DeleteStatement) (string, error) {
+	return NewQueryBuilder(db.DriverName()).DeleteStatement(stmt)
+}
+
+func BuildDeleteAllStatement(db *DB, stmt DeleteStatement) (string, error) {
+	return NewQueryBuilder(db.DriverName()).DeleteAllStatement(stmt)
+}
