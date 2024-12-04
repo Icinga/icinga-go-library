@@ -11,30 +11,43 @@ import (
 	"time"
 )
 
+// UpsertStatement is the interface for building UPSERT statements.
 type UpsertStatement interface {
+	// Into sets the table name for the UPSERT statement.
+	// Overrides the table name provided by the entity.
 	Into(table string) UpsertStatement
 
+	// SetColumns sets the columns to be inserted or updated.
 	SetColumns(columns ...string) UpsertStatement
 
+	// SetExcludedColumns sets the columns to be excluded from the UPSERT statement.
+	// Excludes also columns set by SetColumns.
 	SetExcludedColumns(columns ...string) UpsertStatement
 
+	// Entity returns the entity associated with the UPSERT statement.
 	Entity() Entity
 
+	// Table returns the table name for the UPSERT statement.
 	Table() string
 
+	// Columns returns the columns to be inserted or updated.
 	Columns() []string
 
+	// ExcludedColumns returns the columns to be excluded from the UPSERT statement.
 	ExcludedColumns() []string
 
+	// apply implements the UpsertOption interface and applies itself to the given options.
 	apply(opts *upsertOptions)
 }
 
+// NewUpsertStatement returns a new upsertStatement for the given entity.
 func NewUpsertStatement(entity Entity) UpsertStatement {
 	return &upsertStatement{
 		entity: entity,
 	}
 }
 
+// upsertStatement is the default implementation of the UpsertStatement interface.
 type upsertStatement struct {
 	entity          Entity
 	table           string
@@ -80,27 +93,33 @@ func (u *upsertStatement) apply(opts *upsertOptions) {
 	opts.stmt = u
 }
 
+// UpsertOption is the interface for functional options for UpsertStreamed.
 type UpsertOption interface {
+	// apply applies the option to the given upsertOptions.
 	apply(opts *upsertOptions)
 }
 
+// UpsertOptionFunc is a function type that implements the UpsertOption interface.
 type UpsertOptionFunc func(opts *upsertOptions)
 
 func (f UpsertOptionFunc) apply(opts *upsertOptions) {
 	f(opts)
 }
 
+// WithOnUpsert sets the callback functions to be called after a successful UPSERT.
 func WithOnUpsert(onUpsert ...OnSuccess[any]) UpsertOption {
 	return UpsertOptionFunc(func(opts *upsertOptions) {
 		opts.onUpsert = onUpsert
 	})
 }
 
+// upsertOptions stores the options for UpsertStreamed.
 type upsertOptions struct {
 	stmt     UpsertStatement
 	onUpsert []OnSuccess[any]
 }
 
+// UpsertStreamed upserts entities from the given channel into the database.
 func UpsertStreamed[T any, V EntityConstraint[T]](
 	ctx context.Context,
 	db *DB,
