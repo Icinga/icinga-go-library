@@ -138,7 +138,7 @@ func (qb *queryBuilder) InsertSelectStatement(stmt InsertSelectStatement) string
 }
 
 func (qb *queryBuilder) SelectStatement(stmt SelectStatement) string {
-	columns := qb.BuildColumns(stmt.Entity(), stmt.Columns(), stmt.ExcludeColumns())
+	columns := qb.BuildColumns(stmt.Entity(), stmt.Columns(), stmt.ExcludedColumns())
 	from := stmt.Table()
 	if from == "" {
 		from = TableName(stmt.Entity())
