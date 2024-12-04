@@ -253,16 +253,19 @@ func (qb *queryBuilder) DeleteAllStatement(stmt DeleteStatement) (string, error)
 }
 
 func (qb *queryBuilder) BuildColumns(entity Entity, columns []string, excludedColumns []string) []string {
-	var deltaColumns []string
+	var entityColumns []string
+
 	if len(columns) > 0 {
-		deltaColumns = columns
+		entityColumns = columns
 	} else {
-		deltaColumns = qb.columnMap.Columns(entity)
+		tempColumns := qb.columnMap.Columns(entity)
+		entityColumns = make([]string, len(tempColumns))
+		copy(entityColumns, tempColumns)
 	}
 
 	if len(excludedColumns) > 0 {
-		deltaColumns = slices.DeleteFunc(
-			deltaColumns,
+		entityColumns = slices.DeleteFunc(
+			entityColumns,
 			func(column string) bool {
 				return slices.Contains(excludedColumns, column)
 			},
@@ -272,10 +275,10 @@ func (qb *queryBuilder) BuildColumns(entity Entity, columns []string, excludedCo
 	if qb.sort {
 		// The order in which the columns appear is not guaranteed as we extract the columns dynamically
 		// from the struct. So, we've to sort them here to be able to test the generated statements.
-		sort.Strings(deltaColumns)
+		sort.Strings(entityColumns)
 	}
 
-	return deltaColumns[:len(deltaColumns):len(deltaColumns)]
+	return entityColumns[:len(entityColumns):len(entityColumns)]
 }
 
 // getPgsqlOnConflictConstraint returns the constraint name of the current [QueryBuilderOld]'s subject.
