@@ -14,13 +14,19 @@ import (
 	"time"
 )
 
+// DeleteStatement is the interface for building DELETE statements.
 type DeleteStatement interface {
+	// From sets the table name for the DELETE statement.
+	// Overrides the table name provided by the entity.
 	From(table string) DeleteStatement
 
+	// SetWhere sets the where clause for the DELETE statement.
 	SetWhere(where string) DeleteStatement
 
+	// Entity returns the entity associated with the DELETE statement.
 	Entity() Entity
 
+	// Table returns the table name for the DELETE statement.
 	Table() string
 
 	Where() string
@@ -28,12 +34,14 @@ type DeleteStatement interface {
 	apply(do *deleteOptions)
 }
 
+// NewDeleteStatement returns a new deleteStatement for the given entity.
 func NewDeleteStatement(entity Entity) DeleteStatement {
 	return &deleteStatement{
 		entity: entity,
 	}
 }
 
+// deleteStatement is the default implementation of the DeleteStatement interface.
 type deleteStatement struct {
 	entity Entity
 	table  string
@@ -68,27 +76,33 @@ func (d *deleteStatement) apply(opts *deleteOptions) {
 	opts.stmt = d
 }
 
+// DeleteOption is the interface for functional options for DeleteStatement.
 type DeleteOption interface {
+	// apply applies the option to the given deleteOptions.
 	apply(*deleteOptions)
 }
 
+// DeleteOptionFunc is a function type that implements the DeleteOption interface.
 type DeleteOptionFunc func(opts *deleteOptions)
 
 func (f DeleteOptionFunc) apply(opts *deleteOptions) {
 	f(opts)
 }
 
+// WithOnDelete sets the callbacks for a successful DELETE operation.
 func WithOnDelete(onDelete ...OnSuccess[any]) DeleteOption {
 	return DeleteOptionFunc(func(opts *deleteOptions) {
 		opts.onDelete = onDelete
 	})
 }
 
+// deleteOptions stores the options for DeleteStreamed.
 type deleteOptions struct {
 	stmt     DeleteStatement
 	onDelete []OnSuccess[any]
 }
 
+// DeleteStreamed deletes entities from the given channel from the database.
 func DeleteStreamed(
 	ctx context.Context,
 	db *DB,

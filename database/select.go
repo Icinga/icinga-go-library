@@ -1,31 +1,45 @@
 package database
 
+// SelectStatement is the interface for building SELECT statements.
 type SelectStatement interface {
+	// From sets the table name for the SELECT statement.
+	// Overrides the table name provided by the entity.
 	From(table string) SelectStatement
 
+	// SetColumns sets the columns to be selected.
 	SetColumns(columns ...string) SelectStatement
 
+	// SetExcludedColumns sets the columns to be excluded from the SELECT statement.
+	// Excludes also columns set by SetColumns.
 	SetExcludedColumns(columns ...string) SelectStatement
 
+	// SetWhere sets the where clause for the SELECT statement.
 	SetWhere(where string) SelectStatement
 
+	// Entity returns the entity associated with the SELECT statement.
 	Entity() Entity
 
+	// Table returns the table name for the SELECT statement.
 	Table() string
 
+	// Columns returns the columns to be selected.
 	Columns() []string
 
-	ExcludeColumns() []string
+	// ExcludedColumns returns the columns to be excluded from the SELECT statement.
+	ExcludedColumns() []string
 
+	// Where returns the where clause for the SELECT statement.
 	Where() string
 }
 
+// NewSelectStatement returns a new selectStatement for the given entity.
 func NewSelectStatement(entity Entity) SelectStatement {
 	return &selectStatement{
 		entity: entity,
 	}
 }
 
+// selectStatement is the default implementation of the SelectStatement interface.
 type selectStatement struct {
 	entity          Entity
 	table           string
@@ -70,7 +84,7 @@ func (s *selectStatement) Columns() []string {
 	return s.columns
 }
 
-func (s *selectStatement) ExcludeColumns() []string {
+func (s *selectStatement) ExcludedColumns() []string {
 	return s.excludedColumns
 }
 
