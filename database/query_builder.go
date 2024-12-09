@@ -73,10 +73,14 @@ func (qb *queryBuilder) UpsertStatement(stmt UpsertStatement) (string, int, erro
 		clause = "ON DUPLICATE KEY UPDATE"
 		setFormat = `"%[1]s" = VALUES("%[1]s")`
 	case PostgreSQL:
-		clause = fmt.Sprintf(
-			"ON CONFLICT ON CONSTRAINT %s DO UPDATE SET",
-			qb.getPgsqlOnConflictConstraint(stmt.Entity()),
-		)
+		var constraint string
+		if constrainter, ok := stmt.Entity().(PgsqlOnConflictConstrainter); ok {
+			constraint = constrainter.PgsqlOnConflictConstraint()
+		} else {
+			constraint = "pk_" + into
+		}
+
+		clause = fmt.Sprintf("ON CONFLICT ON CONSTRAINT %s DO UPDATE SET", constraint)
 		setFormat = `"%[1]s" = EXCLUDED."%[1]s"`
 	case SQLite:
 		clause = "ON CONFLICT DO UPDATE SET"
@@ -300,15 +304,4 @@ func (qb *queryBuilder) BuildColumns(entity Entity, columns []string, excludedCo
 	}
 
 	return entityColumns[:len(entityColumns):len(entityColumns)]
-}
-
-// getPgsqlOnConflictConstraint returns the constraint name of the current [QueryBuilderOld]'s subject.
-// If the subject does not implement the PgsqlOnConflictConstrainter interface, it will simply return
-// the table name prefixed with `pk_`.
-func (qb *queryBuilder) getPgsqlOnConflictConstraint(entity Entity) string {
-	if constrainter, ok := entity.(PgsqlOnConflictConstrainter); ok {
-		return constrainter.PgsqlOnConflictConstraint()
-	}
-
-	return "pk_" + TableName(entity)
 }
