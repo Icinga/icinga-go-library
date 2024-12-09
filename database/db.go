@@ -313,6 +313,8 @@ func (db *DB) BuildInsertIgnoreStmt(into interface{}) (string, int) {
 		}
 
 		clause = fmt.Sprintf("ON CONFLICT ON CONSTRAINT %s DO NOTHING", constraint)
+	case SQLite:
+		clause = "ON CONFLICT DO NOTHING"
 	}
 
 	return fmt.Sprintf(
@@ -383,6 +385,9 @@ func (db *DB) BuildUpsertStmt(subject interface{}) (stmt string, placeholders in
 		}
 
 		clause = fmt.Sprintf("ON CONFLICT ON CONSTRAINT %s DO UPDATE SET", constraint)
+		setFormat = `"%[1]s" = EXCLUDED."%[1]s"`
+	case SQLite:
+		clause = "ON CONFLICT DO UPDATE SET"
 		setFormat = `"%[1]s" = EXCLUDED."%[1]s"`
 	}
 
