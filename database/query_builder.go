@@ -78,6 +78,9 @@ func (qb *queryBuilder) UpsertStatement(stmt UpsertStatement) (string, int, erro
 			qb.getPgsqlOnConflictConstraint(stmt.Entity()),
 		)
 		setFormat = `"%[1]s" = EXCLUDED."%[1]s"`
+	case SQLite:
+		clause = "ON CONFLICT DO UPDATE SET"
+		setFormat = `"%[1]s" = EXCLUDED."%[1]s"`
 	default:
 		return "", 0, fmt.Errorf("%w: %s", ErrUnsupportedDriver, qb.dbDriver)
 	}
@@ -127,7 +130,7 @@ func (qb *queryBuilder) InsertIgnoreStatement(stmt InsertStatement) (string, err
 			strings.Join(columns, `", "`),
 			fmt.Sprintf(":%s", strings.Join(columns, ", :")),
 		), nil
-	case PostgreSQL:
+	case PostgreSQL, SQLite:
 		return fmt.Sprintf(
 			`INSERT INTO "%s" ("%s") VALUES (%s) ON CONFLICT DO NOTHING`,
 			into,
