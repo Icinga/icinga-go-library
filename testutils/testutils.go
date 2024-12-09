@@ -51,6 +51,58 @@ type ConfigTestData struct {
 	Env map[string]string
 }
 
+type InsertStatementTestData struct {
+	Table           string
+	Columns         []string
+	ExcludedColumns []string
+}
+
+type InsertIgnoreStatementTestData struct {
+	Driver          string
+	Table           string
+	Columns         []string
+	ExcludedColumns []string
+}
+
+type InsertSelectStatementTestData struct {
+	Table           string
+	Columns         []string
+	ExcludedColumns []string
+
+	// Should be SelectStatement but cannot because of import cycle
+	Select any
+}
+
+type UpdateStatementTestData struct {
+	Table           string
+	Columns         []string
+	ExcludedColumns []string
+	Where           string
+}
+
+type UpsertStatementTestData struct {
+	Driver          string
+	Table           string
+	Columns         []string
+	ExcludedColumns []string
+}
+
+type DeleteStatementTestData struct {
+	Table string
+	Where string
+}
+
+type DeleteAllStatementTestData struct {
+	Table string
+}
+
+type SelectStatementTestData struct {
+	Table           string
+	Columns         []string
+	ExcludedColumns []string
+	Where           string
+}
+
 // ErrorAs returns a function that checks if the error is of a specific type T.
 // This is useful for verifying that an error matches a particular interface or concrete type.
 func ErrorAs[T error]() func(t *testing.T, err error) {
