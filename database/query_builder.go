@@ -247,7 +247,7 @@ func (qb *queryBuilder) DeleteStatement(stmt DeleteStatement) (string, error) {
 	if where != "" {
 		where = fmt.Sprintf(" WHERE %s", where)
 	} else {
-		return "", errors.New("cannot use DeleteStatement() without where statement - use DeleteAllStatement() instead")
+		return "", fmt.Errorf("%w: %s", ErrMissingStatementPart, "cannot use DeleteStatement() without where statement - use DeleteAllStatement() instead")
 	}
 
 	return fmt.Sprintf(
