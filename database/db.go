@@ -217,14 +217,24 @@ func NewDbFromConfig(c *Config, logger *logging.Logger, connectorCallbacks Retry
 			addr = utils.JoinHostPort(c.Host, port)
 		}
 		db = sqlx.NewDb(sql.OpenDB(NewConnector(connector, logger, connectorCallbacks)), PostgreSQL)
+	case "sqlite":
+		addr = c.Database
+
+		liteDb, err := sql.Open(SQLite, fmt.Sprintf("file:%s?cache=shared", c.Database))
+		if err != nil {
+			return nil, errors.Wrap(err, "can't open sqlite database")
+		}
+		db = sqlx.NewDb(liteDb, SQLite)
 	default:
 		return nil, unknownDbType(c.Type)
 	}
 
-	if c.TlsOptions.Enable {
-		addr = fmt.Sprintf("%s+tls://%s@%s/%s", c.Type, c.User, addr, c.Database)
-	} else {
-		addr = fmt.Sprintf("%s://%s@%s/%s", c.Type, c.User, addr, c.Database)
+	if c.Type != "sqlite" {
+		if c.TlsOptions.Enable {
+			addr = fmt.Sprintf("%s+tls://%s@%s/%s", c.Type, c.User, addr, c.Database)
+		} else {
+			addr = fmt.Sprintf("%s://%s@%s/%s", c.Type, c.User, addr, c.Database)
+		}
 	}
 
 	db.SetMaxIdleConns(c.Options.MaxConnections / 3)
