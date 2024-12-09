@@ -15,6 +15,7 @@ import (
 const (
 	MySQL      string = "mysql"
 	PostgreSQL string = "postgres"
+	SQLite     string = "sqlite"
 )
 
 // OnInitConnFunc can be used to execute post Connect() arbitrary actions.
