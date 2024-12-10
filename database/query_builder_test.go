@@ -31,8 +31,58 @@ func (m MockEntity) Fingerprint() Fingerprinter {
 	return m
 }
 
+type InsertStatementTestData struct {
+	Table           string
+	Columns         []string
+	ExcludedColumns []string
+}
+
+type InsertIgnoreStatementTestData struct {
+	Driver          string
+	Table           string
+	Columns         []string
+	ExcludedColumns []string
+}
+
+type InsertSelectStatementTestData struct {
+	Table           string
+	Columns         []string
+	ExcludedColumns []string
+	Select          SelectStatement
+}
+
+type UpdateStatementTestData struct {
+	Table           string
+	Columns         []string
+	ExcludedColumns []string
+	Where           string
+}
+
+type UpsertStatementTestData struct {
+	Driver          string
+	Table           string
+	Columns         []string
+	ExcludedColumns []string
+}
+
+type DeleteStatementTestData struct {
+	Table string
+	Where string
+}
+
+type DeleteAllStatementTestData struct {
+	Table string
+}
+
+type SelectStatementTestData struct {
+	Table           string
+	Columns         []string
+	ExcludedColumns []string
+	Where           string
+}
+
 func TestInsertStatement(t *testing.T) {
-	tests := []testutils.TestCase[string, testutils.InsertStatementTestData]{
+	tests := []testutils.TestCase[string, InsertStatementTestData]{
 		{
 			Name:     "NoColumnsSet",
 			Expected: `INSERT INTO "mock_entity" ("age", "email", "id", "name") VALUES (:age, :email, :id, :name)`,
@@ -40,21 +90,21 @@ func TestInsertStatement(t *testing.T) {
 		{
 			Name:     "ColumnsSet",
 			Expected: `INSERT INTO "mock_entity" ("email", "id", "name") VALUES (:email, :id, :name)`,
-			Data: testutils.InsertStatementTestData{
+			Data: InsertStatementTestData{
 				Columns: []string{"id", "name", "email"},
 			},
 		},
 		{
 			Name:     "ExcludedColumnsSet",
 			Expected: `INSERT INTO "mock_entity" ("age", "id", "name") VALUES (:age, :id, :name)`,
-			Data: testutils.InsertStatementTestData{
+			Data: InsertStatementTestData{
 				ExcludedColumns: []string{"email"},
 			},
 		},
 		{
 			Name:     "ColumnsAndExcludedColumnsSet",
 			Expected: `INSERT INTO "mock_entity" ("id", "name") VALUES (:id, :name)`,
-			Data: testutils.InsertStatementTestData{
+			Data: InsertStatementTestData{
 				Columns:         []string{"id", "name", "email"},
 				ExcludedColumns: []string{"email"},
 			},
@@ -62,7 +112,7 @@ func TestInsertStatement(t *testing.T) {
 		{
 			Name:     "OverrideTableName",
 			Expected: `INSERT INTO "custom_table_name" ("email", "id", "name") VALUES (:email, :id, :name)`,
-			Data: testutils.InsertStatementTestData{
+			Data: InsertStatementTestData{
 				Table:   "custom_table_name",
 				Columns: []string{"id", "name", "email"},
 			},
@@ -70,7 +120,7 @@ func TestInsertStatement(t *testing.T) {
 	}
 
 	for _, tst := range tests {
-		t.Run(tst.Name, tst.F(func(data testutils.InsertStatementTestData) (string, error) {
+		t.Run(tst.Name, tst.F(func(data InsertStatementTestData) (string, error) {
 			var actual string
 			var err error
 
@@ -92,18 +142,18 @@ func TestInsertStatement(t *testing.T) {
 }
 
 func TestInsertIgnoreStatement(t *testing.T) {
-	tests := []testutils.TestCase[string, testutils.InsertIgnoreStatementTestData]{
+	tests := []testutils.TestCase[string, InsertIgnoreStatementTestData]{
 		{
 			Name:     "NoColumnsSet_MySQL",
 			Expected: `INSERT IGNORE INTO "mock_entity" ("age", "email", "id", "name") VALUES (:age, :email, :id, :name)`,
-			Data: testutils.InsertIgnoreStatementTestData{
+			Data: InsertIgnoreStatementTestData{
 				Driver: MySQL,
 			},
 		},
 		{
 			Name:     "ColumnsSet_MySQL",
 			Expected: `INSERT IGNORE INTO "mock_entity" ("email", "id", "name") VALUES (:email, :id, :name)`,
-			Data: testutils.InsertIgnoreStatementTestData{
+			Data: InsertIgnoreStatementTestData{
 				Driver:  MySQL,
 				Columns: []string{"id", "name", "email"},
 			},
@@ -111,7 +161,7 @@ func TestInsertIgnoreStatement(t *testing.T) {
 		{
 			Name:     "ExcludedColumnsSet_MySQL",
 			Expected: `INSERT IGNORE INTO "mock_entity" ("age", "id", "name") VALUES (:age, :id, :name)`,
-			Data: testutils.InsertIgnoreStatementTestData{
+			Data: InsertIgnoreStatementTestData{
 				Driver:          MySQL,
 				ExcludedColumns: []string{"email"},
 			},
@@ -119,7 +169,7 @@ func TestInsertIgnoreStatement(t *testing.T) {
 		{
 			Name:     "ColumnsAndExcludedColumnsSet_MySQL",
 			Expected: `INSERT IGNORE INTO "mock_entity" ("id", "name") VALUES (:id, :name)`,
-			Data: testutils.InsertIgnoreStatementTestData{
+			Data: InsertIgnoreStatementTestData{
 				Driver:          MySQL,
 				Columns:         []string{"id", "name", "email"},
 				ExcludedColumns: []string{"email"},
@@ -128,7 +178,7 @@ func TestInsertIgnoreStatement(t *testing.T) {
 		{
 			Name:     "OverrideTableName_MySQL",
 			Expected: `INSERT IGNORE INTO "custom_table_name" ("email", "id", "name") VALUES (:email, :id, :name)`,
-			Data: testutils.InsertIgnoreStatementTestData{
+			Data: InsertIgnoreStatementTestData{
 				Driver:  MySQL,
 				Table:   "custom_table_name",
 				Columns: []string{"id", "name", "email"},
@@ -137,14 +187,14 @@ func TestInsertIgnoreStatement(t *testing.T) {
 		{
 			Name:     "NoColumnsSet_PostgreSQL",
 			Expected: `INSERT INTO "mock_entity" ("age", "email", "id", "name") VALUES (:age, :email, :id, :name) ON CONFLICT DO NOTHING`,
-			Data: testutils.InsertIgnoreStatementTestData{
+			Data: InsertIgnoreStatementTestData{
 				Driver: PostgreSQL,
 			},
 		},
 		{
 			Name:     "ColumnsSet_PostgreSQL",
 			Expected: `INSERT INTO "mock_entity" ("email", "id", "name") VALUES (:email, :id, :name) ON CONFLICT DO NOTHING`,
-			Data: testutils.InsertIgnoreStatementTestData{
+			Data: InsertIgnoreStatementTestData{
 				Driver:  PostgreSQL,
 				Columns: []string{"id", "name", "email"},
 			},
@@ -152,7 +202,7 @@ func TestInsertIgnoreStatement(t *testing.T) {
 		{
 			Name:     "ExcludedColumnsSet_PostgreSQL",
 			Expected: `INSERT INTO "mock_entity" ("age", "id", "name") VALUES (:age, :id, :name) ON CONFLICT DO NOTHING`,
-			Data: testutils.InsertIgnoreStatementTestData{
+			Data: InsertIgnoreStatementTestData{
 				Driver:          PostgreSQL,
 				ExcludedColumns: []string{"email"},
 			},
@@ -160,7 +210,7 @@ func TestInsertIgnoreStatement(t *testing.T) {
 		{
 			Name:     "ColumnsAndExcludedColumnsSet_PostgreSQL",
 			Expected: `INSERT INTO "mock_entity" ("id", "name") VALUES (:id, :name) ON CONFLICT DO NOTHING`,
-			Data: testutils.InsertIgnoreStatementTestData{
+			Data: InsertIgnoreStatementTestData{
 				Driver:          PostgreSQL,
 				Columns:         []string{"id", "name", "email"},
 				ExcludedColumns: []string{"email"},
@@ -169,7 +219,7 @@ func TestInsertIgnoreStatement(t *testing.T) {
 		{
 			Name:     "OverrideTableName_PostgreSQL",
 			Expected: `INSERT INTO "custom_table_name" ("email", "id", "name") VALUES (:email, :id, :name) ON CONFLICT DO NOTHING`,
-			Data: testutils.InsertIgnoreStatementTestData{
+			Data: InsertIgnoreStatementTestData{
 				Driver:          PostgreSQL,
 				Table:           "custom_table_name",
 				Columns:         []string{"id", "name", "email"},
@@ -179,7 +229,7 @@ func TestInsertIgnoreStatement(t *testing.T) {
 		{
 			Name:  "UnsupportedDriver",
 			Error: testutils.ErrorIs(ErrUnsupportedDriver),
-			Data: testutils.InsertIgnoreStatementTestData{
+			Data: InsertIgnoreStatementTestData{
 				Driver:          "abcxyz", // Unsupported driver
 				Columns:         []string{"id", "name", "email"},
 				ExcludedColumns: nil,
@@ -188,7 +238,7 @@ func TestInsertIgnoreStatement(t *testing.T) {
 	}
 
 	for _, tst := range tests {
-		t.Run(tst.Name, tst.F(func(data testutils.InsertIgnoreStatementTestData) (string, error) {
+		t.Run(tst.Name, tst.F(func(data InsertIgnoreStatementTestData) (string, error) {
 			var actual string
 			var err error
 
@@ -210,11 +260,11 @@ func TestInsertIgnoreStatement(t *testing.T) {
 }
 
 func TestInsertSelectStatement(t *testing.T) {
-	tests := []testutils.TestCase[string, testutils.InsertSelectStatementTestData]{
+	tests := []testutils.TestCase[string, InsertSelectStatementTestData]{
 		{
 			Name:     "ColumnsSet",
 			Expected: `INSERT INTO "mock_entity" ("email", "id", "name") SELECT "email", "id", "name" FROM "mock_entity" WHERE id = :id`,
-			Data: testutils.InsertSelectStatementTestData{
+			Data: InsertSelectStatementTestData{
 				Columns: []string{"id", "name", "email"},
 				Select:  NewSelectStatement(&MockEntity{}).SetColumns("id", "name", "email").SetWhere("id = :id"),
 			},
@@ -222,7 +272,7 @@ func TestInsertSelectStatement(t *testing.T) {
 		{
 			Name:     "ExcludedColumnsSet",
 			Expected: `INSERT INTO "mock_entity" ("age", "id", "name") SELECT "age", "id", "name" FROM "mock_entity" WHERE id = :id`,
-			Data: testutils.InsertSelectStatementTestData{
+			Data: InsertSelectStatementTestData{
 				ExcludedColumns: []string{"email"},
 				Select:          NewSelectStatement(&MockEntity{}).SetExcludedColumns("email").SetWhere("id = :id"),
 			},
@@ -230,7 +280,7 @@ func TestInsertSelectStatement(t *testing.T) {
 		{
 			Name:     "ColumnsAndExcludedColumnsSet",
 			Expected: `INSERT INTO "mock_entity" ("id", "name") SELECT "id", "name" FROM "mock_entity" WHERE id = :id`,
-			Data: testutils.InsertSelectStatementTestData{
+			Data: InsertSelectStatementTestData{
 				Columns:         []string{"id", "name", "email"},
 				ExcludedColumns: []string{"email"},
 				Select:          NewSelectStatement(&MockEntity{}).SetColumns("id", "name", "email").SetExcludedColumns("email").SetWhere("id = :id"),
@@ -239,7 +289,7 @@ func TestInsertSelectStatement(t *testing.T) {
 		{
 			Name:     "OverrideTableName",
 			Expected: `INSERT INTO "custom_table_name" ("email", "id", "name") SELECT "email", "id", "name" FROM "mock_entity" WHERE id = :id`,
-			Data: testutils.InsertSelectStatementTestData{
+			Data: InsertSelectStatementTestData{
 				Table:   "custom_table_name",
 				Columns: []string{"id", "name", "email"},
 				Select:  NewSelectStatement(&MockEntity{}).SetColumns("id", "name", "email").SetWhere("id = :id"),
@@ -248,11 +298,11 @@ func TestInsertSelectStatement(t *testing.T) {
 		{
 			Name:  "SelectStatementMissing",
 			Error: testutils.ErrorIs(ErrMissingStatementPart),
-			Data:  testutils.InsertSelectStatementTestData{},
+			Data:  InsertSelectStatementTestData{},
 		},
 		//{
 		//	Name: "InvalidColumnName",
-		//	Data: testutils.InsertStatementTestData{
+		//	Data: InsertStatementTestData{
 		//		Columns:         []string{"id", "name", "email", "invalid_column"},
 		//		ExcludedColumns: nil,
 		//	},
@@ -261,7 +311,7 @@ func TestInsertSelectStatement(t *testing.T) {
 	}
 
 	for _, tst := range tests {
-		t.Run(tst.Name, tst.F(func(data testutils.InsertSelectStatementTestData) (string, error) {
+		t.Run(tst.Name, tst.F(func(data InsertSelectStatementTestData) (string, error) {
 			var actual string
 			var err error
 
@@ -287,7 +337,7 @@ func TestInsertSelectStatement(t *testing.T) {
 }
 
 func TestUpdateStatement(t *testing.T) {
-	tests := []testutils.TestCase[string, testutils.UpdateStatementTestData]{
+	tests := []testutils.TestCase[string, UpdateStatementTestData]{
 		{
 			Name:  "NoWhereSet",
 			Error: testutils.ErrorIs(ErrMissingStatementPart),
@@ -295,7 +345,7 @@ func TestUpdateStatement(t *testing.T) {
 		{
 			Name:     "ColumnsSet",
 			Expected: `UPDATE "mock_entity" SET "email" = :email, "name" = :name WHERE id = :id`,
-			Data: testutils.UpdateStatementTestData{
+			Data: UpdateStatementTestData{
 				Columns: []string{"name", "email"},
 				Where:   "id = :id",
 			},
@@ -303,7 +353,7 @@ func TestUpdateStatement(t *testing.T) {
 		{
 			Name:     "ExcludedColumnsSet",
 			Expected: `UPDATE "mock_entity" SET "email" = :email, "name" = :name WHERE id = :id`,
-			Data: testutils.UpdateStatementTestData{
+			Data: UpdateStatementTestData{
 				ExcludedColumns: []string{"id", "age"},
 				Where:           "id = :id",
 			},
@@ -311,7 +361,7 @@ func TestUpdateStatement(t *testing.T) {
 		{
 			Name:     "OverrideTableName",
 			Expected: `UPDATE "custom_table_name" SET "email" = :email, "id" = :id, "name" = :name WHERE id = :id`,
-			Data: testutils.UpdateStatementTestData{
+			Data: UpdateStatementTestData{
 				Table:   "custom_table_name",
 				Columns: []string{"id", "name", "email"},
 				Where:   "id = :id",
@@ -320,7 +370,7 @@ func TestUpdateStatement(t *testing.T) {
 	}
 
 	for _, tst := range tests {
-		t.Run(tst.Name, tst.F(func(data testutils.UpdateStatementTestData) (string, error) {
+		t.Run(tst.Name, tst.F(func(data UpdateStatementTestData) (string, error) {
 			var actual string
 			var err error
 
@@ -346,18 +396,18 @@ func TestUpdateStatement(t *testing.T) {
 }
 
 func TestUpsertStatement(t *testing.T) {
-	tests := []testutils.TestCase[string, testutils.UpsertStatementTestData]{
+	tests := []testutils.TestCase[string, UpsertStatementTestData]{
 		{
 			Name:     "NoColumnsSet_MySQL",
 			Expected: `INSERT INTO "mock_entity" ("age", "email", "id", "name") VALUES (:age, :email, :id, :name) ON DUPLICATE KEY UPDATE "age" = VALUES("age"), "email" = VALUES("email"), "id" = VALUES("id"), "name" = VALUES("name")`,
-			Data: testutils.UpsertStatementTestData{
+			Data: UpsertStatementTestData{
 				Driver: MySQL,
 			},
 		},
 		{
 			Name:     "ColumnsSet_MySQL",
 			Expected: `INSERT INTO "mock_entity" ("email", "id", "name") VALUES (:email, :id, :name) ON DUPLICATE KEY UPDATE "email" = VALUES("email"), "id" = VALUES("id"), "name" = VALUES("name")`,
-			Data: testutils.UpsertStatementTestData{
+			Data: UpsertStatementTestData{
 				Driver:  MySQL,
 				Columns: []string{"id", "name", "email"},
 			},
@@ -365,7 +415,7 @@ func TestUpsertStatement(t *testing.T) {
 		{
 			Name:     "ExcludedColumnsSet_MySQL",
 			Expected: `INSERT INTO "mock_entity" ("age", "id", "name") VALUES (:age, :id, :name) ON DUPLICATE KEY UPDATE "age" = VALUES("age"), "id" = VALUES("id"), "name" = VALUES("name")`,
-			Data: testutils.UpsertStatementTestData{
+			Data: UpsertStatementTestData{
 				Driver:          MySQL,
 				ExcludedColumns: []string{"email"},
 			},
@@ -373,7 +423,7 @@ func TestUpsertStatement(t *testing.T) {
 		{
 			Name:     "ColumnsAndExcludedColumnsSet_MySQL",
 			Expected: `INSERT INTO "mock_entity" ("id", "name") VALUES (:id, :name) ON DUPLICATE KEY UPDATE "id" = VALUES("id"), "name" = VALUES("name")`,
-			Data: testutils.UpsertStatementTestData{
+			Data: UpsertStatementTestData{
 				Driver:          MySQL,
 				Columns:         []string{"id", "name", "email"},
 				ExcludedColumns: []string{"email"},
@@ -382,7 +432,7 @@ func TestUpsertStatement(t *testing.T) {
 		{
 			Name:     "OverrideTableName_MySQL",
 			Expected: `INSERT INTO "custom_table_name" ("email", "id", "name") VALUES (:email, :id, :name) ON DUPLICATE KEY UPDATE "email" = VALUES("email"), "id" = VALUES("id"), "name" = VALUES("name")`,
-			Data: testutils.UpsertStatementTestData{
+			Data: UpsertStatementTestData{
 				Driver:  MySQL,
 				Table:   "custom_table_name",
 				Columns: []string{"id", "name", "email"},
@@ -391,14 +441,14 @@ func TestUpsertStatement(t *testing.T) {
 		{
 			Name:     "NoColumnsSet_PostgreSQL",
 			Expected: `INSERT INTO "mock_entity" ("age", "email", "id", "name") VALUES (:age, :email, :id, :name) ON CONFLICT ON CONSTRAINT pk_mock_entity DO UPDATE SET "age" = EXCLUDED."age", "email" = EXCLUDED."email", "id" = EXCLUDED."id", "name" = EXCLUDED."name"`,
-			Data: testutils.UpsertStatementTestData{
+			Data: UpsertStatementTestData{
 				Driver: PostgreSQL,
 			},
 		},
 		{
 			Name:     "ColumnsSet_PostgreSQL",
 			Expected: `INSERT INTO "mock_entity" ("email", "id", "name") VALUES (:email, :id, :name) ON CONFLICT ON CONSTRAINT pk_mock_entity DO UPDATE SET "email" = EXCLUDED."email", "id" = EXCLUDED."id", "name" = EXCLUDED."name"`,
-			Data: testutils.UpsertStatementTestData{
+			Data: UpsertStatementTestData{
 				Driver:  PostgreSQL,
 				Columns: []string{"id", "name", "email"},
 			},
@@ -406,7 +456,7 @@ func TestUpsertStatement(t *testing.T) {
 		{
 			Name:     "ExcludedColumnsSet_PostgreSQL",
 			Expected: `INSERT INTO "mock_entity" ("age", "id", "name") VALUES (:age, :id, :name) ON CONFLICT ON CONSTRAINT pk_mock_entity DO UPDATE SET "age" = EXCLUDED."age", "id" = EXCLUDED."id", "name" = EXCLUDED."name"`,
-			Data: testutils.UpsertStatementTestData{
+			Data: UpsertStatementTestData{
 				Driver:          PostgreSQL,
 				ExcludedColumns: []string{"email"},
 			},
@@ -414,7 +464,7 @@ func TestUpsertStatement(t *testing.T) {
 		{
 			Name:     "ColumnsAndExcludedColumnsSet_PostgreSQL",
 			Expected: `INSERT INTO "mock_entity" ("id", "name") VALUES (:id, :name) ON CONFLICT ON CONSTRAINT pk_mock_entity DO UPDATE SET "id" = EXCLUDED."id", "name" = EXCLUDED."name"`,
-			Data: testutils.UpsertStatementTestData{
+			Data: UpsertStatementTestData{
 				Driver:          PostgreSQL,
 				Columns:         []string{"id", "name", "email"},
 				ExcludedColumns: []string{"email"},
@@ -423,7 +473,7 @@ func TestUpsertStatement(t *testing.T) {
 		{
 			Name:     "OverrideTableName_PostgreSQL",
 			Expected: `INSERT INTO "custom_table_name" ("email", "id", "name") VALUES (:email, :id, :name) ON CONFLICT ON CONSTRAINT pk_custom_table_name DO UPDATE SET "email" = EXCLUDED."email", "id" = EXCLUDED."id", "name" = EXCLUDED."name"`,
-			Data: testutils.UpsertStatementTestData{
+			Data: UpsertStatementTestData{
 				Driver:  PostgreSQL,
 				Table:   "custom_table_name",
 				Columns: []string{"id", "name", "email"},
@@ -432,7 +482,7 @@ func TestUpsertStatement(t *testing.T) {
 	}
 
 	for _, tst := range tests {
-		t.Run(tst.Name, tst.F(func(data testutils.UpsertStatementTestData) (string, error) {
+		t.Run(tst.Name, tst.F(func(data UpsertStatementTestData) (string, error) {
 			var actual string
 			var err error
 
@@ -454,7 +504,7 @@ func TestUpsertStatement(t *testing.T) {
 }
 
 func TestDeleteStatement(t *testing.T) {
-	tests := []testutils.TestCase[string, testutils.DeleteStatementTestData]{
+	tests := []testutils.TestCase[string, DeleteStatementTestData]{
 		{
 			Name:  "NoWhereSet",
 			Error: testutils.ErrorIs(ErrMissingStatementPart),
@@ -462,14 +512,14 @@ func TestDeleteStatement(t *testing.T) {
 		{
 			Name:     "WhereSet",
 			Expected: `DELETE FROM "mock_entity" WHERE id = :id`,
-			Data: testutils.DeleteStatementTestData{
+			Data: DeleteStatementTestData{
 				Where: "id = :id",
 			},
 		},
 		{
 			Name:     "OverrideTableName",
 			Expected: `DELETE FROM "custom_table_name" WHERE id = :id`,
-			Data: testutils.DeleteStatementTestData{
+			Data: DeleteStatementTestData{
 				Table: "custom_table_name",
 				Where: "id = :id",
 			},
@@ -477,7 +527,7 @@ func TestDeleteStatement(t *testing.T) {
 	}
 
 	for _, tst := range tests {
-		t.Run(tst.Name, tst.F(func(data testutils.DeleteStatementTestData) (string, error) {
+		t.Run(tst.Name, tst.F(func(data DeleteStatementTestData) (string, error) {
 			var actual string
 			var err error
 
@@ -501,7 +551,7 @@ func TestDeleteStatement(t *testing.T) {
 }
 
 func TestDeleteAllStatement(t *testing.T) {
-	tests := []testutils.TestCase[string, testutils.DeleteAllStatementTestData]{
+	tests := []testutils.TestCase[string, DeleteAllStatementTestData]{
 		{
 			Name:     "AutoTableName",
 			Expected: `DELETE FROM "mock_entity"`,
@@ -509,14 +559,14 @@ func TestDeleteAllStatement(t *testing.T) {
 		{
 			Name:     "OverrideTableName",
 			Expected: `DELETE FROM "custom_table_name"`,
-			Data: testutils.DeleteAllStatementTestData{
+			Data: DeleteAllStatementTestData{
 				Table: "custom_table_name",
 			},
 		},
 	}
 
 	for _, tst := range tests {
-		t.Run(tst.Name, tst.F(func(data testutils.DeleteAllStatementTestData) (string, error) {
+		t.Run(tst.Name, tst.F(func(data DeleteAllStatementTestData) (string, error) {
 			var actual string
 			var err error
 
@@ -536,7 +586,7 @@ func TestDeleteAllStatement(t *testing.T) {
 }
 
 func TestSelectStatement(t *testing.T) {
-	tests := []testutils.TestCase[string, testutils.SelectStatementTestData]{
+	tests := []testutils.TestCase[string, SelectStatementTestData]{
 		{
 			Name:     "NoColumnsSet",
 			Expected: `SELECT "age", "email", "id", "name" FROM "mock_entity"`,
@@ -544,21 +594,21 @@ func TestSelectStatement(t *testing.T) {
 		{
 			Name:     "ColumnsSet",
 			Expected: `SELECT "email", "id", "name" FROM "mock_entity"`,
-			Data: testutils.SelectStatementTestData{
+			Data: SelectStatementTestData{
 				Columns: []string{"id", "name", "email"},
 			},
 		},
 		{
 			Name:     "ExcludedColumnsSet",
 			Expected: `SELECT "age", "id", "name" FROM "mock_entity"`,
-			Data: testutils.SelectStatementTestData{
+			Data: SelectStatementTestData{
 				ExcludedColumns: []string{"email"},
 			},
 		},
 		{
 			Name:     "ColumnsAndExcludedColumnsSet",
 			Expected: `SELECT "id", "name" FROM "mock_entity"`,
-			Data: testutils.SelectStatementTestData{
+			Data: SelectStatementTestData{
 				Columns:         []string{"id", "name", "email"},
 				ExcludedColumns: []string{"email"},
 			},
@@ -566,7 +616,7 @@ func TestSelectStatement(t *testing.T) {
 		{
 			Name:     "OverrideTableName",
 			Expected: `SELECT "email", "id", "name" FROM "custom_table_name"`,
-			Data: testutils.SelectStatementTestData{
+			Data: SelectStatementTestData{
 				Table:   "custom_table_name",
 				Columns: []string{"id", "name", "email"},
 			},
@@ -574,21 +624,21 @@ func TestSelectStatement(t *testing.T) {
 		{
 			Name:     "WhereSet",
 			Expected: `SELECT "age", "email", "id", "name" FROM "mock_entity" WHERE id = :id`,
-			Data: testutils.SelectStatementTestData{
+			Data: SelectStatementTestData{
 				Where: "id = :id",
 			},
 		},
 		{
 			Name:     "MultipleConditionsWhereSet",
 			Expected: `SELECT "age", "email", "id", "name" FROM "mock_entity" WHERE id = :id AND name = :name AND email = :email`,
-			Data: testutils.SelectStatementTestData{
+			Data: SelectStatementTestData{
 				Where: "id = :id AND name = :name AND email = :email",
 			},
 		},
 	}
 
 	for _, tst := range tests {
-		t.Run(tst.Name, tst.F(func(data testutils.SelectStatementTestData) (string, error) {
+		t.Run(tst.Name, tst.F(func(data SelectStatementTestData) (string, error) {
 			var actual string
 			var err error
 
