@@ -2,15 +2,33 @@ package database
 
 import (
 	"github.com/icinga/icinga-go-library/testutils"
+	"strconv"
 	"testing"
 )
 
 type MockEntity struct {
-	Entity
-	Id    int
+	Id    Id
 	Name  string
 	Age   int
 	Email string
+}
+
+type Id int
+
+func (i Id) String() string {
+	return strconv.Itoa(int(i))
+}
+
+func (m MockEntity) ID() ID {
+	return m.Id
+}
+
+func (m MockEntity) SetID(id ID) {
+	m.Id = id.(Id)
+}
+
+func (m MockEntity) Fingerprint() Fingerprinter {
+	return m
 }
 
 func TestInsertStatement(t *testing.T) {
