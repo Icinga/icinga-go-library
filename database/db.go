@@ -219,9 +219,19 @@ func NewDbFromConfig(c *Config, logger *logging.Logger, connectorCallbacks Retry
 		}
 		db = sqlx.NewDb(sql.OpenDB(NewConnector(connector, logger, connectorCallbacks)), PostgreSQL)
 	case "sqlite":
-		addr = c.Database
+		var (
+			name = c.Database
+			mode = ""
+		)
 
-		liteDb, err := sql.Open(SQLite, fmt.Sprintf("file:%s?cache=shared", c.Database))
+		if strings.Contains(c.Database, ":memory:") && c.Database != ":memory:" {
+			name = strings.Split(c.Database, ":memory:")[1]
+			mode = "mode=memory&"
+		}
+
+		addr = fmt.Sprintf("file:%s?%scache=shared", name, mode)
+
+		liteDb, err := sql.Open(SQLite, addr)
 		if err != nil {
 			return nil, errors.Wrap(err, "can't open sqlite database")
 		}
