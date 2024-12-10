@@ -22,6 +22,7 @@ import (
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/semaphore"
+	_ "modernc.org/sqlite"
 	"net"
 	"net/url"
 	"slices"
