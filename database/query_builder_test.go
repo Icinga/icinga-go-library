@@ -2,34 +2,8 @@ package database
 
 import (
 	"github.com/icinga/icinga-go-library/testutils"
-	"strconv"
 	"testing"
 )
-
-type MockEntity struct {
-	Id    Id
-	Name  string
-	Age   int
-	Email string
-}
-
-type Id int
-
-func (i Id) String() string {
-	return strconv.Itoa(int(i))
-}
-
-func (m MockEntity) ID() ID {
-	return m.Id
-}
-
-func (m MockEntity) SetID(id ID) {
-	m.Id = id.(Id)
-}
-
-func (m MockEntity) Fingerprint() Fingerprinter {
-	return m
-}
 
 type InsertStatementTestData struct {
 	Table           string
@@ -85,25 +59,25 @@ func TestInsertStatement(t *testing.T) {
 	tests := []testutils.TestCase[string, InsertStatementTestData]{
 		{
 			Name:     "NoColumnsSet",
-			Expected: `INSERT INTO "mock_entity" ("age", "email", "id", "name") VALUES (:age, :email, :id, :name)`,
+			Expected: `INSERT INTO "user" ("age", "email", "id", "name") VALUES (:age, :email, :id, :name)`,
 		},
 		{
 			Name:     "ColumnsSet",
-			Expected: `INSERT INTO "mock_entity" ("email", "id", "name") VALUES (:email, :id, :name)`,
+			Expected: `INSERT INTO "user" ("email", "id", "name") VALUES (:email, :id, :name)`,
 			Data: InsertStatementTestData{
 				Columns: []string{"id", "name", "email"},
 			},
 		},
 		{
 			Name:     "ExcludedColumnsSet",
-			Expected: `INSERT INTO "mock_entity" ("age", "id", "name") VALUES (:age, :id, :name)`,
+			Expected: `INSERT INTO "user" ("age", "id", "name") VALUES (:age, :id, :name)`,
 			Data: InsertStatementTestData{
 				ExcludedColumns: []string{"email"},
 			},
 		},
 		{
 			Name:     "ColumnsAndExcludedColumnsSet",
-			Expected: `INSERT INTO "mock_entity" ("id", "name") VALUES (:id, :name)`,
+			Expected: `INSERT INTO "user" ("id", "name") VALUES (:id, :name)`,
 			Data: InsertStatementTestData{
 				Columns:         []string{"id", "name", "email"},
 				ExcludedColumns: []string{"email"},
@@ -124,7 +98,7 @@ func TestInsertStatement(t *testing.T) {
 			var actual string
 			var err error
 
-			stmt := NewInsertStatement(&MockEntity{}).
+			stmt := NewInsertStatement(&User{}).
 				SetColumns(data.Columns...).
 				SetExcludedColumns(data.ExcludedColumns...)
 
@@ -145,14 +119,14 @@ func TestInsertIgnoreStatement(t *testing.T) {
 	tests := []testutils.TestCase[string, InsertIgnoreStatementTestData]{
 		{
 			Name:     "NoColumnsSet_MySQL",
-			Expected: `INSERT IGNORE INTO "mock_entity" ("age", "email", "id", "name") VALUES (:age, :email, :id, :name)`,
+			Expected: `INSERT IGNORE INTO "user" ("age", "email", "id", "name") VALUES (:age, :email, :id, :name)`,
 			Data: InsertIgnoreStatementTestData{
 				Driver: MySQL,
 			},
 		},
 		{
 			Name:     "ColumnsSet_MySQL",
-			Expected: `INSERT IGNORE INTO "mock_entity" ("email", "id", "name") VALUES (:email, :id, :name)`,
+			Expected: `INSERT IGNORE INTO "user" ("email", "id", "name") VALUES (:email, :id, :name)`,
 			Data: InsertIgnoreStatementTestData{
 				Driver:  MySQL,
 				Columns: []string{"id", "name", "email"},
@@ -160,7 +134,7 @@ func TestInsertIgnoreStatement(t *testing.T) {
 		},
 		{
 			Name:     "ExcludedColumnsSet_MySQL",
-			Expected: `INSERT IGNORE INTO "mock_entity" ("age", "id", "name") VALUES (:age, :id, :name)`,
+			Expected: `INSERT IGNORE INTO "user" ("age", "id", "name") VALUES (:age, :id, :name)`,
 			Data: InsertIgnoreStatementTestData{
 				Driver:          MySQL,
 				ExcludedColumns: []string{"email"},
@@ -168,7 +142,7 @@ func TestInsertIgnoreStatement(t *testing.T) {
 		},
 		{
 			Name:     "ColumnsAndExcludedColumnsSet_MySQL",
-			Expected: `INSERT IGNORE INTO "mock_entity" ("id", "name") VALUES (:id, :name)`,
+			Expected: `INSERT IGNORE INTO "user" ("id", "name") VALUES (:id, :name)`,
 			Data: InsertIgnoreStatementTestData{
 				Driver:          MySQL,
 				Columns:         []string{"id", "name", "email"},
@@ -186,14 +160,14 @@ func TestInsertIgnoreStatement(t *testing.T) {
 		},
 		{
 			Name:     "NoColumnsSet_PostgreSQL",
-			Expected: `INSERT INTO "mock_entity" ("age", "email", "id", "name") VALUES (:age, :email, :id, :name) ON CONFLICT DO NOTHING`,
+			Expected: `INSERT INTO "user" ("age", "email", "id", "name") VALUES (:age, :email, :id, :name) ON CONFLICT DO NOTHING`,
 			Data: InsertIgnoreStatementTestData{
 				Driver: PostgreSQL,
 			},
 		},
 		{
 			Name:     "ColumnsSet_PostgreSQL",
-			Expected: `INSERT INTO "mock_entity" ("email", "id", "name") VALUES (:email, :id, :name) ON CONFLICT DO NOTHING`,
+			Expected: `INSERT INTO "user" ("email", "id", "name") VALUES (:email, :id, :name) ON CONFLICT DO NOTHING`,
 			Data: InsertIgnoreStatementTestData{
 				Driver:  PostgreSQL,
 				Columns: []string{"id", "name", "email"},
@@ -201,7 +175,7 @@ func TestInsertIgnoreStatement(t *testing.T) {
 		},
 		{
 			Name:     "ExcludedColumnsSet_PostgreSQL",
-			Expected: `INSERT INTO "mock_entity" ("age", "id", "name") VALUES (:age, :id, :name) ON CONFLICT DO NOTHING`,
+			Expected: `INSERT INTO "user" ("age", "id", "name") VALUES (:age, :id, :name) ON CONFLICT DO NOTHING`,
 			Data: InsertIgnoreStatementTestData{
 				Driver:          PostgreSQL,
 				ExcludedColumns: []string{"email"},
@@ -209,7 +183,7 @@ func TestInsertIgnoreStatement(t *testing.T) {
 		},
 		{
 			Name:     "ColumnsAndExcludedColumnsSet_PostgreSQL",
-			Expected: `INSERT INTO "mock_entity" ("id", "name") VALUES (:id, :name) ON CONFLICT DO NOTHING`,
+			Expected: `INSERT INTO "user" ("id", "name") VALUES (:id, :name) ON CONFLICT DO NOTHING`,
 			Data: InsertIgnoreStatementTestData{
 				Driver:          PostgreSQL,
 				Columns:         []string{"id", "name", "email"},
@@ -242,7 +216,7 @@ func TestInsertIgnoreStatement(t *testing.T) {
 			var actual string
 			var err error
 
-			stmt := NewInsertStatement(&MockEntity{}).
+			stmt := NewInsertStatement(&User{}).
 				SetColumns(data.Columns...).
 				SetExcludedColumns(data.ExcludedColumns...)
 
@@ -263,36 +237,36 @@ func TestInsertSelectStatement(t *testing.T) {
 	tests := []testutils.TestCase[string, InsertSelectStatementTestData]{
 		{
 			Name:     "ColumnsSet",
-			Expected: `INSERT INTO "mock_entity" ("email", "id", "name") SELECT "email", "id", "name" FROM "mock_entity" WHERE id = :id`,
+			Expected: `INSERT INTO "user" ("email", "id", "name") SELECT "email", "id", "name" FROM "user" WHERE id = :id`,
 			Data: InsertSelectStatementTestData{
 				Columns: []string{"id", "name", "email"},
-				Select:  NewSelectStatement(&MockEntity{}).SetColumns("id", "name", "email").SetWhere("id = :id"),
+				Select:  NewSelectStatement(&User{}).SetColumns("id", "name", "email").SetWhere("id = :id"),
 			},
 		},
 		{
 			Name:     "ExcludedColumnsSet",
-			Expected: `INSERT INTO "mock_entity" ("age", "id", "name") SELECT "age", "id", "name" FROM "mock_entity" WHERE id = :id`,
+			Expected: `INSERT INTO "user" ("age", "id", "name") SELECT "age", "id", "name" FROM "user" WHERE id = :id`,
 			Data: InsertSelectStatementTestData{
 				ExcludedColumns: []string{"email"},
-				Select:          NewSelectStatement(&MockEntity{}).SetExcludedColumns("email").SetWhere("id = :id"),
+				Select:          NewSelectStatement(&User{}).SetExcludedColumns("email").SetWhere("id = :id"),
 			},
 		},
 		{
 			Name:     "ColumnsAndExcludedColumnsSet",
-			Expected: `INSERT INTO "mock_entity" ("id", "name") SELECT "id", "name" FROM "mock_entity" WHERE id = :id`,
+			Expected: `INSERT INTO "user" ("id", "name") SELECT "id", "name" FROM "user" WHERE id = :id`,
 			Data: InsertSelectStatementTestData{
 				Columns:         []string{"id", "name", "email"},
 				ExcludedColumns: []string{"email"},
-				Select:          NewSelectStatement(&MockEntity{}).SetColumns("id", "name", "email").SetExcludedColumns("email").SetWhere("id = :id"),
+				Select:          NewSelectStatement(&User{}).SetColumns("id", "name", "email").SetExcludedColumns("email").SetWhere("id = :id"),
 			},
 		},
 		{
 			Name:     "OverrideTableName",
-			Expected: `INSERT INTO "custom_table_name" ("email", "id", "name") SELECT "email", "id", "name" FROM "mock_entity" WHERE id = :id`,
+			Expected: `INSERT INTO "custom_table_name" ("email", "id", "name") SELECT "email", "id", "name" FROM "user" WHERE id = :id`,
 			Data: InsertSelectStatementTestData{
 				Table:   "custom_table_name",
 				Columns: []string{"id", "name", "email"},
-				Select:  NewSelectStatement(&MockEntity{}).SetColumns("id", "name", "email").SetWhere("id = :id"),
+				Select:  NewSelectStatement(&User{}).SetColumns("id", "name", "email").SetWhere("id = :id"),
 			},
 		},
 		{
@@ -315,7 +289,7 @@ func TestInsertSelectStatement(t *testing.T) {
 			var actual string
 			var err error
 
-			stmt := NewInsertSelectStatement(&MockEntity{}).
+			stmt := NewInsertSelectStatement(&User{}).
 				SetColumns(data.Columns...).
 				SetExcludedColumns(data.ExcludedColumns...)
 
@@ -344,7 +318,7 @@ func TestUpdateStatement(t *testing.T) {
 		},
 		{
 			Name:     "ColumnsSet",
-			Expected: `UPDATE "mock_entity" SET "email" = :email, "name" = :name WHERE id = :id`,
+			Expected: `UPDATE "user" SET "email" = :email, "name" = :name WHERE id = :id`,
 			Data: UpdateStatementTestData{
 				Columns: []string{"name", "email"},
 				Where:   "id = :id",
@@ -352,7 +326,7 @@ func TestUpdateStatement(t *testing.T) {
 		},
 		{
 			Name:     "ExcludedColumnsSet",
-			Expected: `UPDATE "mock_entity" SET "email" = :email, "name" = :name WHERE id = :id`,
+			Expected: `UPDATE "user" SET "email" = :email, "name" = :name WHERE id = :id`,
 			Data: UpdateStatementTestData{
 				ExcludedColumns: []string{"id", "age"},
 				Where:           "id = :id",
@@ -374,7 +348,7 @@ func TestUpdateStatement(t *testing.T) {
 			var actual string
 			var err error
 
-			stmt := NewUpdateStatement(&MockEntity{}).
+			stmt := NewUpdateStatement(&User{}).
 				SetColumns(data.Columns...).
 				SetExcludedColumns(data.ExcludedColumns...)
 
@@ -399,14 +373,14 @@ func TestUpsertStatement(t *testing.T) {
 	tests := []testutils.TestCase[string, UpsertStatementTestData]{
 		{
 			Name:     "NoColumnsSet_MySQL",
-			Expected: `INSERT INTO "mock_entity" ("age", "email", "id", "name") VALUES (:age, :email, :id, :name) ON DUPLICATE KEY UPDATE "age" = VALUES("age"), "email" = VALUES("email"), "id" = VALUES("id"), "name" = VALUES("name")`,
+			Expected: `INSERT INTO "user" ("age", "email", "id", "name") VALUES (:age, :email, :id, :name) ON DUPLICATE KEY UPDATE "age" = VALUES("age"), "email" = VALUES("email"), "id" = VALUES("id"), "name" = VALUES("name")`,
 			Data: UpsertStatementTestData{
 				Driver: MySQL,
 			},
 		},
 		{
 			Name:     "ColumnsSet_MySQL",
-			Expected: `INSERT INTO "mock_entity" ("email", "id", "name") VALUES (:email, :id, :name) ON DUPLICATE KEY UPDATE "email" = VALUES("email"), "id" = VALUES("id"), "name" = VALUES("name")`,
+			Expected: `INSERT INTO "user" ("email", "id", "name") VALUES (:email, :id, :name) ON DUPLICATE KEY UPDATE "email" = VALUES("email"), "id" = VALUES("id"), "name" = VALUES("name")`,
 			Data: UpsertStatementTestData{
 				Driver:  MySQL,
 				Columns: []string{"id", "name", "email"},
@@ -414,7 +388,7 @@ func TestUpsertStatement(t *testing.T) {
 		},
 		{
 			Name:     "ExcludedColumnsSet_MySQL",
-			Expected: `INSERT INTO "mock_entity" ("age", "id", "name") VALUES (:age, :id, :name) ON DUPLICATE KEY UPDATE "age" = VALUES("age"), "id" = VALUES("id"), "name" = VALUES("name")`,
+			Expected: `INSERT INTO "user" ("age", "id", "name") VALUES (:age, :id, :name) ON DUPLICATE KEY UPDATE "age" = VALUES("age"), "id" = VALUES("id"), "name" = VALUES("name")`,
 			Data: UpsertStatementTestData{
 				Driver:          MySQL,
 				ExcludedColumns: []string{"email"},
@@ -422,7 +396,7 @@ func TestUpsertStatement(t *testing.T) {
 		},
 		{
 			Name:     "ColumnsAndExcludedColumnsSet_MySQL",
-			Expected: `INSERT INTO "mock_entity" ("id", "name") VALUES (:id, :name) ON DUPLICATE KEY UPDATE "id" = VALUES("id"), "name" = VALUES("name")`,
+			Expected: `INSERT INTO "user" ("id", "name") VALUES (:id, :name) ON DUPLICATE KEY UPDATE "id" = VALUES("id"), "name" = VALUES("name")`,
 			Data: UpsertStatementTestData{
 				Driver:          MySQL,
 				Columns:         []string{"id", "name", "email"},
@@ -440,14 +414,14 @@ func TestUpsertStatement(t *testing.T) {
 		},
 		{
 			Name:     "NoColumnsSet_PostgreSQL",
-			Expected: `INSERT INTO "mock_entity" ("age", "email", "id", "name") VALUES (:age, :email, :id, :name) ON CONFLICT ON CONSTRAINT pk_mock_entity DO UPDATE SET "age" = EXCLUDED."age", "email" = EXCLUDED."email", "id" = EXCLUDED."id", "name" = EXCLUDED."name"`,
+			Expected: `INSERT INTO "user" ("age", "email", "id", "name") VALUES (:age, :email, :id, :name) ON CONFLICT ON CONSTRAINT pk_user DO UPDATE SET "age" = EXCLUDED."age", "email" = EXCLUDED."email", "id" = EXCLUDED."id", "name" = EXCLUDED."name"`,
 			Data: UpsertStatementTestData{
 				Driver: PostgreSQL,
 			},
 		},
 		{
 			Name:     "ColumnsSet_PostgreSQL",
-			Expected: `INSERT INTO "mock_entity" ("email", "id", "name") VALUES (:email, :id, :name) ON CONFLICT ON CONSTRAINT pk_mock_entity DO UPDATE SET "email" = EXCLUDED."email", "id" = EXCLUDED."id", "name" = EXCLUDED."name"`,
+			Expected: `INSERT INTO "user" ("email", "id", "name") VALUES (:email, :id, :name) ON CONFLICT ON CONSTRAINT pk_user DO UPDATE SET "email" = EXCLUDED."email", "id" = EXCLUDED."id", "name" = EXCLUDED."name"`,
 			Data: UpsertStatementTestData{
 				Driver:  PostgreSQL,
 				Columns: []string{"id", "name", "email"},
@@ -455,7 +429,7 @@ func TestUpsertStatement(t *testing.T) {
 		},
 		{
 			Name:     "ExcludedColumnsSet_PostgreSQL",
-			Expected: `INSERT INTO "mock_entity" ("age", "id", "name") VALUES (:age, :id, :name) ON CONFLICT ON CONSTRAINT pk_mock_entity DO UPDATE SET "age" = EXCLUDED."age", "id" = EXCLUDED."id", "name" = EXCLUDED."name"`,
+			Expected: `INSERT INTO "user" ("age", "id", "name") VALUES (:age, :id, :name) ON CONFLICT ON CONSTRAINT pk_user DO UPDATE SET "age" = EXCLUDED."age", "id" = EXCLUDED."id", "name" = EXCLUDED."name"`,
 			Data: UpsertStatementTestData{
 				Driver:          PostgreSQL,
 				ExcludedColumns: []string{"email"},
@@ -463,7 +437,7 @@ func TestUpsertStatement(t *testing.T) {
 		},
 		{
 			Name:     "ColumnsAndExcludedColumnsSet_PostgreSQL",
-			Expected: `INSERT INTO "mock_entity" ("id", "name") VALUES (:id, :name) ON CONFLICT ON CONSTRAINT pk_mock_entity DO UPDATE SET "id" = EXCLUDED."id", "name" = EXCLUDED."name"`,
+			Expected: `INSERT INTO "user" ("id", "name") VALUES (:id, :name) ON CONFLICT ON CONSTRAINT pk_user DO UPDATE SET "id" = EXCLUDED."id", "name" = EXCLUDED."name"`,
 			Data: UpsertStatementTestData{
 				Driver:          PostgreSQL,
 				Columns:         []string{"id", "name", "email"},
@@ -486,7 +460,7 @@ func TestUpsertStatement(t *testing.T) {
 			var actual string
 			var err error
 
-			stmt := NewUpsertStatement(&MockEntity{}).
+			stmt := NewUpsertStatement(&User{}).
 				SetColumns(data.Columns...).
 				SetExcludedColumns(data.ExcludedColumns...)
 
@@ -511,7 +485,7 @@ func TestDeleteStatement(t *testing.T) {
 		},
 		{
 			Name:     "WhereSet",
-			Expected: `DELETE FROM "mock_entity" WHERE id = :id`,
+			Expected: `DELETE FROM "user" WHERE id = :id`,
 			Data: DeleteStatementTestData{
 				Where: "id = :id",
 			},
@@ -531,7 +505,7 @@ func TestDeleteStatement(t *testing.T) {
 			var actual string
 			var err error
 
-			stmt := NewDeleteStatement(&MockEntity{})
+			stmt := NewDeleteStatement(&User{})
 
 			if data.Where != "" {
 				stmt.SetWhere(data.Where)
@@ -554,7 +528,7 @@ func TestDeleteAllStatement(t *testing.T) {
 	tests := []testutils.TestCase[string, DeleteAllStatementTestData]{
 		{
 			Name:     "AutoTableName",
-			Expected: `DELETE FROM "mock_entity"`,
+			Expected: `DELETE FROM "user"`,
 		},
 		{
 			Name:     "OverrideTableName",
@@ -570,7 +544,7 @@ func TestDeleteAllStatement(t *testing.T) {
 			var actual string
 			var err error
 
-			stmt := NewDeleteStatement(&MockEntity{})
+			stmt := NewDeleteStatement(&User{})
 
 			if data.Table != "" {
 				stmt.From(data.Table)
@@ -589,25 +563,25 @@ func TestSelectStatement(t *testing.T) {
 	tests := []testutils.TestCase[string, SelectStatementTestData]{
 		{
 			Name:     "NoColumnsSet",
-			Expected: `SELECT "age", "email", "id", "name" FROM "mock_entity"`,
+			Expected: `SELECT "age", "email", "id", "name" FROM "user"`,
 		},
 		{
 			Name:     "ColumnsSet",
-			Expected: `SELECT "email", "id", "name" FROM "mock_entity"`,
+			Expected: `SELECT "email", "id", "name" FROM "user"`,
 			Data: SelectStatementTestData{
 				Columns: []string{"id", "name", "email"},
 			},
 		},
 		{
 			Name:     "ExcludedColumnsSet",
-			Expected: `SELECT "age", "id", "name" FROM "mock_entity"`,
+			Expected: `SELECT "age", "id", "name" FROM "user"`,
 			Data: SelectStatementTestData{
 				ExcludedColumns: []string{"email"},
 			},
 		},
 		{
 			Name:     "ColumnsAndExcludedColumnsSet",
-			Expected: `SELECT "id", "name" FROM "mock_entity"`,
+			Expected: `SELECT "id", "name" FROM "user"`,
 			Data: SelectStatementTestData{
 				Columns:         []string{"id", "name", "email"},
 				ExcludedColumns: []string{"email"},
@@ -623,14 +597,14 @@ func TestSelectStatement(t *testing.T) {
 		},
 		{
 			Name:     "WhereSet",
-			Expected: `SELECT "age", "email", "id", "name" FROM "mock_entity" WHERE id = :id`,
+			Expected: `SELECT "age", "email", "id", "name" FROM "user" WHERE id = :id`,
 			Data: SelectStatementTestData{
 				Where: "id = :id",
 			},
 		},
 		{
 			Name:     "MultipleConditionsWhereSet",
-			Expected: `SELECT "age", "email", "id", "name" FROM "mock_entity" WHERE id = :id AND name = :name AND email = :email`,
+			Expected: `SELECT "age", "email", "id", "name" FROM "user" WHERE id = :id AND name = :name AND email = :email`,
 			Data: SelectStatementTestData{
 				Where: "id = :id AND name = :name AND email = :email",
 			},
@@ -642,7 +616,7 @@ func TestSelectStatement(t *testing.T) {
 			var actual string
 			var err error
 
-			stmt := NewSelectStatement(&MockEntity{}).
+			stmt := NewSelectStatement(&User{}).
 				SetColumns(data.Columns...).
 				SetExcludedColumns(data.ExcludedColumns...)
 
