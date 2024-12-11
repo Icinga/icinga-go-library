@@ -29,6 +29,11 @@ type IDer interface {
 // EntityFactoryFunc knows how to create an Entity.
 type EntityFactoryFunc func() Entity
 
+type EntityConstraint[T any] interface {
+	Entity
+	*T
+}
+
 // Upserter implements the Upsert method,
 // which returns a part of the object for ON DUPLICATE KEY UPDATE.
 type Upserter interface {
