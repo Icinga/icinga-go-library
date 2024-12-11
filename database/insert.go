@@ -182,7 +182,7 @@ func WithInsertStatement(stmt InsertStatement) InsertOption {
 // WithOnInsert sets the onInsert callbacks for a successful INSERT statement.
 func WithOnInsert(onInsert ...OnSuccess[any]) InsertOption {
 	return func(opts *insertOptions) {
-		opts.onInsert = onInsert
+		opts.onInsert = append(opts.onInsert, onInsert...)
 	}
 }
 

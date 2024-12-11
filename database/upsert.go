@@ -99,7 +99,7 @@ func WithUpsertStatement(stmt UpsertStatement) UpsertOption {
 // WithOnUpsert sets the callback functions to be called after a successful UPSERT.
 func WithOnUpsert(onUpsert ...OnSuccess[any]) UpsertOption {
 	return func(opts *upsertOptions) {
-		opts.onUpsert = onUpsert
+		opts.onUpsert = append(opts.onUpsert, onUpsert...)
 	}
 }
 
