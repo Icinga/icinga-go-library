@@ -35,9 +35,6 @@ type UpsertStatement interface {
 
 	// ExcludedColumns returns the columns to be excluded from the UPSERT statement.
 	ExcludedColumns() []string
-
-	// apply implements the UpsertOption interface and applies itself to the given options.
-	apply(opts *upsertOptions)
 }
 
 // NewUpsertStatement returns a new upsertStatement for the given entity.
@@ -89,28 +86,21 @@ func (u *upsertStatement) ExcludedColumns() []string {
 	return u.excludedColumns
 }
 
-func (u *upsertStatement) apply(opts *upsertOptions) {
-	opts.stmt = u
-}
+// UpsertOption is a functional option for UpsertStreamed().
+type UpsertOption func(opts *upsertOptions)
 
-// UpsertOption is the interface for functional options for UpsertStreamed.
-type UpsertOption interface {
-	// apply applies the option to the given upsertOptions.
-	apply(opts *upsertOptions)
-}
-
-// UpsertOptionFunc is a function type that implements the UpsertOption interface.
-type UpsertOptionFunc func(opts *upsertOptions)
-
-func (f UpsertOptionFunc) apply(opts *upsertOptions) {
-	f(opts)
+// WithUpsertStatement sets the UPSERT statement to be used for upserting entities.
+func WithUpsertStatement(stmt UpsertStatement) UpsertOption {
+	return func(opts *upsertOptions) {
+		opts.stmt = stmt
+	}
 }
 
 // WithOnUpsert sets the callback functions to be called after a successful UPSERT.
 func WithOnUpsert(onUpsert ...OnSuccess[any]) UpsertOption {
-	return UpsertOptionFunc(func(opts *upsertOptions) {
+	return func(opts *upsertOptions) {
 		opts.onUpsert = onUpsert
-	})
+	}
 }
 
 // upsertOptions stores the options for UpsertStreamed.
@@ -136,7 +126,7 @@ func UpsertStreamed[T any, V EntityConstraint[T]](
 	)
 
 	for _, option := range options {
-		option.apply(opts)
+		option(opts)
 	}
 
 	if opts.stmt != nil {

@@ -26,9 +26,6 @@ type InsertStatement interface {
 
 	// ExcludedColumns returns the columns to be excluded from the INSERT statement.
 	ExcludedColumns() []string
-
-	// apply implements the InsertOption interface and applies itself to the given options.
-	apply(opts *insertOptions)
 }
 
 // NewInsertStatement returns a new insertStatement for the given entity.
@@ -78,10 +75,6 @@ func (i *insertStatement) Columns() []string {
 
 func (i *insertStatement) ExcludedColumns() []string {
 	return i.excludedColumns
-}
-
-func (i *insertStatement) apply(opts *insertOptions) {
-	opts.stmt = i
 }
 
 // InsertSelectStatement is the interface for building INSERT SELECT statements.
@@ -176,24 +169,21 @@ func (i *insertSelectStatement) Select() SelectStatement {
 	return i.selectStmt
 }
 
-// InsertOption is the interface for functional options for InsertStreamed.
-type InsertOption interface {
-	// apply applies the option to the given insertOptions.
-	apply(opts *insertOptions)
-}
+// InsertOption is a functional option for InsertStreamed().
+type InsertOption func(opts *insertOptions)
 
-// InsertOptionFunc is a function type that implements the InsertOption interface.
-type InsertOptionFunc func(opts *insertOptions)
-
-func (f InsertOptionFunc) apply(opts *insertOptions) {
-	f(opts)
+// WithInsertStatement sets the INSERT statement to be used for inserting entities.
+func WithInsertStatement(stmt InsertStatement) InsertOption {
+	return func(opts *insertOptions) {
+		opts.stmt = stmt
+	}
 }
 
 // WithOnInsert sets the onInsert callbacks for a successful INSERT statement.
 func WithOnInsert(onInsert ...OnSuccess[any]) InsertOption {
-	return InsertOptionFunc(func(opts *insertOptions) {
+	return func(opts *insertOptions) {
 		opts.onInsert = onInsert
-	})
+	}
 }
 
 // insertOptions stores the options for InsertStreamed.

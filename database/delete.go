@@ -30,8 +30,6 @@ type DeleteStatement interface {
 	Table() string
 
 	Where() string
-
-	apply(do *deleteOptions)
 }
 
 // NewDeleteStatement returns a new deleteStatement for the given entity.
@@ -72,28 +70,21 @@ func (d *deleteStatement) Where() string {
 	return d.where
 }
 
-func (d *deleteStatement) apply(opts *deleteOptions) {
-	opts.stmt = d
-}
+// DeleteOption is a functional option for DeleteStreamed().
+type DeleteOption func(opts *deleteOptions)
 
-// DeleteOption is the interface for functional options for DeleteStatement.
-type DeleteOption interface {
-	// apply applies the option to the given deleteOptions.
-	apply(*deleteOptions)
-}
-
-// DeleteOptionFunc is a function type that implements the DeleteOption interface.
-type DeleteOptionFunc func(opts *deleteOptions)
-
-func (f DeleteOptionFunc) apply(opts *deleteOptions) {
-	f(opts)
+// WithDeleteStatement sets the DELETE statement to be used for deleting entities.
+func WithDeleteStatement(stmt DeleteStatement) DeleteOption {
+	return func(opts *deleteOptions) {
+		opts.stmt = stmt
+	}
 }
 
 // WithOnDelete sets the callbacks for a successful DELETE operation.
 func WithOnDelete(onDelete ...OnSuccess[any]) DeleteOption {
-	return DeleteOptionFunc(func(opts *deleteOptions) {
+	return func(opts *deleteOptions) {
 		opts.onDelete = onDelete
-	})
+	}
 }
 
 // deleteOptions stores the options for DeleteStreamed.
@@ -112,7 +103,7 @@ func DeleteStreamed(
 ) error {
 	opts := &deleteOptions{}
 	for _, option := range options {
-		option.apply(opts)
+		option(opts)
 	}
 
 	first, forward, err := com.CopyFirst(ctx, entities)
