@@ -118,7 +118,8 @@ func TestUpsertStreamed(t *testing.T) {
 				}
 			}()
 
-			initTestDb(db, logs.GetChildLogger("initTestDb"))
+			initTestDb(db)
+			prefillTestDb(db)
 
 			for _, entity := range tst.Data.Entities {
 				entities <- entity
