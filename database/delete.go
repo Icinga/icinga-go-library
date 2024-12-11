@@ -83,7 +83,7 @@ func WithDeleteStatement(stmt DeleteStatement) DeleteOption {
 // WithOnDelete sets the callbacks for a successful DELETE operation.
 func WithOnDelete(onDelete ...OnSuccess[any]) DeleteOption {
 	return func(opts *deleteOptions) {
-		opts.onDelete = onDelete
+		opts.onDelete = append(opts.onDelete, onDelete...)
 	}
 }
 

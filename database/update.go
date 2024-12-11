@@ -107,7 +107,7 @@ func WithUpdateStatement(stmt UpdateStatement) UpdateOption {
 // WithOnUpdate sets the callback functions to be called after a successful UPDATE.
 func WithOnUpdate(onUpdate ...OnSuccess[any]) UpdateOption {
 	return func(opts *updateOptions) {
-		opts.onUpdate = onUpdate
+		opts.onUpdate = append(opts.onUpdate, onUpdate...)
 	}
 }
 
