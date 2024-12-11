@@ -126,19 +126,24 @@ func UpsertStreamed[T any, V EntityConstraint[T]](
 	entities <-chan T,
 	options ...UpsertOption,
 ) error {
-	opts := &upsertOptions{}
+	var (
+		opts         = &upsertOptions{}
+		entityType   = V(new(T))
+		sem          = db.GetSemaphoreForTable(TableName(entityType))
+		stmt         string
+		placeholders int
+		err          error
+	)
+
 	for _, option := range options {
 		option.apply(opts)
 	}
 
-	entityType := V(new(T))
-	sem := db.GetSemaphoreForTable(TableName(entityType))
-
-	var stmt string
-	var placeholders int
-
 	if opts.stmt != nil {
-		stmt, placeholders, _ = BuildUpsertStatement(db, opts.stmt)
+		stmt, placeholders, err = BuildUpsertStatement(db, opts.stmt)
+		if err != nil {
+			return err
+		}
 	} else {
 		stmt, placeholders = db.BuildUpsertStmt(entityType)
 	}
