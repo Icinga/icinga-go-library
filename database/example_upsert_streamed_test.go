@@ -16,8 +16,8 @@ func ExampleUpsertStreamed() {
 		g, ctx   = errgroup.WithContext(context.Background())
 		entities = make(chan User, len(testEntites))
 		logs     = getTestLogging()
-		log      = logs.GetLogger()
 		db       = getTestDb(logs)
+		log      = logs.GetLogger()
 		err      error
 	)
 

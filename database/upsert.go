@@ -130,12 +130,15 @@ func UpsertStreamed[T any, V EntityConstraint[T]](
 	}
 
 	if opts.stmt != nil {
-		stmt, placeholders, err = BuildUpsertStatement(db, opts.stmt)
+		stmt, placeholders, err = db.QueryBuilder().UpsertStatement(opts.stmt)
 		if err != nil {
 			return err
 		}
 	} else {
-		stmt, placeholders = db.BuildUpsertStmt(entityType)
+		stmt, placeholders, err = db.QueryBuilder().UpsertStatement(NewUpsertStatement(entityType))
+		if err != nil {
+			return err
+		}
 	}
 
 	return namedBulkExec[T](

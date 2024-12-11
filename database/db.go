@@ -40,6 +40,7 @@ type DB struct {
 	Options *Options
 
 	addr              string
+	queryBuilder      QueryBuilder
 	columnMap         ColumnMap
 	logger            *logging.Logger
 	tableSemaphores   map[string]*semaphore.Weighted
@@ -257,6 +258,7 @@ func NewDbFromConfig(c *Config, logger *logging.Logger, connectorCallbacks Retry
 	return &DB{
 		DB:              db,
 		Options:         &c.Options,
+		queryBuilder:    NewQueryBuilder(db.DriverName()),
 		columnMap:       NewColumnMap(db.Mapper),
 		addr:            addr,
 		logger:          logger,
@@ -933,40 +935,8 @@ func (db *DB) Log(ctx context.Context, query string, counter *com.Counter) perio
 	}))
 }
 
-func BuildUpsertStatement(db *DB, stmt UpsertStatement) (string, int, error) {
-	return NewQueryBuilder(db.DriverName()).UpsertStatement(stmt)
-}
-
-func BuildInsertStatement(db *DB, stmt InsertStatement) string {
-	return NewQueryBuilder(db.DriverName()).InsertStatement(stmt)
-}
-
-func BuildInsertIgnoreStatement(db *DB, stmt InsertStatement) (string, error) {
-	return NewQueryBuilder(db.DriverName()).InsertIgnoreStatement(stmt)
-}
-
-func BuildInsertSelectStatement(db *DB, stmt InsertSelectStatement) (string, error) {
-	return NewQueryBuilder(db.DriverName()).InsertSelectStatement(stmt)
-}
-
-func BuildSelectStatement(db *DB, stmt SelectStatement) string {
-	return NewQueryBuilder(db.DriverName()).SelectStatement(stmt)
-}
-
-func BuildUpdateStatement(db *DB, stmt UpdateStatement) (string, error) {
-	return NewQueryBuilder(db.DriverName()).UpdateStatement(stmt)
-}
-
-func BuildUpdateAllStatement(db *DB, stmt UpdateStatement) (string, error) {
-	return NewQueryBuilder(db.DriverName()).UpdateAllStatement(stmt)
-}
-
-func BuildDeleteStatement(db *DB, stmt DeleteStatement) (string, error) {
-	return NewQueryBuilder(db.DriverName()).DeleteStatement(stmt)
-}
-
-func BuildDeleteAllStatement(db *DB, stmt DeleteStatement) (string, error) {
-	return NewQueryBuilder(db.DriverName()).DeleteAllStatement(stmt)
+func (db *DB) QueryBuilder() QueryBuilder {
+	return db.queryBuilder
 }
 
 var (
