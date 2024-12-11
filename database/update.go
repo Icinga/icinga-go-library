@@ -32,9 +32,6 @@ type UpdateStatement interface {
 
 	// Where returns the where clause for the UPDATE statement.
 	Where() string
-
-	// apply implements the UpdateOption interface and applies itself to the given options.
-	apply(opts *updateOptions)
 }
 
 // NewUpdateStatement returns a new updateStatement for the given entity.
@@ -97,28 +94,21 @@ func (u *updateStatement) Where() string {
 	return u.where
 }
 
-func (u *updateStatement) apply(opts *updateOptions) {
-	opts.stmt = u
-}
+// UpdateOption is a functional option for UpdateStreamed().
+type UpdateOption func(opts *updateOptions)
 
-// UpdateOption is the interface for functional options for UpdateStatement.
-type UpdateOption interface {
-	// apply applies the option to the given updateOptions.
-	apply(opts *updateOptions)
-}
-
-// UpdateOptionFunc is a function type that implements the UpdateOption interface.
-type UpdateOptionFunc func(opts *updateOptions)
-
-func (f UpdateOptionFunc) apply(opts *updateOptions) {
-	f(opts)
+// WithUpdateStatement sets the UPDATE statement to be used for updating entities.
+func WithUpdateStatement(stmt UpdateStatement) UpdateOption {
+	return func(opts *updateOptions) {
+		opts.stmt = stmt
+	}
 }
 
 // WithOnUpdate sets the callback functions to be called after a successful UPDATE.
 func WithOnUpdate(onUpdate ...OnSuccess[any]) UpdateOption {
-	return UpdateOptionFunc(func(opts *updateOptions) {
+	return func(opts *updateOptions) {
 		opts.onUpdate = onUpdate
-	})
+	}
 }
 
 // updateOptions stores the options for UpdateStreamed.

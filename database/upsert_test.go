@@ -164,7 +164,7 @@ func TestUpsertStreamed(t *testing.T) {
 
 			go func() {
 				if tst.Data.Statement != nil {
-					upsertError = UpsertStreamed(ctx, db, entities, tst.Data.Statement)
+					upsertError = UpsertStreamed(ctx, db, entities, WithUpsertStatement(tst.Data.Statement))
 				} else {
 					upsertError = UpsertStreamed(ctx, db, entities)
 				}
