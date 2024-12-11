@@ -2,165 +2,113 @@ package database
 
 import (
 	"context"
-	"github.com/creasty/defaults"
-	"github.com/icinga/icinga-go-library/logging"
 	"github.com/icinga/icinga-go-library/testutils"
-	"go.uber.org/zap/zapcore"
 	"testing"
 	"time"
 )
 
 type UpsertStreamedTestData struct {
-	Entities  []MockEntity
+	Entities  []User
 	Statement UpsertStatement
-	Callbacks []OnSuccess[MockEntity]
-}
-
-func initTestDb(db *DB, logger *logging.Logger) {
-	_, err := db.Query("DROP TABLE IF EXISTS mock_entity")
-	if err != nil {
-		logger.Fatal(err)
-	}
-
-	_, err = db.Query(`CREATE TABLE mock_entity ("id" INTEGER PRIMARY KEY, "name" VARCHAR(255), "age" INTEGER, "email" VARCHAR(255))`)
-	if err != nil {
-		logger.Fatal(err)
-	}
-
-	entities := []MockEntity{
-		{Id: 1, Name: "test1", Age: 10, Email: "test1@test.com"},
-		{Id: 2, Name: "test2", Age: 20, Email: "test2@test.com"},
-		{Id: 3, Name: "test3", Age: 30, Email: "test3@test.com"},
-		{Id: 4, Name: "test4", Age: 40, Email: "test4@test.com"},
-	}
-
-	for _, entity := range entities {
-		_, err = db.NamedExec(`INSERT INTO mock_entity ("id", "name", "age", "email") VALUES (:id, :name, :age, :email)`, entity)
-		if err != nil {
-			logger.Fatal(err)
-		}
-	}
+	Callbacks []OnSuccess[User]
 }
 
 func TestUpsertStreamed(t *testing.T) {
-	tests := []testutils.TestCase[[]MockEntity, UpsertStreamedTestData]{
+	tests := []testutils.TestCase[[]User, UpsertStreamedTestData]{
 		{
 			Name: "Insert",
-			Expected: []MockEntity{
-				{Id: 1, Name: "test1", Age: 10, Email: "test1@test.com"},
-				{Id: 2, Name: "test2", Age: 20, Email: "test2@test.com"},
-				{Id: 3, Name: "test3", Age: 30, Email: "test3@test.com"},
-				{Id: 4, Name: "test4", Age: 40, Email: "test4@test.com"},
-				{Id: 5, Name: "test5", Age: 50, Email: "test5@test.com"},
-				{Id: 6, Name: "test6", Age: 60, Email: "test6@test.com"},
-				{Id: 7, Name: "test7", Age: 70, Email: "test7@test.com"},
-				{Id: 8, Name: "test8", Age: 80, Email: "test8@test.com"},
+			Expected: []User{
+				{Id: 1, Name: "Alice Johnson", Age: 25, Email: "alice.johnson@example.com"},
+				{Id: 2, Name: "Bob Smith", Age: 30, Email: "bob.smith@example.com"},
+				{Id: 3, Name: "Charlie Brown", Age: 22, Email: "charlie.brown@example.com"},
+				{Id: 4, Name: "Diana Prince", Age: 28, Email: "diana.prince@example.com"},
+				{Id: 5, Name: "Evan Davis", Age: 35, Email: "evan.davis@example.com"},
+				{Id: 6, Name: "Fiona White", Age: 27, Email: "fiona.white@example.com"},
+				{Id: 7, Name: "George King", Age: 29, Email: "george.king@example.com"},
+				{Id: 8, Name: "Hannah Moore", Age: 31, Email: "hannah.moore@example.com"},
 			},
 			Data: UpsertStreamedTestData{
-				Entities: []MockEntity{
-					{Id: 5, Name: "test5", Age: 50, Email: "test5@test.com"},
-					{Id: 6, Name: "test6", Age: 60, Email: "test6@test.com"},
-					{Id: 7, Name: "test7", Age: 70, Email: "test7@test.com"},
-					{Id: 8, Name: "test8", Age: 80, Email: "test8@test.com"},
+				Entities: []User{
+					{Id: 5, Name: "Evan Davis", Age: 35, Email: "evan.davis@example.com"},
+					{Id: 6, Name: "Fiona White", Age: 27, Email: "fiona.white@example.com"},
+					{Id: 7, Name: "George King", Age: 29, Email: "george.king@example.com"},
+					{Id: 8, Name: "Hannah Moore", Age: 31, Email: "hannah.moore@example.com"},
 				},
 			},
 		},
 		{
 			Name: "Update",
-			Expected: []MockEntity{
-				{Id: 1, Name: "test1", Age: 100, Email: "test1@test.com"},
-				{Id: 2, Name: "test2", Age: 200, Email: "test2@test.com"},
-				{Id: 3, Name: "test3", Age: 300, Email: "test3@test.com"},
-				{Id: 4, Name: "test4", Age: 400, Email: "test4@test.com"},
+			Expected: []User{
+				{Id: 1, Name: "Alice Johnson", Age: 25, Email: "alice.johnson@example.com"},
+				{Id: 2, Name: "Bob Smith", Age: 30, Email: "bob.smith@example.com"},
+				{Id: 3, Name: "Evan Davis", Age: 35, Email: "evan.davis@example.com"},
+				{Id: 4, Name: "Fiona White", Age: 27, Email: "fiona.white@example.com"},
 			},
 			Data: UpsertStreamedTestData{
-				Entities: []MockEntity{
-					{Id: 1, Name: "test1", Age: 100, Email: "test1@test.com"},
-					{Id: 2, Name: "test2", Age: 200, Email: "test2@test.com"},
-					{Id: 3, Name: "test3", Age: 300, Email: "test3@test.com"},
-					{Id: 4, Name: "test4", Age: 400, Email: "test4@test.com"},
+				Entities: []User{
+					{Id: 3, Name: "Evan Davis", Age: 35, Email: "evan.davis@example.com"},
+					{Id: 4, Name: "Fiona White", Age: 27, Email: "fiona.white@example.com"},
 				},
 			},
 		},
 		{
 			Name: "InsertAndUpdate",
-			Expected: []MockEntity{
-				{Id: 1, Name: "test1", Age: 10, Email: "test1@test.com"},
-				{Id: 2, Name: "test2", Age: 20, Email: "test2@test.com"},
-				{Id: 3, Name: "test3", Age: 30, Email: "test3@test.com"},
-				{Id: 4, Name: "test40", Age: 40, Email: "test40@test.com"},
-				{Id: 5, Name: "test50", Age: 50, Email: "test50@test.com"},
-				{Id: 6, Name: "test6", Age: 60, Email: "test6@test.com"},
+			Expected: []User{
+				{Id: 1, Name: "Alice Johnson", Age: 25, Email: "alice.johnson@example.com"},
+				{Id: 2, Name: "Bob Smith", Age: 30, Email: "bob.smith@example.com"},
+				{Id: 3, Name: "Charlie Brown", Age: 22, Email: "charlie.brown@example.com"},
+				{Id: 4, Name: "George King", Age: 29, Email: "george.king@example.com"},
+				{Id: 5, Name: "Hannah Moore", Age: 31, Email: "hannah.moore@example.com"},
+				{Id: 6, Name: "Fiona White", Age: 27, Email: "fiona.white@example.com"},
 			},
 			Data: UpsertStreamedTestData{
-				Entities: []MockEntity{
-					{Id: 5, Name: "test5", Age: 50, Email: "test5@test.com"},
-					{Id: 6, Name: "test6", Age: 60, Email: "test6@test.com"},
-					{Id: 4, Name: "test40", Age: 40, Email: "test40@test.com"},
-					{Id: 5, Name: "test50", Age: 50, Email: "test50@test.com"},
+				Entities: []User{
+					{Id: 5, Name: "Evan Davis", Age: 35, Email: "evan.davis@example.com"},
+					{Id: 6, Name: "Fiona White", Age: 27, Email: "fiona.white@example.com"},
+					{Id: 4, Name: "George King", Age: 29, Email: "george.king@example.com"},
+					{Id: 5, Name: "Hannah Moore", Age: 31, Email: "hannah.moore@example.com"},
 				},
 			},
 		},
 		{
 			Name: "WithStatement",
-			Expected: []MockEntity{
-				{Id: 1, Name: "test1", Age: 10, Email: "test1@test.com"},
-				{Id: 2, Name: "test2", Age: 20, Email: "test2@test.com"},
-				{Id: 3, Name: "test3", Age: 30, Email: "test3@test.com"},
-				{Id: 4, Name: "test4", Age: 40, Email: "test4@test.com"},
-				{Id: 5, Name: "test5", Age: 50, Email: "test5@test.com"},
+			Expected: []User{
+				{Id: 1, Name: "Alice Johnson", Age: 25, Email: "alice.johnson@example.com"},
+				{Id: 2, Name: "Bob Smith", Age: 30, Email: "bob.smith@example.com"},
+				{Id: 3, Name: "Charlie Brown", Age: 22, Email: "charlie.brown@example.com"},
+				{Id: 4, Name: "Diana Prince", Age: 28, Email: "diana.prince@example.com"},
+				{Id: 5, Name: "Evan Davis", Age: 35, Email: "evan.davis@example.com"},
+				{Id: 6, Name: "Fiona White", Age: 27, Email: "fiona.white@example.com"},
 			},
 			Data: UpsertStreamedTestData{
-				Entities: []MockEntity{
-					{Id: 5, Name: "test5", Age: 50, Email: "test5@test.com"},
+				Entities: []User{
+					{Id: 5, Name: "Evan Davis", Age: 35, Email: "evan.davis@example.com"},
+					{Id: 6, Name: "Fiona White", Age: 27, Email: "fiona.white@example.com"},
 				},
-				Statement: NewUpsertStatement(&MockEntity{}),
+				Statement: NewUpsertStatement(&User{}),
 			},
 		},
 		{
 			Name:  "WithFalseStatement",
 			Error: testutils.ErrorContains("can't perform"), // TODO (jr): is it the right way?
 			Data: UpsertStreamedTestData{
-				Entities: []MockEntity{
+				Entities: []User{
 					{Id: 5, Name: "test5", Age: 50, Email: "test5@test.com"},
 				},
-				Statement: NewUpsertStatement(&MockEntity{}).Into("false_table"),
+				Statement: NewUpsertStatement(&User{}).Into("false_table"),
 			},
 		},
 	}
 
-	var (
-		upsertError    error
-		defaultOptions Options
-		ctx            = context.Background()
-		entities       = make(chan MockEntity)
-	)
-
-	logs, err := logging.NewLoggingFromConfig(
-		"Icinga Kubernetes",
-		logging.Config{Level: zapcore.DebugLevel, Output: "console", Interval: time.Second},
-	)
-	if err != nil {
-		t.Fatalf("cannot configure logging: %v", err)
-	}
-
-	err = defaults.Set(&defaultOptions)
-	if err != nil {
-		t.Fatalf("cannot set default options: %v", err)
-	}
-
-	db, err := NewDbFromConfig(
-		&Config{Type: "sqlite", Database: ":memory:test-upsert-streamed", Options: defaultOptions},
-		logs.GetChildLogger("database"),
-		RetryConnectorCallbacks{},
-	)
-	if err != nil {
-		t.Fatalf("cannot configure database: %v", err)
-	}
-
 	for _, tst := range tests {
-		t.Run(tst.Name, tst.F(func(data UpsertStreamedTestData) ([]MockEntity, error) {
-			ctx, cancel := context.WithCancel(ctx)
+		t.Run(tst.Name, tst.F(func(data UpsertStreamedTestData) ([]User, error) {
+			var (
+				upsertError error
+				ctx, cancel = context.WithCancel(context.Background())
+				entities    = make(chan User)
+				logs        = getTestLogging()
+				db          = getTestDb(logs)
+			)
 
 			go func() {
 				if tst.Data.Statement != nil {
@@ -176,32 +124,32 @@ func TestUpsertStreamed(t *testing.T) {
 				entities <- entity
 			}
 
-			var actual []MockEntity
+			var actual []User
 
 			time.Sleep(time.Second)
 
-			err = db.Select(&actual, "SELECT * FROM mock_entity")
+			err := db.Select(&actual, "SELECT * FROM user")
 			if err != nil {
 				t.Fatalf("cannot select from database: %v", err)
 			}
 
 			cancel()
+			_ = db.Close()
 
 			return actual, upsertError
 		}))
 
 	}
-
-	_ = db.Close()
 }
 
+// TODO (jr)
 //func TestUpsertStreamedCallback(t *testing.T) {
 //	tests := []testutils.TestCase[any, UpsertStreamedTestData]{
 //		{
 //			Name: "OneCallback",
 //			Data: UpsertStreamedTestData{
-//				Callbacks: []OnSuccess[MockEntity]{
-//					func(ctx context.Context, affectedRows []MockEntity) error {
+//				Callbacks: []OnSuccess[User]{
+//					func(ctx context.Context, affectedRows []User) error {
 //
 //					},
 //				},
@@ -209,3 +157,8 @@ func TestUpsertStreamed(t *testing.T) {
 //		},
 //	}
 //}
+
+// TODO (jr)
+// func TestUpsertStreamedEarlyDbClose(t *testing.T) {
+//
+// }
