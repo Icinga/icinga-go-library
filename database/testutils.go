@@ -70,17 +70,19 @@ func getTestDb(logs *logging.Logging) *DB {
 	return db
 }
 
-func initTestDb(db *DB, logger *logging.Logger) {
+func initTestDb(db *DB) {
 	_, err := db.Query("DROP TABLE IF EXISTS user")
 	if err != nil {
-		logger.Fatal(err)
+		utils.PrintErrorThenExit(err, 1)
 	}
 
-	_, err = db.Query(`CREATE TABLE user ("id" INTEGER PRIMARY KEY, "name" VARCHAR(255), "age" INTEGER, "email" VARCHAR(255))`)
+	_, err = db.Query(`CREATE TABLE user ("id" INTEGER PRIMARY KEY, "name" VARCHAR(255) DEFAULT '', "age" INTEGER DEFAULT 0, "email" VARCHAR(255) DEFAULT '')`)
 	if err != nil {
-		logger.Fatal(err)
+		utils.PrintErrorThenExit(err, 1)
 	}
+}
 
+func prefillTestDb(db *DB) {
 	entities := []User{
 		{Id: 1, Name: "Alice Johnson", Age: 25, Email: "alice.johnson@example.com"},
 		{Id: 2, Name: "Bob Smith", Age: 30, Email: "bob.smith@example.com"},
@@ -89,9 +91,9 @@ func initTestDb(db *DB, logger *logging.Logger) {
 	}
 
 	for _, entity := range entities {
-		_, err = db.NamedExec(`INSERT INTO user ("id", "name", "age", "email") VALUES (:id, :name, :age, :email)`, entity)
+		_, err := db.NamedExec(`INSERT INTO user ("id", "name", "age", "email") VALUES (:id, :name, :age, :email)`, entity)
 		if err != nil {
-			logger.Fatal(err)
+			utils.PrintErrorThenExit(err, 1)
 		}
 	}
 }
