@@ -116,9 +116,15 @@ func DeleteStreamed(
 	var stmt string
 
 	if opts.stmt != nil {
-		stmt, _ = BuildDeleteStatement(db, opts.stmt)
+		stmt, err = db.QueryBuilder().DeleteStatement(opts.stmt)
+		if err != nil {
+			return err
+		}
 	} else {
-		stmt = db.BuildDeleteStmt(entityType)
+		stmt, err = db.QueryBuilder().DeleteStatement(NewDeleteStatement(entityType))
+		if err != nil {
+			return err
+		}
 	}
 
 	switch reflect.TypeOf(first).Kind() {
