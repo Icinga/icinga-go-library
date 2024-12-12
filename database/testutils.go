@@ -51,8 +51,7 @@ func getTestLogging() *logging.Logging {
 func getTestDb(logs *logging.Logging) *DB {
 	var defaultOptions Options
 
-	err := defaults.Set(&defaultOptions)
-	if err != nil {
+	if err := defaults.Set(&defaultOptions); err != nil {
 		utils.PrintErrorThenExit(err, 1)
 	}
 
@@ -71,13 +70,11 @@ func getTestDb(logs *logging.Logging) *DB {
 }
 
 func initTestDb(db *DB) {
-	_, err := db.Query("DROP TABLE IF EXISTS user")
-	if err != nil {
+	if _, err := db.Query("DROP TABLE IF EXISTS user"); err != nil {
 		utils.PrintErrorThenExit(err, 1)
 	}
 
-	_, err = db.Query(`CREATE TABLE user ("id" INTEGER PRIMARY KEY, "name" VARCHAR(255) DEFAULT '', "age" INTEGER DEFAULT 0, "email" VARCHAR(255) DEFAULT '')`)
-	if err != nil {
+	if _, err := db.Query(`CREATE TABLE user ("id" INTEGER PRIMARY KEY, "name" VARCHAR(255) DEFAULT '', "age" INTEGER DEFAULT 0, "email" VARCHAR(255) DEFAULT '')`); err != nil {
 		utils.PrintErrorThenExit(err, 1)
 	}
 }
@@ -91,8 +88,7 @@ func prefillTestDb(db *DB) {
 	}
 
 	for _, entity := range entities {
-		_, err := db.NamedExec(`INSERT INTO user ("id", "name", "age", "email") VALUES (:id, :name, :age, :email)`, entity)
-		if err != nil {
+		if _, err := db.NamedExec(`INSERT INTO user ("id", "name", "age", "email") VALUES (:id, :name, :age, :email)`, entity); err != nil {
 			utils.PrintErrorThenExit(err, 1)
 		}
 	}

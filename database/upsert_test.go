@@ -129,8 +129,7 @@ func TestUpsertStreamed(t *testing.T) {
 
 			time.Sleep(time.Second)
 
-			err := db.Select(&actual, "SELECT * FROM user")
-			if err != nil {
+			if err := db.Select(&actual, "SELECT * FROM user"); err != nil {
 				t.Fatalf("cannot select from database: %v", err)
 			}
 
@@ -139,7 +138,6 @@ func TestUpsertStreamed(t *testing.T) {
 
 			return actual, upsertError
 		}))
-
 	}
 }
 
