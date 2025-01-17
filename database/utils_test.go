@@ -16,7 +16,48 @@ import (
 	"time"
 )
 
-func TestSetMysqlSessionVars(t *testing.T) {
+func TestDatabaseUtils(t *testing.T) {
+	t.Parallel()
+
+	ctx := context.Background()
+	db := GetTestDB(ctx, t, "ICINGAGOLIBRARY")
+
+	t.Run("SetMySQLSessionVars", func(t *testing.T) {
+		t.Parallel()
+		if db.DriverName() != MySQL {
+			t.Skipf("skipping set session vars test for %q driver", db.DriverName())
+		}
+
+		setMysqlSessionVars(ctx, db, t)
+	})
+
+	t.Run("InsertObtainID", func(t *testing.T) {
+		t.Parallel()
+
+		defer func() {
+			_, err := db.ExecContext(ctx, "DROP TABLE IF EXISTS igl_test_insert_obtain")
+			assert.NoError(t, err, "dropping test database table should not fail")
+		}()
+
+		var err error
+		if db.DriverName() == PostgreSQL {
+			_, err = db.ExecContext(ctx, "CREATE TABLE igl_test_insert_obtain (id SERIAL PRIMARY KEY, name VARCHAR(255))")
+		} else {
+			_, err = db.ExecContext(ctx, "CREATE TABLE igl_test_insert_obtain (id INT AUTO_INCREMENT PRIMARY KEY, name VARCHAR(255))")
+		}
+		require.NoError(t, err, "creating test database table should not fail")
+
+		id, err := InsertObtainID(ctx, db, "INSERT INTO igl_test_insert_obtain (name) VALUES (:name)", map[string]any{"name": "test1"})
+		require.NoError(t, err, "inserting new row into test database table should not fail")
+		assert.Equal(t, id, int64(1))
+
+		id, err = InsertObtainID(ctx, db, "INSERT INTO igl_test_insert_obtain (name) VALUES (:name)", map[string]any{"name": "test2"})
+		require.NoError(t, err, "inserting new row into test database table should not fail")
+		assert.Equal(t, id, int64(2))
+	})
+}
+
+func setMysqlSessionVars(ctx context.Context, db *DB, t *testing.T) {
 	vars := map[string][]struct {
 		name   string
 		value  string
@@ -45,14 +86,10 @@ func TestSetMysqlSessionVars(t *testing.T) {
 		},
 	}
 
-	ctx := context.Background()
-	db := GetTestDB(ctx, t, "ICINGAGOLIBRARY")
-	if db.DriverName() != MySQL {
-		t.Skipf("skipping set session vars test for %q driver", db.DriverName())
-	}
-
 	for name, vs := range vars {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			for _, v := range vs {
 				conn, err := db.DB.Conn(ctx)
 				require.NoError(t, err, "connecting to MySQL/MariaDB database should not fail")
