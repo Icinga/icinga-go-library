@@ -261,6 +261,8 @@ func Load(v Validator, options LoadOptions) error {
 		return errors.WithStack(err)
 	}
 
+	var configFileIsDefaultAndDoesNotExist bool
+
 	if err := FromYAMLFile(options.Flags.GetConfigPath(), v); err != nil {
 		// Allow continuation with FromEnv by handling:
 		//
@@ -270,8 +272,8 @@ func Load(v Validator, options LoadOptions) error {
 		// - Non-existent file errors:
 		//   If no explicit config path is set, fallback to environment variables is allowed.
 		configIsInvalid := errors.Is(err, ErrInvalidConfiguration)
-		configFileDoesNotExist := errors.Is(err, fs.ErrNotExist) && !options.Flags.IsExplicitConfigPath()
-		if !(configIsInvalid || configFileDoesNotExist) {
+		configFileIsDefaultAndDoesNotExist = errors.Is(err, fs.ErrNotExist) && !options.Flags.IsExplicitConfigPath()
+		if !(configIsInvalid || configFileIsDefaultAndDoesNotExist) {
 			return errors.WithStack(err)
 		}
 	}
@@ -281,6 +283,17 @@ func Load(v Validator, options LoadOptions) error {
 	// Otherwise, environment variables can supplement, override YAML settings, or serve as the sole source.
 	// FromEnv also includes validation, ensuring completeness after considering both sources.
 	if err := FromEnv(v, options.EnvOptions); err != nil {
+		if configFileIsDefaultAndDoesNotExist {
+			return stderrors.Join(
+				errors.WithStack(err),
+				fmt.Errorf(
+					"default config file %s does not exist but can be ignored if"+
+						" the configuration is intended to be entirely provided via environment variables",
+					options.Flags.GetConfigPath(),
+				),
+			)
+		}
+
 		return errors.WithStack(err)
 	}
 
