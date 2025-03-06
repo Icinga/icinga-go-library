@@ -1,6 +1,6 @@
 module github.com/icinga/icinga-go-library
 
-go 1.22
+go 1.23.0
 
 require (
 	github.com/caarlos0/env/v11 v11.3.1
@@ -17,7 +17,7 @@ require (
 	github.com/stretchr/testify v1.10.0
 	go.uber.org/zap v1.27.0
 	golang.org/x/exp v0.0.0-20240506185415-9bf2ced13842
-	golang.org/x/sync v0.11.0
+	golang.org/x/sync v0.12.0
 )
 
 require (
