@@ -16,6 +16,37 @@ import (
 	"time"
 )
 
+func Test_loadPemOrFile(t *testing.T) {
+	cert, _, err := generateCert("cert", generateCertOptions{})
+	require.NoError(t, err)
+	certPem := pem.EncodeToMemory(&pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw})
+
+	certFile, err := os.CreateTemp("", "cert-*.pem")
+	require.NoError(t, err)
+	defer func(name string) {
+		_ = os.Remove(name)
+	}(certFile.Name())
+	_, err = certFile.Write(certPem)
+	require.NoError(t, err)
+
+	t.Run("Load raw PEM", func(t *testing.T) {
+		out, err := loadPemOrFile(string(certPem))
+		require.NoError(t, err)
+		require.Equal(t, certPem, out)
+	})
+
+	t.Run("Load file", func(t *testing.T) {
+		out, err := loadPemOrFile(certFile.Name())
+		require.NoError(t, err)
+		require.Equal(t, certPem, out)
+	})
+
+	t.Run("Invalid file", func(t *testing.T) {
+		_, err := loadPemOrFile("/dev/null/nonexistent")
+		require.Error(t, err)
+	})
+}
+
 func TestTLS_MakeConfig(t *testing.T) {
 	t.Run("TLS disabled", func(t *testing.T) {
 		tlsConfig := &TLS{Enable: false}
@@ -48,13 +79,13 @@ func TestTLS_MakeConfig(t *testing.T) {
 	t.Run("Missing client certificate", func(t *testing.T) {
 		tlsConfig := &TLS{Enable: true, Key: "test.key"}
 		_, err := tlsConfig.MakeConfig("icinga.com")
-		require.Error(t, err)
+		require.ErrorContains(t, err, "client certificate missing")
 	})
 
 	t.Run("Missing private key", func(t *testing.T) {
 		tlsConfig := &TLS{Enable: true, Cert: "test.crt"}
 		_, err := tlsConfig.MakeConfig("icinga.com")
-		require.Error(t, err)
+		require.ErrorContains(t, err, "private key missing")
 	})
 
 	t.Run("x509", func(t *testing.T) {
@@ -93,11 +124,35 @@ func TestTLS_MakeConfig(t *testing.T) {
 		defer func(name string) {
 			_ = os.Remove(name)
 		}(corruptFile.Name())
-		err = os.WriteFile(corruptFile.Name(), []byte("corrupt PEM"), 0600)
+		err = os.WriteFile(corruptFile.Name(), []byte("-----BEGIN CORRUPT-----\nOOPS\n-----END CORRUPT-----"), 0600)
 		require.NoError(t, err)
 
 		t.Run("Valid certificate and key", func(t *testing.T) {
 			tlsConfig := &TLS{Enable: true, Cert: certFile.Name(), Key: keyFile.Name()}
+			config, err := tlsConfig.MakeConfig("icinga.com")
+			require.NoError(t, err)
+			require.NotNil(t, config)
+			require.Len(t, config.Certificates, 1)
+		})
+
+		t.Run("Valid certificate and key as PEM", func(t *testing.T) {
+			certRaw, err := os.ReadFile(certFile.Name())
+			require.NoError(t, err)
+			keyRaw, err := os.ReadFile(keyFile.Name())
+			require.NoError(t, err)
+
+			tlsConfig := &TLS{Enable: true, Cert: string(certRaw), Key: string(keyRaw)}
+			config, err := tlsConfig.MakeConfig("icinga.com")
+			require.NoError(t, err)
+			require.NotNil(t, config)
+			require.Len(t, config.Certificates, 1)
+		})
+
+		t.Run("Valid certificate and key, mixed file and PEM", func(t *testing.T) {
+			keyRaw, err := os.ReadFile(keyFile.Name())
+			require.NoError(t, err)
+
+			tlsConfig := &TLS{Enable: true, Cert: certFile.Name(), Key: string(keyRaw)}
 			config, err := tlsConfig.MakeConfig("icinga.com")
 			require.NoError(t, err)
 			require.NotNil(t, config)
@@ -149,6 +204,17 @@ func TestTLS_MakeConfig(t *testing.T) {
 			require.Error(t, err)
 		})
 
+		t.Run("Corrupt certificate as PEM", func(t *testing.T) {
+			corruptRaw, err := os.ReadFile(corruptFile.Name())
+			require.NoError(t, err)
+			keyRaw, err := os.ReadFile(keyFile.Name())
+			require.NoError(t, err)
+
+			tlsConfig := &TLS{Enable: true, Cert: string(corruptRaw), Key: string(keyRaw)}
+			_, err = tlsConfig.MakeConfig("icinga.com")
+			require.Error(t, err)
+		})
+
 		t.Run("Invalid key path", func(t *testing.T) {
 			tlsConfig := &TLS{Enable: true, Cert: certFile.Name(), Key: "nonexistent.key"}
 			_, err := tlsConfig.MakeConfig("icinga.com")
@@ -178,6 +244,17 @@ func TestTLS_MakeConfig(t *testing.T) {
 
 		t.Run("Valid CA", func(t *testing.T) {
 			tlsConfig := &TLS{Enable: true, Ca: caFile.Name()}
+			config, err := tlsConfig.MakeConfig("icinga.com")
+			require.NoError(t, err)
+			require.NotNil(t, config)
+			require.NotNil(t, config.RootCAs)
+		})
+
+		t.Run("Valid CA as PEM", func(t *testing.T) {
+			caRaw, err := os.ReadFile(caFile.Name())
+			require.NoError(t, err)
+
+			tlsConfig := &TLS{Enable: true, Ca: string(caRaw)}
 			config, err := tlsConfig.MakeConfig("icinga.com")
 			require.NoError(t, err)
 			require.NotNil(t, config)
