@@ -1,7 +1,6 @@
 module github.com/icinga/icinga-go-library
 
-go 1.22
-toolchain go1.23.7
+go 1.23.0
 
 require (
 	github.com/caarlos0/env/v11 v11.3.1
