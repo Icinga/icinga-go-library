@@ -839,6 +839,43 @@ func (db *DB) GetSemaphoreForTable(table string) *semaphore.Weighted {
 	}
 }
 
+// HasTable checks whether a table is present in the database.
+//
+// The first return value indicates whether a table of the given name exists. The second return value contains any
+// errors that occurred during the check. If the error is not nil, the first argument is always false.
+func (db *DB) HasTable(ctx context.Context, table string) (bool, error) {
+	var tableSchemaFunc string
+	switch db.DriverName() {
+	case MySQL:
+		tableSchemaFunc = "DATABASE()"
+	case PostgreSQL:
+		tableSchemaFunc = "CURRENT_SCHEMA()"
+	default:
+		return false, errors.Errorf("unsupported database driver %q", db.DriverName())
+	}
+
+	var hasTable bool
+	err := retry.WithBackoff(
+		ctx,
+		func(ctx context.Context) error {
+			query := db.Rebind("SELECT 1 FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA=" + tableSchemaFunc + " AND TABLE_NAME=?")
+			rows, err := db.QueryContext(ctx, query, table)
+			if err != nil {
+				return CantPerformQuery(err, query)
+			}
+			defer func() { _ = rows.Close() }()
+			hasTable = rows.Next()
+			return rows.Close()
+		},
+		retry.Retryable,
+		backoff.NewExponentialWithJitter(128*time.Millisecond, 1*time.Minute),
+		db.GetDefaultRetrySettings())
+	if err != nil {
+		return false, errors.Wrapf(err, "can't verify existence of database table %q", table)
+	}
+	return hasTable, nil
+}
+
 func (db *DB) GetDefaultRetrySettings() retry.Settings {
 	return retry.Settings{
 		Timeout: retry.DefaultTimeout,
