@@ -243,6 +243,19 @@ func (c *Client) XReadUntilResult(ctx context.Context, a *redis.XReadArgs) ([]re
 
 	for {
 		cmd := c.XRead(ctx, a)
+		// Explicitly check for context errors because go-redis v9 does not respect context.Canceled or
+		// context.DeadlineExceeded unless Options.ContextTimeoutEnabled is set [^1] [^2], which we do not enable.
+		// If the context is canceled or times out during XRead and there is no data to read,
+		// XRead will **still** block until the block timeout is reached and
+		// return redis.Nil instead of the context error. Without this check,
+		// the function would return redis.Nil, potentially leading to unexpected errors for consumers.
+		//
+		// [^1]: https://github.com/redis/go-redis/issues/2556
+		// [^2]: https://github.com/redis/go-redis/issues/2682
+		if ctx.Err() != nil {
+			return nil, ctx.Err()
+		}
+
 		streams, err := cmd.Result()
 		if err != nil {
 			// We need to retry the XREAD commands in the following situations:
@@ -253,11 +266,10 @@ func (c *Client) XReadUntilResult(ctx context.Context, a *redis.XReadArgs) ([]re
 			//  important to set a block timeout greater than zero for the XREAD commands, see the "a.Block" above.
 			//  However, setting a block timeout means that Go Redis will not retry any errors internally and will
 			//  instead return an I/O timeout error when exceeding the timeout. Thus, we need to handle this here and
-			//  retry it again. On the other hand, an I/O timeout could also mean a context.DeadlineExceeded error,
-			//  which is not retryable, so we have to check for context termination by ourselves via ctx.Err().
+			//  retry it again.
 			//
 			// [^1]: https://github.com/redis/go-redis/issues/2131
-			if (errors.Is(err, redis.Nil) || retry.Retryable(err)) && ctx.Err() == nil {
+			if errors.Is(err, redis.Nil) || retry.Retryable(err) {
 				continue
 			}
 
