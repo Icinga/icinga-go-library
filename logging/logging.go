@@ -117,3 +117,14 @@ func (l *Logging) GetChildLogger(name string) *Logger {
 func (l *Logging) GetLogger() *Logger {
 	return l.logger
 }
+
+// ForceLog results in every message being logged.
+//
+// This [zap.Option] is the opposite of [zap.IncreaseLevel], it just decreases the log level to debug. Since zap's
+// architecture does not allow this with the same [zapcore.Core], it replaces the core with a freshly created one from
+// the Logging's core factory.
+func (l *Logging) ForceLog() zap.Option {
+	return zap.WrapCore(func(_ zapcore.Core) zapcore.Core {
+		return l.coreFactory(zap.NewAtomicLevelAt(zapcore.DebugLevel))
+	})
+}
