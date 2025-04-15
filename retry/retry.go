@@ -84,8 +84,6 @@ func WithBackoff(
 		}
 
 		if !retryable(err) {
-			err = errors.Wrap(err, "can't retry")
-
 			return
 		}
 
@@ -97,8 +95,6 @@ func WithBackoff(
 		}
 
 		if timedOut {
-			err = errors.Wrap(err, "retry deadline exceeded")
-
 			return
 		}
 
