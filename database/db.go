@@ -879,10 +879,11 @@ func (db *DB) HasTable(ctx context.Context, table string) (bool, error) {
 func (db *DB) GetDefaultRetrySettings() retry.Settings {
 	return retry.Settings{
 		Timeout: retry.DefaultTimeout,
-		OnRetryableError: func(_ time.Duration, _ uint64, err, lastErr error) {
-			if lastErr == nil || err.Error() != lastErr.Error() {
-				db.logger.Warnw("Can't execute query. Retrying", zap.Error(err))
-			}
+		OnRetryableError: func(elapsed time.Duration, attempt uint64, err, lastErr error) {
+			db.logger.Warnw("Can't execute query. Retrying",
+				zap.Error(err),
+				zap.Duration("after", elapsed),
+				zap.Uint64("attempt", attempt))
 		},
 		OnSuccess: func(elapsed time.Duration, attempt uint64, lastErr error) {
 			if attempt > 1 {
