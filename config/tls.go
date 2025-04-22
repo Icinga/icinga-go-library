@@ -41,7 +41,7 @@ type TLS struct {
 
 	// Key is either the path to the TLS key file or a raw PEM-encoded string representing it.
 	// If specified, Cert must also be provided.
-	Key string `yaml:"key" env:"KEY"`
+	Key string `yaml:"key" env:"KEY,unset"`
 
 	// Ca is either the path to the CA certificate file or a raw PEM-encoded string representing it.
 	Ca string `yaml:"ca" env:"CA"`
