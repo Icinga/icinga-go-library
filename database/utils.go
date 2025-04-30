@@ -10,6 +10,7 @@ import (
 	"github.com/icinga/icinga-go-library/types"
 	"github.com/jmoiron/sqlx"
 	"github.com/pkg/errors"
+	"slices"
 	"strings"
 )
 
@@ -82,15 +83,11 @@ func InsertObtainID(ctx context.Context, conn TxOrDB, stmt string, arg any) (int
 	return resultID, nil
 }
 
-// BuildInsertStmtWithout builds an insert stmt without the provided column.
-func BuildInsertStmtWithout(db *DB, into interface{}, withoutColumn string) string {
-	columns := db.BuildColumns(into)
-	for i, column := range columns {
-		if column == withoutColumn {
-			columns = append(columns[:i], columns[i+1:]...)
-			break
-		}
-	}
+// BuildInsertStmtWithout builds an insert stmt without the provided columns.
+func BuildInsertStmtWithout(db *DB, into interface{}, withoutColumns ...string) string {
+	columns := slices.DeleteFunc(
+		db.BuildColumns(into),
+		func(column string) bool { return slices.Contains(withoutColumns, column) })
 
 	return fmt.Sprintf(
 		`INSERT INTO "%s" ("%s") VALUES (%s)`,
