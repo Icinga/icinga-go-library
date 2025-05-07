@@ -14,6 +14,29 @@ type Int struct {
 	sql.NullInt64
 }
 
+// TransformZeroIntToNull transforms a valid Int carrying a zero value to a SQL NULL.
+func TransformZeroIntToNull(i *Int) {
+	if i.Valid && i.Int64 == 0 {
+		i.Valid = false
+	}
+}
+
+// MakeInt constructs a new Int.
+//
+// Multiple transformer functions can be given, each transforming the generated Int, e.g., TransformZeroIntToNull.
+func MakeInt(in int64, transformers ...func(*Int)) Int {
+	i := Int{sql.NullInt64{
+		Int64: in,
+		Valid: true,
+	}}
+
+	for _, transformer := range transformers {
+		transformer(&i)
+	}
+
+	return i
+}
+
 // MarshalJSON implements the json.Marshaler interface.
 // Supports JSON null.
 func (i Int) MarshalJSON() ([]byte, error) {

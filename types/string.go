@@ -14,12 +14,27 @@ type String struct {
 	sql.NullString
 }
 
-// MakeString constructs a new non-NULL String from s.
-func MakeString(s string) String {
-	return String{sql.NullString{
-		String: s,
+// TransformEmptyStringToNull transforms a valid String carrying an empty text to a SQL NULL.
+func TransformEmptyStringToNull(s *String) {
+	if s.Valid && s.String == "" {
+		s.Valid = false
+	}
+}
+
+// MakeString constructs a new String.
+//
+// Multiple transformer functions can be given, each transforming the generated String, e.g., TransformEmptyStringToNull.
+func MakeString(in string, transformers ...func(*String)) String {
+	s := String{sql.NullString{
+		String: in,
 		Valid:  true,
 	}}
+
+	for _, transformer := range transformers {
+		transformer(&s)
+	}
+
+	return s
 }
 
 // MarshalJSON implements the json.Marshaler interface.
