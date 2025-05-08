@@ -6,6 +6,49 @@ import (
 	"testing"
 )
 
+func TestMakeInt(t *testing.T) {
+	subtests := []struct {
+		name         string
+		input        int64
+		transformers []func(*Int)
+		output       sql.NullInt64
+	}{
+		{
+			name:   "zero",
+			input:  0,
+			output: sql.NullInt64{Int64: 0, Valid: true},
+		},
+		{
+			name:   "positive",
+			input:  1,
+			output: sql.NullInt64{Int64: 1, Valid: true},
+		},
+		{
+			name:   "negative",
+			input:  -1,
+			output: sql.NullInt64{Int64: -1, Valid: true},
+		},
+		{
+			name:         "zero-transform-zero-to-null",
+			input:        0,
+			transformers: []func(*Int){TransformZeroIntToNull},
+			output:       sql.NullInt64{Valid: false},
+		},
+		{
+			name:         "positive-transform-zero-to-null",
+			input:        1,
+			transformers: []func(*Int){TransformZeroIntToNull},
+			output:       sql.NullInt64{Int64: 1, Valid: true},
+		},
+	}
+
+	for _, st := range subtests {
+		t.Run(st.name, func(t *testing.T) {
+			require.Equal(t, Int{NullInt64: st.output}, MakeInt(st.input, st.transformers...))
+		})
+	}
+}
+
 func TestInt_MarshalJSON(t *testing.T) {
 	subtests := []struct {
 		name   string

@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"cmp"
 	"context"
 	"crypto/sha1" // #nosec G505 -- Blocklisted import crypto/sha1
 	"fmt"
@@ -8,9 +9,11 @@ import (
 	"github.com/lib/pq"
 	"github.com/pkg/errors"
 	"golang.org/x/exp/utf8string"
+	"iter"
 	"net"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
 	"time"
 )
@@ -162,4 +165,24 @@ func ChanFromSlice[T any](values []T) <-chan T {
 func PrintErrorThenExit(err error, exitCode int) {
 	fmt.Fprintln(os.Stderr, err)
 	os.Exit(exitCode)
+}
+
+// IterateOrderedMap implements iter.Seq2 to iterate over a map in the key's order.
+//
+// This function returns a func yielding key-value-pairs from a given map in the order of their keys, if their type
+// is cmp.Ordered.
+func IterateOrderedMap[K cmp.Ordered, V any](m map[K]V) iter.Seq2[K, V] {
+	keys := make([]K, 0, len(m))
+	for key := range m {
+		keys = append(keys, key)
+	}
+	slices.Sort(keys)
+
+	return func(yield func(K, V) bool) {
+		for _, key := range keys {
+			if !yield(key, m[key]) {
+				return
+			}
+		}
+	}
 }

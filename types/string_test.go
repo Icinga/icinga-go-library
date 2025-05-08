@@ -9,18 +9,48 @@ import (
 
 func TestMakeString(t *testing.T) {
 	subtests := []struct {
-		name string
-		io   string
+		name         string
+		input        string
+		transformers []func(*String)
+		output       sql.NullString
 	}{
-		{"empty", ""},
-		{"nul", "\x00"},
-		{"space", " "},
-		{"multiple", "abc"},
+		{
+			name:   "empty",
+			input:  "",
+			output: sql.NullString{String: "", Valid: true},
+		},
+		{
+			name:   "nul",
+			input:  "\x00",
+			output: sql.NullString{String: "\x00", Valid: true},
+		},
+		{
+			name:   "space",
+			input:  " ",
+			output: sql.NullString{String: " ", Valid: true},
+		},
+		{
+			name:   "valid-text",
+			input:  "abc",
+			output: sql.NullString{String: "abc", Valid: true},
+		},
+		{
+			name:         "empty-transform-empty-to-null",
+			input:        "",
+			transformers: []func(*String){TransformEmptyStringToNull},
+			output:       sql.NullString{Valid: false},
+		},
+		{
+			name:         "valid-text-transform-empty-to-null",
+			input:        "abc",
+			transformers: []func(*String){TransformEmptyStringToNull},
+			output:       sql.NullString{String: "abc", Valid: true},
+		},
 	}
 
 	for _, st := range subtests {
 		t.Run(st.name, func(t *testing.T) {
-			require.Equal(t, String{NullString: sql.NullString{String: st.io, Valid: true}}, MakeString(st.io))
+			require.Equal(t, String{NullString: st.output}, MakeString(st.input, st.transformers...))
 		})
 	}
 }
