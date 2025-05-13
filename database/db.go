@@ -22,6 +22,7 @@ import (
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/semaphore"
+	_ "modernc.org/sqlite"
 	"net"
 	"net/url"
 	"slices"
@@ -39,6 +40,7 @@ type DB struct {
 	Options *Options
 
 	addr              string
+	queryBuilder      QueryBuilder
 	columnMap         ColumnMap
 	logger            *logging.Logger
 	tableSemaphores   map[string]*semaphore.Weighted
@@ -256,6 +258,7 @@ func NewDbFromConfig(c *Config, logger *logging.Logger, connectorCallbacks Retry
 	return &DB{
 		DB:              db,
 		Options:         &c.Options,
+		queryBuilder:    NewQueryBuilder(db.DriverName()),
 		columnMap:       NewColumnMap(db.Mapper),
 		addr:            addr,
 		logger:          logger,
@@ -930,6 +933,10 @@ func (db *DB) Log(ctx context.Context, query string, counter *com.Counter) perio
 	}, periodic.OnStop(func(tick periodic.Tick) {
 		db.logger.Debugf("Finished executing %q with %d rows in %s", query, counter.Total(), tick.Elapsed)
 	}))
+}
+
+func (db *DB) QueryBuilder() QueryBuilder {
+	return db.queryBuilder
 }
 
 var (
