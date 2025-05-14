@@ -67,24 +67,29 @@ func (c *journaldCore) Write(ent zapcore.Entry, fields []zapcore.Field) error {
 	}
 
 	enc := zapcore.NewMapObjectEncoder()
-	// Ensure that all field keys are valid journald field keys. If in doubt, use encodeJournaldFieldKey.
 	c.addFields(enc, fields)
 	c.addFields(enc, c.context)
 	enc.Fields["SYSLOG_IDENTIFIER"] = c.identifier
+
+	// Re-encode keys before passing them to journald. Unfortunately, this cannot be done within addFields or at another
+	// earlier position since zapcore's Field.AddTo may create multiple entries, some with non-compliant names.
+	encFields := make(map[string]interface{})
+	for k, v := range enc.Fields {
+		encFields[encodeJournaldFieldKey(k)] = v
+	}
 
 	message := ent.Message + visibleFieldsMsg(journaldVisibleFields, append(fields, c.context...))
 	if ent.LoggerName != c.identifier {
 		message = ent.LoggerName + ": " + message
 	}
 
-	return journald.Send(message, pri, enc.Fields)
+	return journald.Send(message, pri, encFields)
 }
 
-// addFields adds all given fields to enc with an altered key, prefixed with the journaldCore.identifier and sanitized
-// via encodeJournaldFieldKey.
+// addFields adds all given fields to enc with an altered key, prefixed with the journaldCore.identifier.
 func (c *journaldCore) addFields(enc zapcore.ObjectEncoder, fields []zapcore.Field) {
 	for _, field := range fields {
-		field.Key = encodeJournaldFieldKey(c.identifier + "_" + field.Key)
+		field.Key = c.identifier + "_" + field.Key
 		field.AddTo(enc)
 	}
 }
