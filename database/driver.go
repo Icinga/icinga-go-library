@@ -8,6 +8,7 @@ import (
 	"github.com/icinga/icinga-go-library/retry"
 	"github.com/pkg/errors"
 	"go.uber.org/zap"
+	"sync/atomic"
 	"time"
 )
 
@@ -29,12 +30,15 @@ type RetryConnectorCallbacks struct {
 }
 
 // RetryConnector wraps driver.Connector with retry logic.
+//
+// The first connection attempt will be retried for [retry.DefaultTimeout]. After a prior successful connection,
+// reconnection attempts are made infinitely.
 type RetryConnector struct {
 	driver.Connector
 
-	logger *logging.Logger
-
-	callbacks RetryConnectorCallbacks
+	logger        *logging.Logger
+	callbacks     RetryConnectorCallbacks
+	hadConnection atomic.Bool
 }
 
 // NewConnector creates a fully initialized RetryConnector from the given args.
@@ -43,7 +47,12 @@ func NewConnector(c driver.Connector, logger *logging.Logger, callbacks RetryCon
 }
 
 // Connect implements part of the driver.Connector interface.
-func (c RetryConnector) Connect(ctx context.Context) (driver.Conn, error) {
+func (c *RetryConnector) Connect(ctx context.Context) (driver.Conn, error) {
+	retryTimeout := retry.DefaultTimeout
+	if c.hadConnection.Load() {
+		retryTimeout = 0
+	}
+
 	var conn driver.Conn
 	err := errors.Wrap(retry.WithBackoff(
 		ctx,
@@ -61,7 +70,7 @@ func (c RetryConnector) Connect(ctx context.Context) (driver.Conn, error) {
 		retry.Retryable,
 		backoff.DefaultBackoff,
 		retry.Settings{
-			Timeout: retry.DefaultTimeout,
+			Timeout: retryTimeout,
 			OnRetryableError: func(elapsed time.Duration, attempt uint64, err, lastErr error) {
 				if c.callbacks.OnRetryableError != nil {
 					c.callbacks.OnRetryableError(elapsed, attempt, err, lastErr)
@@ -73,6 +82,8 @@ func (c RetryConnector) Connect(ctx context.Context) (driver.Conn, error) {
 					zap.Uint64("attempt", attempt))
 			},
 			OnSuccess: func(elapsed time.Duration, attempt uint64, lastErr error) {
+				c.hadConnection.Store(true)
+
 				if c.callbacks.OnSuccess != nil {
 					c.callbacks.OnSuccess(elapsed, attempt, lastErr)
 				}
@@ -88,7 +99,7 @@ func (c RetryConnector) Connect(ctx context.Context) (driver.Conn, error) {
 }
 
 // Driver implements part of the driver.Connector interface.
-func (c RetryConnector) Driver() driver.Driver {
+func (c *RetryConnector) Driver() driver.Driver {
 	return c.Connector.Driver()
 }
 
