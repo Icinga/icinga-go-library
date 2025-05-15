@@ -1,14 +1,17 @@
 package logging
 
 import (
+	"fmt"
 	"github.com/icinga/icinga-go-library/strcase"
+	"github.com/icinga/icinga-go-library/utils"
 	"github.com/pkg/errors"
 	"github.com/ssgreg/journald"
 	"go.uber.org/zap/zapcore"
+	"strings"
 )
 
-// priorities maps zapcore.Level to journal.Priority.
-var priorities = map[zapcore.Level]journald.Priority{
+// journaldPriorities maps zapcore.Level to journal.Priority.
+var journaldPriorities = map[zapcore.Level]journald.Priority{
 	zapcore.DebugLevel:  journald.PriorityDebug,
 	zapcore.InfoLevel:   journald.PriorityInfo,
 	zapcore.WarnLevel:   journald.PriorityWarning,
@@ -16,6 +19,11 @@ var priorities = map[zapcore.Level]journald.Priority{
 	zapcore.FatalLevel:  journald.PriorityCrit,
 	zapcore.PanicLevel:  journald.PriorityCrit,
 	zapcore.DPanicLevel: journald.PriorityCrit,
+}
+
+// journaldVisibleFields is a set (map to struct{}) of field keys being logged within the message for journald.
+var journaldVisibleFields = map[string]struct{}{
+	"error": {},
 }
 
 // NewJournaldCore returns a zapcore.Core that sends log entries to systemd-journald and
@@ -53,30 +61,35 @@ func (c *journaldCore) With(fields []zapcore.Field) zapcore.Core {
 }
 
 func (c *journaldCore) Write(ent zapcore.Entry, fields []zapcore.Field) error {
-	pri, ok := priorities[ent.Level]
+	pri, ok := journaldPriorities[ent.Level]
 	if !ok {
 		return errors.Errorf("unknown log level %q", ent.Level)
 	}
 
 	enc := zapcore.NewMapObjectEncoder()
-	// Ensure that all field keys are valid journald field keys. If in doubt, use encodeJournaldFieldKey.
 	c.addFields(enc, fields)
 	c.addFields(enc, c.context)
 	enc.Fields["SYSLOG_IDENTIFIER"] = c.identifier
 
-	message := ent.Message
+	// Re-encode keys before passing them to journald. Unfortunately, this cannot be done within addFields or at another
+	// earlier position since zapcore's Field.AddTo may create multiple entries, some with non-compliant names.
+	encFields := make(map[string]interface{})
+	for k, v := range enc.Fields {
+		encFields[encodeJournaldFieldKey(k)] = v
+	}
+
+	message := ent.Message + visibleFieldsMsg(journaldVisibleFields, append(fields, c.context...))
 	if ent.LoggerName != c.identifier {
 		message = ent.LoggerName + ": " + message
 	}
 
-	return journald.Send(message, pri, enc.Fields)
+	return journald.Send(message, pri, encFields)
 }
 
-// addFields adds all given fields to enc with an altered key, prefixed with the journaldCore.identifier and sanitized
-// via encodeJournaldFieldKey.
+// addFields adds all given fields to enc with an altered key, prefixed with the journaldCore.identifier.
 func (c *journaldCore) addFields(enc zapcore.ObjectEncoder, fields []zapcore.Field) {
 	for _, field := range fields {
-		field.Key = encodeJournaldFieldKey(c.identifier + "_" + field.Key)
+		field.Key = c.identifier + "_" + field.Key
 		field.AddTo(enc)
 	}
 }
@@ -123,4 +136,57 @@ func encodeJournaldFieldKey(key string) string {
 	}
 
 	return key
+}
+
+// visibleFieldsMsg creates a string to be appended to the log message including fields to be explicitly printed.
+//
+// When logging against journald, the zapcore.Fields are used as journald fields, resulting in not being shown in the
+// default journalctl output (short). While this is documented in our docs, missing error messages are usually confusing
+// for end users.
+//
+// This method takes an allow list (set, map of keys to empty struct) of key to be displayed - there is the global
+// variable journaldVisibleFields; parameter for testing - and a slice of zapcore.Fields, creating an output string of
+// the allowed fields prefixed by a whitespace separator. If there are no fields to be logged, the returned string is
+// empty. So the function output can be appended to the output message without further checks.
+func visibleFieldsMsg(visibleFieldKeys map[string]struct{}, fields []zapcore.Field) string {
+	if visibleFieldKeys == nil || fields == nil {
+		return ""
+	}
+
+	enc := zapcore.NewMapObjectEncoder()
+
+	for _, field := range fields {
+		if _, shouldLog := visibleFieldKeys[field.Key]; shouldLog {
+			field.AddTo(enc)
+		}
+	}
+
+	// The internal zapcore.encodeError function[^0] can result in multiple fields. For example, an error type
+	// implementing fmt.Formatter results in another "errorVerbose" field, containing the stack trace if the error was
+	// created by github.com/pkg/errors including a stack[^1]. So the keys are checked again in the following loop.
+	//
+	// [^0]: https://github.com/uber-go/zap/blob/v1.27.0/zapcore/error.go#L47
+	// [^1]: https://pkg.go.dev/github.com/pkg/errors@v0.9.1#WithStack
+	visibleFields := make([]string, 0, len(visibleFieldKeys))
+	for k, v := range utils.IterateOrderedMap(enc.Fields) {
+		if _, shouldLog := visibleFieldKeys[k]; !shouldLog {
+			continue
+		}
+
+		var encodedField string
+		switch v.(type) {
+		case string, []byte, error:
+			encodedField = fmt.Sprintf("%s=%q", k, v)
+		default:
+			encodedField = fmt.Sprintf(`%s="%v"`, k, v)
+		}
+
+		visibleFields = append(visibleFields, encodedField)
+	}
+
+	if len(visibleFields) == 0 {
+		return ""
+	}
+
+	return "\t" + strings.Join(visibleFields, ", ")
 }
