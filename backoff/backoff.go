@@ -8,6 +8,9 @@ import (
 // Backoff returns the backoff duration for a specific retry attempt.
 type Backoff func(uint64) time.Duration
 
+// DefaultBackoff is our opinionated Backoff function for retry.WithBackoff - between 128ms and 1m.
+var DefaultBackoff = NewExponentialWithJitter(128*time.Millisecond, 1*time.Minute)
+
 // NewExponentialWithJitter returns an exponentially increasing [Backoff] implementation.
 //
 // The calculated [time.Duration] values are within [min, max], exponentially increasing and slightly randomized.
