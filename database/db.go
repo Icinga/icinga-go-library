@@ -481,7 +481,7 @@ func (db *DB) BulkExec(
 							return nil
 						},
 						retry.Retryable,
-						backoff.NewExponentialWithJitter(1*time.Millisecond, 1*time.Second),
+						backoff.DefaultBackoff,
 						db.GetDefaultRetrySettings(),
 					)
 				}
@@ -546,7 +546,7 @@ func (db *DB) NamedBulkExec(
 								return nil
 							},
 							retry.Retryable,
-							backoff.NewExponentialWithJitter(1*time.Millisecond, 1*time.Second),
+							backoff.DefaultBackoff,
 							db.GetDefaultRetrySettings(),
 						)
 					}
@@ -623,7 +623,7 @@ func (db *DB) NamedBulkExecTx(
 								return nil
 							},
 							retry.Retryable,
-							backoff.NewExponentialWithJitter(1*time.Millisecond, 1*time.Second),
+							backoff.DefaultBackoff,
 							db.GetDefaultRetrySettings(),
 						)
 					}
@@ -868,7 +868,7 @@ func (db *DB) HasTable(ctx context.Context, table string) (bool, error) {
 			return rows.Close()
 		},
 		retry.Retryable,
-		backoff.NewExponentialWithJitter(128*time.Millisecond, 1*time.Minute),
+		backoff.DefaultBackoff,
 		db.GetDefaultRetrySettings())
 	if err != nil {
 		return false, errors.Wrapf(err, "can't verify existence of database table %q", table)
