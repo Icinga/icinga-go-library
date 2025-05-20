@@ -8,10 +8,10 @@ import (
 // Backoff returns the backoff duration for a specific retry attempt.
 type Backoff func(uint64) time.Duration
 
-// NewExponentialWithJitter returns a backoff implementation that
-// exponentially increases the backoff duration for each retry from min,
-// never exceeding max. Some randomization is added to the backoff duration.
-// It panics if min >= max.
+// NewExponentialWithJitter returns an exponentially increasing [Backoff] implementation.
+//
+// The calculated [time.Duration] values are within [min, max], exponentially increasing and slightly randomized.
+// If min or max are zero or negative, they will default to 100ms and 10s, respectively. It panics if min >= max.
 func NewExponentialWithJitter(min, max time.Duration) Backoff {
 	if min <= 0 {
 		min = 100 * time.Millisecond
@@ -20,16 +20,19 @@ func NewExponentialWithJitter(min, max time.Duration) Backoff {
 		max = 10 * time.Second
 	}
 	if min >= max {
-		panic("max must be larger than min")
+		panic("max must be greater than min")
 	}
 
 	return func(attempt uint64) time.Duration {
-		e := min << attempt
-		if e <= 0 || e > max {
+		e := time.Duration(jitter(int64(min << attempt)))
+		if e < min {
+			e = min
+		}
+		if e > max {
 			e = max
 		}
 
-		return time.Duration(jitter(int64(e)))
+		return e
 	}
 }
 
