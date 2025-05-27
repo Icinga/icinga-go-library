@@ -17,6 +17,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/semaphore"
 	"net"
+	"sync/atomic"
 	"time"
 )
 
@@ -297,9 +298,18 @@ type ctxDialerFunc = func(ctx context.Context, network, addr string) (net.Conn, 
 
 // dialWithLogging returns a Redis Dialer with logging capabilities.
 func dialWithLogging(dialer ctxDialerFunc, logger *logging.Logger) ctxDialerFunc {
+	// hadConnection captures if at least one successful connection was made. Since this function is only called once
+	// and the returned closure is used, it can be used to synchronize this state across all dialers.
+	var hadConnection atomic.Bool
+
 	// dial behaves like net.Dialer#DialContext,
 	// but re-tries on common errors that are considered retryable.
 	return func(ctx context.Context, network, addr string) (conn net.Conn, err error) {
+		retryTimeout := retry.DefaultTimeout
+		if hadConnection.Load() {
+			retryTimeout = 0
+		}
+
 		err = retry.WithBackoff(
 			ctx,
 			func(ctx context.Context) (err error) {
@@ -309,7 +319,7 @@ func dialWithLogging(dialer ctxDialerFunc, logger *logging.Logger) ctxDialerFunc
 			retry.Retryable,
 			backoff.DefaultBackoff,
 			retry.Settings{
-				Timeout: retry.DefaultTimeout,
+				Timeout: retryTimeout,
 				OnRetryableError: func(elapsed time.Duration, attempt uint64, err, lastErr error) {
 					logger.Warnw("Can't connect to Redis. Retrying",
 						zap.Error(err),
@@ -317,6 +327,8 @@ func dialWithLogging(dialer ctxDialerFunc, logger *logging.Logger) ctxDialerFunc
 						zap.Uint64("attempt", attempt))
 				},
 				OnSuccess: func(elapsed time.Duration, attempt uint64, _ error) {
+					hadConnection.Store(true)
+
 					if attempt > 1 {
 						logger.Infow("Reconnected to Redis",
 							zap.Duration("after", elapsed), zap.Uint64("attempts", attempt))
