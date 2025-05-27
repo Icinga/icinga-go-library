@@ -307,7 +307,7 @@ func dialWithLogging(dialer ctxDialerFunc, logger *logging.Logger) ctxDialerFunc
 				return
 			},
 			retry.Retryable,
-			backoff.NewExponentialWithJitter(1*time.Millisecond, 1*time.Second),
+			backoff.DefaultBackoff,
 			retry.Settings{
 				Timeout: retry.DefaultTimeout,
 				OnRetryableError: func(elapsed time.Duration, attempt uint64, err, lastErr error) {
