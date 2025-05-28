@@ -23,23 +23,23 @@ func TestNewExponentialWithJitter(t *testing.T) {
 			r := NewExponentialWithJitter(tt.min, tt.max)
 
 			// Ensure that multiple calls don't breach the upper bound
-			maxCounter := 0
+			reachedMax := false
 
-			for i := uint64(0); ; i++ {
-				if maxCounter >= 10 {
-					break
-				}
-				if i > 1_000_000 {
-					t.Error("not reached max")
-				}
-
+			for i := uint64(0); i < 1024; i++ {
 				d := r(i)
 				require.GreaterOrEqual(t, d, tt.min)
 				require.LessOrEqual(t, d, tt.max)
 
-				if d == tt.max {
-					maxCounter++
+				if reachedMax && d != tt.max {
+					t.Errorf("max value %v was already reached, but r(%d) := %v", tt.max, i, d)
 				}
+
+				if d == tt.max {
+					reachedMax = true
+				}
+			}
+			if !reachedMax {
+				t.Error("max value was never reached")
 			}
 		})
 	}
