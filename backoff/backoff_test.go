@@ -2,6 +2,7 @@ package backoff
 
 import (
 	"github.com/stretchr/testify/require"
+	"math"
 	"testing"
 	"time"
 )
@@ -22,25 +23,23 @@ func TestNewExponentialWithJitter(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			r := NewExponentialWithJitter(tt.min, tt.max)
 
+			require.Equal(t, tt.min, r(0))
+			require.Equal(t, tt.max, r(math.MaxUint64))
+
 			// Ensure that multiple calls don't breach the upper bound
-			maxCounter := 0
+			reachedMax := false
 
-			for i := uint64(0); ; i++ {
-				if maxCounter >= 10 {
-					break
-				}
-				if i > 1_000_000 {
-					t.Error("not reached max")
-				}
-
+			for i := uint64(0); i < 1024; i++ {
 				d := r(i)
 				require.GreaterOrEqual(t, d, tt.min)
 				require.LessOrEqual(t, d, tt.max)
 
+				require.Falsef(t, reachedMax && d != tt.max, "max value %v was already reached, but r(%d) := %v", tt.max, i, d)
 				if d == tt.max {
-					maxCounter++
+					reachedMax = true
 				}
 			}
+			require.True(t, reachedMax, "max value was never reached")
 		})
 	}
 }

@@ -27,7 +27,15 @@ func NewExponentialWithJitter(min, max time.Duration) Backoff {
 	}
 
 	return func(attempt uint64) time.Duration {
-		e := time.Duration(jitter(int64(min << attempt)))
+		e := min << attempt
+		// If the bit shift already overflows, return max.
+		if e < min {
+			return max
+		}
+
+		// Introduce jitter. e <- [min/2, int64_max)
+		e = e/2 + time.Duration(rand.Int63n(int64(e/2))) // #nosec G404 -- we don't need crypto/rand here though.
+		// Remap e to [min, max].
 		if e < min {
 			e = min
 		}
@@ -37,13 +45,4 @@ func NewExponentialWithJitter(min, max time.Duration) Backoff {
 
 		return e
 	}
-}
-
-// jitter returns a random integer distributed in the range [n/2..n).
-func jitter(n int64) int64 {
-	if n == 0 {
-		return 0
-	}
-
-	return n/2 + rand.Int63n(n/2) // #nosec G404 -- Use of weak random number generator - we don't need crypto/rand here though.
 }
