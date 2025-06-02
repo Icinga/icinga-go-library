@@ -215,11 +215,16 @@ func (c *Client) HMYield(ctx context.Context, key string, fields ...string) (<-c
 						c.logger.Warnf("HMGET %s: field %#v missing", key, batch[i])
 						continue
 					}
+					vStr, ok := v.(string)
+					if !ok {
+						c.logger.Warnf("HMGET %s: field %#v is not a string", key, batch[i])
+						continue
+					}
 
 					select {
 					case pairs <- HPair{
 						Field: batch[i],
-						Value: v.(string),
+						Value: vStr,
 					}:
 						counter.Inc()
 					case <-ctx.Done():

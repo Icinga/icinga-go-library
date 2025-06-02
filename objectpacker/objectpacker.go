@@ -79,8 +79,11 @@ func packValue(in reflect.Value, out io.Writer) error {
 			}
 
 			// Pack []byte as string, not array of numbers.
-			return packString(in.Convert(tBytes). // Support types.Binary
-								Interface().([]uint8), out)
+			b, ok := in.Convert(tBytes).Interface().([]uint8)
+			if !ok {
+				return fmt.Errorf("cannot convert data to []uint8")
+			}
+			return packString(b, out)
 		}
 
 		if _, err := out.Write([]byte{5}); err != nil {
@@ -138,7 +141,11 @@ func packValue(in reflect.Value, out io.Writer) error {
 							key = vNewElem
 						}
 
-						packedKey = key.Slice(0, key.Len()).Interface().([]byte)
+						p, ok := key.Slice(0, key.Len()).Interface().([]byte)
+						if !ok {
+							return fmt.Errorf("cannot convert data to []byte")
+						}
+						packedKey = p
 					} else {
 						// Not just stringify the key (below), but also pack it (here) - panics on disallowed type.
 						_ = packValue(iter.Key(), io.Discard)

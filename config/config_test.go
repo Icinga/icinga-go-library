@@ -528,5 +528,9 @@ func TestParseFlags(t *testing.T) {
 // Since our test cases only define the expected configuration,
 // we need to create a new instance of that type for our functions to parse the configuration into.
 func createValidatorInstance(v Validator) Validator {
-	return reflect.New(reflect.TypeOf(v).Elem()).Interface().(Validator)
+	v, ok := reflect.New(reflect.TypeOf(v).Elem()).Interface().(Validator)
+	if !ok {
+		panic(fmt.Sprintf("cannot create a Validator, got %T", v))
+	}
+	return v
 }

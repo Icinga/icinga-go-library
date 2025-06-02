@@ -106,7 +106,11 @@ func BuildInsertStmtWithout(db *DB, into interface{}, withoutColumns ...string) 
 func unsafeSetSessionVariableIfExists(ctx context.Context, conn driver.Conn, variable, value string) error {
 	stmt := fmt.Sprintf("SET SESSION %s=%s", variable, value)
 
-	if _, err := conn.(driver.ExecerContext).ExecContext(ctx, stmt, nil); err != nil {
+	exe, ok := conn.(driver.ExecerContext)
+	if !ok {
+		return fmt.Errorf("conn is not a driver.ExecerContext")
+	}
+	if _, err := exe.ExecContext(ctx, stmt, nil); err != nil {
 		if errors.Is(err, &mysql.MySQLError{Number: 1193}) { // Unknown system variable
 			return nil
 		}
