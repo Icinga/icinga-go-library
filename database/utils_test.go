@@ -3,6 +3,7 @@ package database
 import (
 	"context"
 	"database/sql/driver"
+	"fmt"
 	"github.com/creasty/defaults"
 	"github.com/go-sql-driver/mysql"
 	"github.com/icinga/icinga-go-library/logging"
@@ -91,11 +92,15 @@ func setMysqlSessionVars(ctx context.Context, db *DB, t *testing.T) {
 			t.Parallel()
 
 			for _, v := range vs {
-				conn, err := db.DB.Conn(ctx)
+				conn, err := db.Conn(ctx)
 				require.NoError(t, err, "connecting to MySQL/MariaDB database should not fail")
 
 				err = conn.Raw(func(conn any) error {
-					return unsafeSetSessionVariableIfExists(ctx, conn.(driver.Conn), v.name, v.value)
+					c, ok := conn.(driver.Conn)
+					if !ok {
+						return fmt.Errorf("conn is not a driver.Conn")
+					}
+					return unsafeSetSessionVariableIfExists(ctx, c, v.name, v.value)
 				})
 
 				assert.ErrorIsf(t, err, v.expect, "setting %q variable to '%v' returns unexpected result", v.name, v.value)

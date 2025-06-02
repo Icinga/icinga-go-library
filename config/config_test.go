@@ -20,7 +20,7 @@ var errInvalidConfiguration = errors.New("invalid configuration")
 type validateValid struct{}
 
 // Validate returns nil indicating the configuration is valid.
-func (_ *validateValid) Validate() error {
+func (*validateValid) Validate() error {
 	return nil
 }
 
@@ -28,7 +28,7 @@ func (_ *validateValid) Validate() error {
 type validateInvalid struct{}
 
 // Validate returns errInvalidConfiguration indicating the configuration is invalid.
-func (_ *validateInvalid) Validate() error {
+func (*validateInvalid) Validate() error {
 	return errInvalidConfiguration
 }
 
@@ -528,5 +528,9 @@ func TestParseFlags(t *testing.T) {
 // Since our test cases only define the expected configuration,
 // we need to create a new instance of that type for our functions to parse the configuration into.
 func createValidatorInstance(v Validator) Validator {
-	return reflect.New(reflect.TypeOf(v).Elem()).Interface().(Validator)
+	v, ok := reflect.New(reflect.TypeOf(v).Elem()).Interface().(Validator)
+	if !ok {
+		panic(fmt.Sprintf("cannot create a Validator, got %T", v))
+	}
+	return v
 }

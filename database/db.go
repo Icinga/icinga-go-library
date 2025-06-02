@@ -607,6 +607,7 @@ func (db *DB) NamedBulkExecTx(
 								if err != nil {
 									return errors.Wrap(err, "can't prepare named statement with context in transaction")
 								}
+								defer func() { _ = stmt.Close() }()
 
 								for _, arg := range b {
 									if _, err := stmt.ExecContext(ctx, arg); err != nil {
@@ -664,7 +665,7 @@ func (db *DB) YieldAll(ctx context.Context, factoryFunc EntityFactoryFunc, query
 		if err != nil {
 			return CantPerformQuery(err, query)
 		}
-		defer rows.Close()
+		defer func() { _ = rows.Close() }()
 
 		for rows.Next() {
 			e := factoryFunc()
@@ -865,7 +866,10 @@ func (db *DB) HasTable(ctx context.Context, table string) (bool, error) {
 			}
 			defer func() { _ = rows.Close() }()
 			hasTable = rows.Next()
-			return rows.Close()
+			if err := rows.Close(); err != nil {
+				return err
+			}
+			return rows.Err()
 		},
 		retry.Retryable,
 		backoff.DefaultBackoff,
