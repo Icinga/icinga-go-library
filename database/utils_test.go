@@ -91,7 +91,7 @@ func setMysqlSessionVars(ctx context.Context, db *DB, t *testing.T) {
 			t.Parallel()
 
 			for _, v := range vs {
-				conn, err := db.DB.Conn(ctx)
+				conn, err := db.Conn(ctx)
 				require.NoError(t, err, "connecting to MySQL/MariaDB database should not fail")
 
 				err = conn.Raw(func(conn any) error {
