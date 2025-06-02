@@ -20,7 +20,7 @@ var errInvalidConfiguration = errors.New("invalid configuration")
 type validateValid struct{}
 
 // Validate returns nil indicating the configuration is valid.
-func (_ *validateValid) Validate() error {
+func (*validateValid) Validate() error {
 	return nil
 }
 
@@ -28,7 +28,7 @@ func (_ *validateValid) Validate() error {
 type validateInvalid struct{}
 
 // Validate returns errInvalidConfiguration indicating the configuration is invalid.
-func (_ *validateInvalid) Validate() error {
+func (*validateInvalid) Validate() error {
 	return errInvalidConfiguration
 }
 

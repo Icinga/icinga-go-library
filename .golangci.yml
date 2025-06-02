@@ -21,3 +21,4 @@ linters:
         - all
         - '-ST1000' # ignore missing package comments
         - '-ST1003' # ignore capitalization in camel case names
+        - '-QF1001' # don't suggest De Morgan's law for boolean expressions
