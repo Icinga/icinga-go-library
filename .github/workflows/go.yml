@@ -27,8 +27,5 @@ jobs:
           version: latest
           only-new-issues: true
 
-          # Enable the gosec linter w/o having to create a .golangci.yml config
-          args: -E gosec
-
       - name: Test
         run: go test -v ./...
