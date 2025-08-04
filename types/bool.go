@@ -22,6 +22,10 @@ type Bool struct {
 	Valid bool // Valid is true if Bool is not NULL
 }
 
+// IsZero implements the json.isZeroer interface.
+// A Bool is considered zero if its Valid field is false regardless of its actual Bool value.
+func (b Bool) IsZero() bool { return !b.Valid }
+
 // MarshalJSON implements the json.Marshaler interface.
 func (b Bool) MarshalJSON() ([]byte, error) {
 	if !b.Valid {
