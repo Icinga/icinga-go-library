@@ -7,6 +7,46 @@ import (
 	"unicode/utf8"
 )
 
+func TestMakeBool(t *testing.T) {
+	t.Parallel()
+
+	subtests := []struct {
+		name         string
+		input        bool
+		transformers []func(*Bool)
+		output       Bool
+	}{
+		{
+			name:   "false",
+			input:  false,
+			output: Bool{Bool: false, Valid: true},
+		},
+		{
+			name:   "true",
+			input:  true,
+			output: Bool{Bool: true, Valid: true},
+		},
+		{
+			name:         "false-transform-zero-to-null",
+			input:        false,
+			transformers: []func(*Bool){TransformZeroBoolToNull},
+			output:       Bool{Valid: false},
+		},
+		{
+			name:         "true-transform-zero-to-null",
+			input:        true,
+			transformers: []func(*Bool){TransformZeroBoolToNull},
+			output:       Bool{Bool: true, Valid: true},
+		},
+	}
+
+	for _, st := range subtests {
+		t.Run(st.name, func(t *testing.T) {
+			require.Equal(t, st.output, MakeBool(st.input, st.transformers...))
+		})
+	}
+}
+
 func TestBool_MarshalJSON(t *testing.T) {
 	subtests := []struct {
 		input  Bool
