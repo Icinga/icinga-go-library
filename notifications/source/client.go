@@ -176,6 +176,18 @@ type RulesInfo struct {
 	Rules   map[int64]RuleResp // Rules is a map of rule IDs to their corresponding RuleResp objects.
 }
 
+// Iter returns an iterator over the rules in the RulesInfo.
+// It yields each RuleResp object until all rules have been processed or the yield function returns false.
+func (r *RulesInfo) Iter() iter.Seq[RuleResp] {
+	return func(yield func(RuleResp) bool) {
+		for _, rule := range r.Rules {
+			if !yield(rule) {
+				break
+			}
+		}
+	}
+}
+
 // RuleResp represents a response object for a rule in the Icinga Notifications API.
 type RuleResp struct {
 	Id               int64  // Id is the unique identifier of the rule.
