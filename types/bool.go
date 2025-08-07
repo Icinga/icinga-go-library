@@ -22,6 +22,32 @@ type Bool struct {
 	Valid bool // Valid is true if Bool is not NULL
 }
 
+// TransformZeroBoolToNull is a transformer function that sets the Valid field to false if the Bool is zero.
+// This is useful when you want to convert a zero value to a NULL value in a database context.
+func TransformZeroBoolToNull(b *Bool) {
+	if b.Valid && !b.Bool {
+		b.Valid = false
+	}
+}
+
+// MakeBool constructs a new Bool.
+//
+// Multiple transformer functions can be given, each transforming the generated Bool to whatever is needed.
+// If no transformers are given, the Bool will be valid and set to the given value.
+func MakeBool(bi bool, transformers ...func(*Bool)) Bool {
+	b := Bool{Bool: bi, Valid: true}
+
+	for _, transformer := range transformers {
+		transformer(&b)
+	}
+
+	return b
+}
+
+// IsZero implements the json.isZeroer interface.
+// A Bool is considered zero if its Valid field is false regardless of its actual Bool value.
+func (b Bool) IsZero() bool { return !b.Valid }
+
 // MarshalJSON implements the json.Marshaler interface.
 func (b Bool) MarshalJSON() ([]byte, error) {
 	if !b.Valid {
