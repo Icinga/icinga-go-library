@@ -38,4 +38,8 @@ type Event struct {
 	// as Icinga Notifications requires a reason for muting an object. Otherwise, it will be omitted
 	// from the encoded JSON.
 	MuteReason string `json:"mute_reason,omitempty"`
+
+	// RulesVersion and RuleIds are the source rules matching for this Event.
+	RulesVersion string  `json:"rules_version"`
+	RuleIds      []int64 `json:"rule_ids"`
 }
