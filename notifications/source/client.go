@@ -9,7 +9,6 @@ import (
 	"iter"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 
 	"github.com/icinga/icinga-go-library/notifications/event"
@@ -88,9 +87,8 @@ func NewClient(cfg Config, projectName string) (*Client, error) {
 
 // ProcessEvent submits an event to the Icinga Notifications /process-event API endpoint.
 //
-// It serializes the event into JSON and sends it as a POST request to the process event endpoint.
-// The given ruleVersion is transmitted as [XIcingaRulesVersion] header along with the [XIcingaRulesId] header,
-// containing a comma-separated list of rule IDs.
+// It serializes the event into JSON and sends it as a POST request to the process event endpoint. In most cases, the
+// Event.RulesVersion and Event.RuleIds must be set.
 //
 // It may return an ErrRulesOutdated error, implying that the provided ruleVersion does not match the current rules
 // version in Icinga Notifications daemon. In this case, it will also return the current rules specific to your source
@@ -99,7 +97,7 @@ func NewClient(cfg Config, projectName string) (*Client, error) {
 // you're using an outdated event rules config.
 //
 // If the request fails or the response is not as expected, it returns an error; otherwise, it returns nil.
-func (c *Client) ProcessEvent(ctx context.Context, ev *event.Event, ruleVersion string, ruleIDs ...int64) (*RulesInfo, error) {
+func (c *Client) ProcessEvent(ctx context.Context, ev *event.Event) (*RulesInfo, error) {
 	body, err := json.Marshal(ev)
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot encode event to JSON")
@@ -110,15 +108,8 @@ func (c *Client) ProcessEvent(ctx context.Context, ev *event.Event, ruleVersion 
 		return nil, errors.Wrap(err, "cannot create HTTP request")
 	}
 
-	ruleIdsStrArr := make([]string, 0, len(ruleIDs))
-	for _, ruleId := range ruleIDs {
-		ruleIdsStrArr = append(ruleIdsStrArr, strconv.FormatInt(ruleId, 10))
-	}
-
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("Accept", "application/json")
-	req.Header.Add(XIcingaRulesVersion, ruleVersion)
-	req.Header.Add(XIcingaRulesId, strings.Join(ruleIdsStrArr, ","))
 
 	resp, err := c.client.Do(req)
 	if err != nil {
