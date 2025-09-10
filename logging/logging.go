@@ -28,6 +28,9 @@ var defaultEncConfig = zapcore.EncoderConfig{
 	EncodeCaller:   zapcore.ShortCallerEncoder,
 }
 
+// CoreFactory is a function type that creates a zapcore.Core based on the provided zap.AtomicLevel.
+type CoreFactory func(zap.AtomicLevel) zapcore.Core
+
 // Logging implements access to a default logger and named child loggers.
 // Log levels can be configured per named child via Options which, if not configured,
 // fall back on a default log level.
@@ -39,12 +42,42 @@ type Logging struct {
 	interval  time.Duration
 
 	// coreFactory creates zapcore.Core based on the log level and the log output.
-	coreFactory func(zap.AtomicLevel) zapcore.Core
+	coreFactory CoreFactory
 
 	mu      sync.Mutex
 	loggers map[string]*Logger
 
 	options Options
+}
+
+// NewLoggingWithFactory constructs a new Logging with the provided CoreFactory.
+//
+// This is useful if you want to customize the [zapcore.Core] creation, e.g. for testing purposes.
+// Note that the returned Logging instance will not have any options set, i.e. all child loggers
+// will inherit the default log level. If you need options, set them manually after obtaining the Logging instance.
+//
+// Example usage:
+//
+//	logs := logging.NewLoggingWithFactory("testing", zapcore.DebugLevel, time.Second, func(level zap.AtomicLevel) zapcore.Core {
+//	    return zaptest.NewLogger(t, zaptest.Level(level.Level())).Core()
+//	})
+//
+//	childLogger := logs.GetChildLogger("my-component")
+//
+// The above example creates a Logging instance that logs to the test logger provided by the zaptest package.
+// All loggers created from this Logging instance will log to the same test logger, which will only be visible
+// in the test output when the test fails or when the test is run with the -v flag.
+func NewLoggingWithFactory(name string, level zapcore.Level, interval time.Duration, f CoreFactory) *Logging {
+	verbosity := zap.NewAtomicLevelAt(level)
+
+	return &Logging{
+		logger:      NewLogger(zap.New(f(verbosity)).Named(name).Sugar(), interval),
+		verbosity:   verbosity,
+		interval:    interval,
+		coreFactory: f,
+		loggers:     make(map[string]*Logger),
+		options:     make(Options),
+	}
 }
 
 // NewLogging takes the name and log level for the default logger,
@@ -54,7 +87,7 @@ type Logging struct {
 func NewLogging(name string, level zapcore.Level, output string, options Options, interval time.Duration) (*Logging, error) {
 	verbosity := zap.NewAtomicLevelAt(level)
 
-	var coreFactory func(zap.AtomicLevel) zapcore.Core
+	var coreFactory CoreFactory
 	switch output {
 	case CONSOLE:
 		enc := zapcore.NewConsoleEncoder(defaultEncConfig)
