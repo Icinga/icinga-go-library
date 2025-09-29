@@ -26,7 +26,7 @@ func TestEvent(t *testing.T) {
 				Username:     "testuser",
 				Message:      "Test",
 				RulesVersion: "0x1",
-				RuleIds:      []int64{1, 2, 3, 6},
+				RuleIds:      []string{"1", "2", "3", "6"},
 			}
 
 			data, err := json.Marshal(event)
@@ -42,7 +42,7 @@ func TestEvent(t *testing.T) {
 					"username":"testuser",
 					"message":"Test",
 					"rules_version": "0x1",
-					"rule_ids": [1, 2, 3, 6]
+					"rule_ids": ["1", "2", "3", "6"]
 				}`
 			assert.JSONEq(t, expected, string(data), "JSON encoding does not match expected output")
 		})

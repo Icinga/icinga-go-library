@@ -18,8 +18,8 @@ import (
 // ErrRulesOutdated implies that the rules version between Icinga DB and Icinga Notifications mismatches.
 var ErrRulesOutdated = fmt.Errorf("rules version is outdated")
 
-// BasicAuthTransport is an http.RoundTripper that adds basic authentication and a User-Agent header to HTTP requests.
-type BasicAuthTransport struct {
+// basicAuthTransport is an http.RoundTripper that adds basic authentication and a User-Agent header to HTTP requests.
+type basicAuthTransport struct {
 	http.RoundTripper // RoundTripper is the underlying HTTP transport to use for making requests.
 
 	Username   string
@@ -28,7 +28,7 @@ type BasicAuthTransport struct {
 }
 
 // RoundTrip adds basic authentication headers to the request and executes the HTTP request.
-func (b *BasicAuthTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+func (b *basicAuthTransport) RoundTrip(req *http.Request) (*http.Response, error) {
 	req.SetBasicAuth(b.Username, b.Password)
 	// As long as our round tripper is used for the client, the User-Agent header below
 	// overrides any other value set by the user.
@@ -45,15 +45,14 @@ type Client struct {
 	client http.Client // HTTP client used for making requests to the Icinga Notifications API.
 
 	IcingaWebBaseUrl *url.URL // IcingaWebBaseUrl holds the base URL for Icinga Web 2.
-	Endpoints        struct {
-		ProcessEvent string // ProcessEvent holds the URL for the process event endpoint.
-	}
+
+	processEventEndpoint string // ProcessEventEndpoint holds the URL for the process event endpoint.
 }
 
 // NewClient creates a new Client instance with the provided configuration.
 //
 // The projectName is used to set the User-Agent header in HTTP requests sent by this client and should be
-// set to the name of the project using this client (e.g., "Icinga DB").
+// set to the name of the project using this client (e.g., "Icinga DB v1.5.0").
 //
 // It may return an error if the API base URL or Icinga Web 2 base URL cannot be parsed.
 func NewClient(cfg Config, projectName string) (*Client, error) {
@@ -61,7 +60,7 @@ func NewClient(cfg Config, projectName string) (*Client, error) {
 		cfg: cfg,
 		client: http.Client{
 			//Timeout: cfg.Timeout, // Uncomment once Timeout is (should be?) user configurable.
-			Transport: &BasicAuthTransport{
+			Transport: &basicAuthTransport{
 				RoundTripper: http.DefaultTransport,
 				Username:     cfg.Username,
 				Password:     cfg.Password,
@@ -75,7 +74,7 @@ func NewClient(cfg Config, projectName string) (*Client, error) {
 		return nil, errors.Wrap(err, "unable to parse API base URL")
 	}
 
-	client.Endpoints.ProcessEvent = baseUrl.ResolveReference(&url.URL{Path: "/process-event"}).String()
+	client.processEventEndpoint = baseUrl.JoinPath("/process-event").String()
 
 	client.IcingaWebBaseUrl, err = url.Parse(cfg.IcingaWeb2BaseUrl)
 	if err != nil {
@@ -87,8 +86,10 @@ func NewClient(cfg Config, projectName string) (*Client, error) {
 
 // ProcessEvent submits an event to the Icinga Notifications /process-event API endpoint.
 //
-// It serializes the event into JSON and sends it as a POST request to the process event endpoint. In most cases, the
-// Event.RulesVersion and Event.RuleIds must be set.
+// It serializes the event into JSON and sends it as a POST request to the process event endpoint.
+//
+// Event.RulesVersion and Event.RuleIds must be set. When no information is available, set them to an empty string and
+// an empty []int64, respectively.
 //
 // It may return an ErrRulesOutdated error, implying that the provided ruleVersion does not match the current rules
 // version in Icinga Notifications daemon. In this case, it will also return the current rules specific to your source
@@ -103,7 +104,7 @@ func (c *Client) ProcessEvent(ctx context.Context, ev *event.Event) (*RulesInfo,
 		return nil, errors.Wrap(err, "cannot encode event to JSON")
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.Endpoints.ProcessEvent, bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.processEventEndpoint, bytes.NewReader(body))
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot create HTTP request")
 	}
@@ -151,20 +152,16 @@ func (c *Client) ProcessEvent(ctx context.Context, ev *event.Event) (*RulesInfo,
 // JoinIcingaWeb2Path constructs a URL by joining the Icinga Web 2 base URL with the provided relative URL.
 //
 // It is used to convert any relative URL into an absolute URL that points to the Icinga Web 2 instance.
-// A relative URL like "/icingadb/host" is transformed to e.g. "https://icinga.example.com/icingaweb2/icingadb/host"
+// A relative URL like "/icingadb/host" is transformed to, e.g., "https://icinga.example.com/icingaweb2/icingadb/host"
 // after passing through this method, assuming the Icinga Web 2 base URL is "https://icinga.example.com/icingaweb2".
 func (c *Client) JoinIcingaWeb2Path(relativePath string) *url.URL {
 	return c.IcingaWebBaseUrl.JoinPath(relativePath)
 }
 
-// EmptyRulesVersion is a constant representing the version of the rules when no rules are present.
-// It is used to indicate that there are no rules available for a given source.
-const EmptyRulesVersion = "0x0"
-
 // RulesInfo holds information about the event rules for a specific source.
 type RulesInfo struct {
-	Version string             // Version of the event rules fetched from the API.
-	Rules   map[int64]RuleResp // Rules is a map of rule IDs to their corresponding RuleResp objects.
+	Version string              // Version of the event rules fetched from the API.
+	Rules   map[string]RuleResp // Rules is a map of rule IDs to their corresponding RuleResp objects.
 }
 
 // Iter returns an iterator over the rules in the RulesInfo.
@@ -181,7 +178,7 @@ func (r *RulesInfo) Iter() iter.Seq[RuleResp] {
 
 // RuleResp represents a response object for a rule in the Icinga Notifications API.
 type RuleResp struct {
-	Id               int64  // Id is the unique identifier of the rule.
+	Id               string // Id is the unique identifier of the rule.
 	Name             string // Name is the name of the rule.
 	ObjectFilterExpr string // ObjectFilterExpr is the object filter expression of the rule, if any.
 }
