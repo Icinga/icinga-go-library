@@ -10,7 +10,13 @@ import (
 // serialize the event to JSON for transmission over HTTP as well as to deserialize it from JSON requests.
 type Event struct {
 	Name string `json:"name"` // Name is the name of the object this event is all about.
-	URL  string `json:"url"`  // URL represents the fully qualified URL to the object in Icinga Web 2.
+
+	// URL represents a URL or a relative reference to the object in Icinga Web 2.
+	//
+	// If the URL field does not contain a URL, but only a reference relative to an Icinga Web URL, the Icinga
+	// Notifications daemon will create a URL. This allows a source to set this to something like
+	// "/icingadb/host?name=example.com" without having to know the Icinga Web 2 root URL by itself.
+	URL string `json:"url"`
 
 	// Tags contains additional metadata for the event that uniquely identifies the object it's referring to.
 	//

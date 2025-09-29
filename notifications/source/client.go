@@ -44,8 +44,6 @@ type Client struct {
 
 	client http.Client // HTTP client used for making requests to the Icinga Notifications API.
 
-	IcingaWebBaseUrl *url.URL // IcingaWebBaseUrl holds the base URL for Icinga Web 2.
-
 	processEventEndpoint string // ProcessEventEndpoint holds the URL for the process event endpoint.
 }
 
@@ -75,11 +73,6 @@ func NewClient(cfg Config, projectName string) (*Client, error) {
 	}
 
 	client.processEventEndpoint = baseUrl.JoinPath("/process-event").String()
-
-	client.IcingaWebBaseUrl, err = url.Parse(cfg.IcingaWeb2BaseUrl)
-	if err != nil {
-		return nil, errors.Wrap(err, "unable to parse Icinga Web 2 base URL")
-	}
 
 	return client, nil
 }
@@ -147,15 +140,6 @@ func (c *Client) ProcessEvent(ctx context.Context, ev *event.Event) (*RulesInfo,
 
 	return nil, errors.Errorf("unexpected response from process event API, status %q (%d): %q",
 		resp.Status, resp.StatusCode, strings.TrimSpace(buf.String()))
-}
-
-// JoinIcingaWeb2Path constructs a URL by joining the Icinga Web 2 base URL with the provided relative URL.
-//
-// It is used to convert any relative URL into an absolute URL that points to the Icinga Web 2 instance.
-// A relative URL like "/icingadb/host" is transformed to, e.g., "https://icinga.example.com/icingaweb2/icingadb/host"
-// after passing through this method, assuming the Icinga Web 2 base URL is "https://icinga.example.com/icingaweb2".
-func (c *Client) JoinIcingaWeb2Path(relativePath string) *url.URL {
-	return c.IcingaWebBaseUrl.JoinPath(relativePath)
 }
 
 // RulesInfo holds information about the event rules for a specific source.

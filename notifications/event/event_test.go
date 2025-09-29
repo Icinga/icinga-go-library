@@ -19,7 +19,7 @@ func TestEvent(t *testing.T) {
 
 			event := &Event{
 				Name:         "TestEvent",
-				URL:          "example.com",
+				URL:          "/icingadb/service?name=https%20ssl%20v3.0%20compatibility%20IE%206.0&host.name=example%20host",
 				Tags:         map[string]string{"tag1": "value1"},
 				Type:         TypeState,
 				Severity:     SeverityOK,
@@ -35,7 +35,7 @@ func TestEvent(t *testing.T) {
 			expected := `
 				{
 					"name":"TestEvent",
-					"url":"example.com",
+					"url":"/icingadb/service?name=https%20ssl%20v3.0%20compatibility%20IE%206.0&host.name=example%20host",
 					"tags":{"tag1":"value1"},
 					"type":"state",
 					"severity":"ok",
@@ -52,7 +52,7 @@ func TestEvent(t *testing.T) {
 
 			event := &Event{
 				Name:     "TestEvent",
-				URL:      "example.com",
+				URL:      "https://example.com/icingaweb2/icingadb/service?name=https%20ssl%20v3.0%20compatibility%20IE%206.0&host.name=example%20host",
 				Tags:     map[string]string{"tag1": "value1"},
 				Type:     TypeMute,
 				Username: "testuser",
