@@ -26,10 +26,14 @@ type Event struct {
 	// For hosts: {"host": "host_name"} and for services: {"host": "host_name", "service": "service_name"}.
 	Tags map[string]string `json:"tags"`
 
-	Type     Type     `json:"type"`               // Type indicates the type of the event (see Type for possible values).
-	Severity Severity `json:"severity,omitempty"` // The severity of the event (see Severity for possible values).
-	Username string   `json:"username"`           // Username is the name of the user who triggered the event.
-	Message  string   `json:"message"`            // Message is a human-readable message describing the event.
+	// Type indicates the type of the event.
+	Type Type `json:"type"`
+	// Severity of the event.
+	Severity Severity `json:"severity,omitempty"`
+	// Username is the name of the user who triggered the event.
+	Username string `json:"username"`
+	// Message is a human-readable message describing the event.
+	Message string `json:"message"`
 
 	// Mute indicates whether the object this event is referring to should be muted or not.
 	//

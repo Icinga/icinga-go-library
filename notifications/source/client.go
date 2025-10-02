@@ -4,9 +4,8 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
+	stderrors "errors"
 	"io"
-	"iter"
 	"net/http"
 	"net/url"
 	"strings"
@@ -15,89 +14,106 @@ import (
 	"github.com/pkg/errors"
 )
 
-// ErrRulesOutdated implies that the rules version between Icinga DB and Icinga Notifications mismatches.
-var ErrRulesOutdated = fmt.Errorf("rules version is outdated")
-
 // basicAuthTransport is an http.RoundTripper that adds basic authentication and a User-Agent header to HTTP requests.
 type basicAuthTransport struct {
 	http.RoundTripper // RoundTripper is the underlying HTTP transport to use for making requests.
 
-	Username   string
-	Password   string
-	ClientName string // ClientName is used to set the User-Agent header.
+	// username and password are set as HTTP basic authentication.
+	username string
+	password string
+	// userAgent is used to set the User-Agent header.
+	userAgent string
 }
 
 // RoundTrip adds basic authentication headers to the request and executes the HTTP request.
 func (b *basicAuthTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	req.SetBasicAuth(b.Username, b.Password)
+	req.SetBasicAuth(b.username, b.password)
 	// As long as our round tripper is used for the client, the User-Agent header below
 	// overrides any other value set by the user.
-	req.Header.Set("User-Agent", b.ClientName)
+	req.Header.Set("User-Agent", b.userAgent)
 
 	return b.RoundTripper.RoundTrip(req)
 }
 
 // Client provides a common interface to interact with the Icinga Notifications API.
-// It holds the configuration for the API endpoint and the HTTP client used to make requests.
+//
+// It stores the configuration for the API endpoint and holds a reusable HTTP client for requests. To create a Client,
+// the NewClient function should be used.
 type Client struct {
-	cfg Config // cfg holds base API endpoint URL and authentication details.
-
-	client http.Client // HTTP client used for making requests to the Icinga Notifications API.
-
-	processEventEndpoint string // ProcessEventEndpoint holds the URL for the process event endpoint.
+	cfg                  Config
+	httpClient           http.Client
+	processEventEndpoint string
 }
 
 // NewClient creates a new Client instance with the provided configuration.
 //
-// The projectName is used to set the User-Agent header in HTTP requests sent by this client and should be
-// set to the name of the project using this client (e.g., "Icinga DB v1.5.0").
+// The clientName argument is used as the User-Agent header in HTTP requests sent by this Client and should represent
+// the project using this client, e.g., "Icinga DB v1.5.0".
 //
-// It may return an error if the API base URL or Icinga Web 2 base URL cannot be parsed.
-func NewClient(cfg Config, projectName string) (*Client, error) {
-	client := &Client{
-		cfg: cfg,
-		client: http.Client{
-			//Timeout: cfg.Timeout, // Uncomment once Timeout is (should be?) user configurable.
-			Transport: &basicAuthTransport{
-				RoundTripper: http.DefaultTransport,
-				Username:     cfg.Username,
-				Password:     cfg.Password,
-				ClientName:   projectName,
-			},
-		},
-	}
-
+// It may return an error if the API base URL cannot be parsed.
+func NewClient(cfg Config, clientName string) (*Client, error) {
 	baseUrl, err := url.Parse(cfg.ApiBaseUrl)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to parse API base URL")
 	}
 
-	client.processEventEndpoint = baseUrl.JoinPath("/process-event").String()
+	processEventEndpoint := baseUrl.JoinPath("/process-event").String()
 
-	return client, nil
+	return &Client{
+		cfg: cfg,
+		httpClient: http.Client{
+			Transport: &basicAuthTransport{
+				RoundTripper: http.DefaultTransport,
+				username:     cfg.Username,
+				password:     cfg.Password,
+				userAgent:    clientName,
+			},
+		},
+		processEventEndpoint: processEventEndpoint,
+	}, nil
 }
 
-// ProcessEvent submits an event to the Icinga Notifications /process-event API endpoint.
+// RulesInfo holds information about the event rules for a specific source.
 //
-// It serializes the event into JSON and sends it as a POST request to the process event endpoint.
+// A Client can fetch RulesInfo from the Icinga Notifications API via Client.ProcessEvent.
 //
-// Event.RulesVersion and Event.RuleIds must be set. When no information is available, set them to an empty string and
-// an empty []int64, respectively.
+// The Version represents the current rules version for this Client. This value should be stored by a caller and set to
+// [event.Event.EventVersion] when being passed to Client.ProcessEvent, as described there. This allows detecting
+// outdated source rules.
+//
+// Rules is a map of rule IDs to object filter expressions. These object filter expressions are source-specific. For
+// example, Icinga DB expects an SQL query.
+type RulesInfo struct {
+	// Version of the event rules fetched from the API.
+	Version string
+
+	// Rules is a map of rule IDs to their corresponding object filter expression.
+	Rules map[string]string
+}
+
+// ErrRulesOutdated implies that the rules version between the submitted event and Icinga Notifications mismatches.
+var ErrRulesOutdated = stderrors.New("rules version is outdated")
+
+// ProcessEvent submits an event.Event to the Icinga Notifications /process-event API endpoint.
+//
+// For a successful submission, this method returns (nil, nil).
 //
 // It may return an ErrRulesOutdated error, implying that the provided ruleVersion does not match the current rules
-// version in Icinga Notifications daemon. In this case, it will also return the current rules specific to your source
-// and their version, so you can retry the event submission after re-evaluating them. This way, no extra HTTP request
-// is needed to fetch the rules, as Icinga Notifications will respond with the newest ones whenever it detects that
-// you're using an outdated event rules config.
+// version in the Icinga Notifications daemon. Only in this case, it will also return the current rules specific to this
+// source and their version as RulesInfo, allowing to retry submitting an event after reevaluating it.
 //
-// If the request fails or the response is not as expected, it returns an error; otherwise, it returns nil.
-func (c *Client) ProcessEvent(ctx context.Context, ev *event.Event) (*RulesInfo, error) {
+// For the Event to be submitted, Event.RulesVersion and Event.RuleIds should be set. If no appropriate values are
+// known, they can be left empty. This will return ErrRulesOutdated - unless there are no rules configured that need to
+// be evaluated by the source -, which can be handled as described above to retrieve information and resubmit the event.
+//
+// If the request fails or the response is not as expected, it returns an error.
+func (client *Client) ProcessEvent(ctx context.Context, ev *event.Event) (*RulesInfo, error) {
 	body, err := json.Marshal(ev)
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot encode event to JSON")
 	}
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.processEventEndpoint, bytes.NewReader(body))
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, client.processEventEndpoint, bytes.NewReader(body))
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot create HTTP request")
 	}
@@ -105,7 +121,7 @@ func (c *Client) ProcessEvent(ctx context.Context, ev *event.Event) (*RulesInfo,
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("Accept", "application/json")
 
-	resp, err := c.client.Do(req)
+	resp, err := client.httpClient.Do(req)
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot POST HTTP request to process event")
 	}
@@ -136,33 +152,8 @@ func (c *Client) ProcessEvent(ctx context.Context, ev *event.Event) (*RulesInfo,
 	}
 
 	var buf bytes.Buffer
-	_, _ = io.Copy(&buf, &io.LimitedReader{R: resp.Body, N: 1 << 20}) // Limit the error message length to avoid memory exhaustion.
+	_, _ = io.Copy(&buf, &io.LimitedReader{R: resp.Body, N: 1 << 16}) // Limit the error message length to avoid memory exhaustion.
 
 	return nil, errors.Errorf("unexpected response from process event API, status %q (%d): %q",
 		resp.Status, resp.StatusCode, strings.TrimSpace(buf.String()))
-}
-
-// RulesInfo holds information about the event rules for a specific source.
-type RulesInfo struct {
-	Version string              // Version of the event rules fetched from the API.
-	Rules   map[string]RuleResp // Rules is a map of rule IDs to their corresponding RuleResp objects.
-}
-
-// Iter returns an iterator over the rules in the RulesInfo.
-// It yields each RuleResp object until all rules have been processed or the yield function returns false.
-func (r *RulesInfo) Iter() iter.Seq[RuleResp] {
-	return func(yield func(RuleResp) bool) {
-		for _, rule := range r.Rules {
-			if !yield(rule) {
-				break
-			}
-		}
-	}
-}
-
-// RuleResp represents a response object for a rule in the Icinga Notifications API.
-type RuleResp struct {
-	Id               string // Id is the unique identifier of the rule.
-	Name             string // Name is the name of the rule.
-	ObjectFilterExpr string // ObjectFilterExpr is the object filter expression of the rule, if any.
 }
