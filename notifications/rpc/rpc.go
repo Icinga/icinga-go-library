@@ -9,18 +9,21 @@ import (
 	"sync"
 )
 
+// Request is the internal JSON RPC request representation.
 type Request struct {
 	Method string          `json:"method"`
 	Params json.RawMessage `json:"params"`
 	Id     uint64          `json:"id"`
 }
 
+// Response is the internal JSON RPC response representation.
 type Response struct {
 	Result json.RawMessage `json:"result,omitempty"`
 	Error  string          `json:"error,omitempty"`
 	Id     uint64          `json:"id"`
 }
 
+// Error is a custom error type, to be returned by RPC.Call.
 type Error struct {
 	cause error
 }
@@ -33,6 +36,9 @@ func (err *Error) Unwrap() error {
 	return err.cause
 }
 
+// RPC is a JSON RPC client.
+//
+// It is either used internally in Icinga Notifications or within the plugin.RunPlugin method.
 type RPC struct {
 	writer    io.Closer // use encoder for writing instead
 	encoder   *json.Encoder
