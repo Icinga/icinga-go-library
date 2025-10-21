@@ -40,7 +40,6 @@ func (b *basicAuthTransport) RoundTrip(req *http.Request) (*http.Response, error
 // It stores the configuration for the API endpoint and holds a reusable HTTP client for requests. To create a Client,
 // the NewClient function should be used.
 type Client struct {
-	cfg                  Config
 	httpClient           http.Client
 	processEventEndpoint string
 }
@@ -60,7 +59,6 @@ func NewClient(cfg Config, clientName string) (*Client, error) {
 	processEventEndpoint := baseUrl.JoinPath("/process-event").String()
 
 	return &Client{
-		cfg: cfg,
 		httpClient: http.Client{
 			Transport: &basicAuthTransport{
 				RoundTripper: http.DefaultTransport,
