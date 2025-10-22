@@ -26,6 +26,9 @@ type Event struct {
 	// For hosts: {"host": "host_name"} and for services: {"host": "host_name", "service": "service_name"}.
 	Tags map[string]string `json:"tags"`
 
+	// ExtraTags supplement Tags, for example with host or service groups for an Icinga DB source.
+	ExtraTags map[string]string `json:"extra_tags"`
+
 	// Type indicates the type of the event.
 	Type Type `json:"type"`
 	// Severity of the event.
