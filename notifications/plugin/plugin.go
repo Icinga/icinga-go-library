@@ -174,6 +174,8 @@ type NotificationRequest struct {
 	Object *Object `json:"object"`
 
 	// Incident associated with this NotificationRequest.
+	//
+	// May be nil when sending non-state notifications and no active incident exists for the given Object.
 	Incident *Incident `json:"incident"`
 
 	// Event being responsible for creating this NotificationRequest, e.g., a firing Icinga 2 Service Check.
@@ -310,7 +312,11 @@ func FormatMessage(writer io.Writer, req *NotificationRequest) {
 		}
 	}
 
-	_, _ = fmt.Fprintf(writer, "\nIncident: %s", req.Incident.Url)
+	if req.Incident != nil {
+		_, _ = fmt.Fprintf(writer, "\nIncident: %s", req.Incident.Url)
+	} else {
+		_, _ = fmt.Fprint(writer, "\nIncident: No active incident found for this object")
+	}
 }
 
 // FormatSubject returns the formatted subject string based on the event type.
@@ -319,8 +325,14 @@ func FormatSubject(req *NotificationRequest) string {
 	case event.TypeState:
 		return fmt.Sprintf("[#%d] %s %s is %s", req.Incident.Id, req.Event.Type, req.Object.Name, req.Incident.Severity)
 	case event.TypeAcknowledgementCleared, event.TypeDowntimeRemoved:
-		return fmt.Sprintf("[#%d] %s from %s", req.Incident.Id, req.Event.Type, req.Object.Name)
+		if req.Incident != nil {
+			return fmt.Sprintf("[#%d] %s from %s", req.Incident.Id, req.Event.Type, req.Object.Name)
+		}
+		return fmt.Sprintf("%s from %s", req.Event.Type, req.Object.Name)
 	default:
-		return fmt.Sprintf("[#%d] %s on %s", req.Incident.Id, req.Event.Type, req.Object.Name)
+		if req.Incident != nil {
+			return fmt.Sprintf("[#%d] %s on %s", req.Incident.Id, req.Event.Type, req.Object.Name)
+		}
+		return fmt.Sprintf("%s on %s", req.Event.Type, req.Object.Name)
 	}
 }
