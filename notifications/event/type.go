@@ -100,7 +100,7 @@ func (t Type) Value() (driver.Value, error) {
 // If the string does not match any known type, it returns an error indicating the unknown type.
 func ParseType(s string) (Type, error) {
 	for t := range typeMax {
-		if s == t.String() {
+		if t != TypeUnknown && s == t.String() {
 			return t, nil
 		}
 	}
