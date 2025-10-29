@@ -39,6 +39,7 @@ func TestType(t *testing.T) {
 			{Name: "Unmute", Expected: TypeUnmute, Data: `"unmute"`, Error: nil},
 			{Name: "DowntimeStart", Expected: TypeDowntimeStart, Data: `"downtime-start"`, Error: nil},
 			{Name: "Invalid", Expected: TypeUnknown, Data: `"invalid"`, Error: testutils.ErrorContains(`unknown type "invalid"`)},
+			{Name: "Invalid Unknown", Expected: TypeUnknown, Data: `"unknown"`, Error: testutils.ErrorContains(`unknown type "unknown"`)},
 		}
 
 		for _, tt := range testData {

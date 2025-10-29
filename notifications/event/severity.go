@@ -97,7 +97,7 @@ func (s Severity) Value() (driver.Value, error) {
 // If the string does not match any known severity, it returns an error indicating the unknown severity.
 func ParseSeverity(name string) (Severity, error) {
 	for s := range severityMax {
-		if s.String() == name {
+		if s != SeverityNone && s.String() == name {
 			return s, nil
 		}
 	}
