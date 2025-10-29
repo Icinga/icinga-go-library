@@ -12,6 +12,7 @@ import (
 	"github.com/icinga/icinga-go-library/utils"
 	"github.com/pkg/errors"
 	"github.com/redis/go-redis/v9"
+	"github.com/redis/go-redis/v9/maintnotifications"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 	"golang.org/x/sync/errgroup"
@@ -59,6 +60,9 @@ func NewClientFromConfig(c *Config, logger *logging.Logger) (*Client, error) {
 		DB:          c.Database,
 		ReadTimeout: c.Options.Timeout,
 		TLSConfig:   tlsConfig,
+		MaintNotificationsConfig: &maintnotifications.Config{
+			Mode: maintnotifications.ModeDisabled,
+		},
 	}
 
 	if utils.IsUnixAddr(c.Host) {
