@@ -18,7 +18,6 @@ func TestType(t *testing.T) {
 			{Name: "State", Expected: `"state"`, Data: TypeState, Error: nil},
 			{Name: "Mute", Expected: `"mute"`, Data: TypeMute, Error: nil},
 			{Name: "Unmute", Expected: `"unmute"`, Data: TypeUnmute, Error: nil},
-			{Name: "DowntimeStart", Expected: `"downtime-start"`, Data: TypeDowntimeStart, Error: nil},
 		}
 
 		for _, tt := range testdata {
@@ -37,7 +36,6 @@ func TestType(t *testing.T) {
 			{Name: "State", Expected: TypeState, Data: `"state"`, Error: nil},
 			{Name: "Mute", Expected: TypeMute, Data: `"mute"`, Error: nil},
 			{Name: "Unmute", Expected: TypeUnmute, Data: `"unmute"`, Error: nil},
-			{Name: "DowntimeStart", Expected: TypeDowntimeStart, Data: `"downtime-start"`, Error: nil},
 			{Name: "Invalid", Expected: TypeUnknown, Data: `"invalid"`, Error: testutils.ErrorContains(`unknown type "invalid"`)},
 			{Name: "Invalid Unknown", Expected: TypeUnknown, Data: `"unknown"`, Error: testutils.ErrorContains(`unknown type "unknown"`)},
 		}
@@ -58,7 +56,6 @@ func TestType(t *testing.T) {
 			{Name: "State", Expected: TypeState, Data: `state`, Error: nil},
 			{Name: "Mute", Expected: TypeMute, Data: `mute`, Error: nil},
 			{Name: "Unmute", Expected: TypeUnmute, Data: `unmute`, Error: nil},
-			{Name: "DowntimeStart", Expected: TypeDowntimeStart, Data: `downtime-start`, Error: nil},
 			{Name: "Invalid", Expected: TypeUnknown, Data: `invalid`, Error: testutils.ErrorContains(`unknown type "invalid"`)},
 		}
 
@@ -78,7 +75,6 @@ func TestType(t *testing.T) {
 			{Name: "State", Expected: `state`, Data: TypeState, Error: nil},
 			{Name: "Mute", Expected: `mute`, Data: TypeMute, Error: nil},
 			{Name: "Unmute", Expected: `unmute`, Data: TypeUnmute, Error: nil},
-			{Name: "DowntimeStart", Expected: `downtime-start`, Data: TypeDowntimeStart, Error: nil},
 		}
 
 		for _, tt := range testdata {

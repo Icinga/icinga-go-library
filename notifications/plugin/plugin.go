@@ -324,11 +324,21 @@ func FormatSubject(req *NotificationRequest) string {
 	switch req.Event.Type {
 	case event.TypeState:
 		return fmt.Sprintf("[#%d] %s %s is %s", req.Incident.Id, req.Event.Type, req.Object.Name, req.Incident.Severity)
-	case event.TypeAcknowledgementCleared, event.TypeDowntimeRemoved:
+	case event.TypeAcknowledgementCleared:
 		if req.Incident != nil {
 			return fmt.Sprintf("[#%d] %s from %s", req.Incident.Id, req.Event.Type, req.Object.Name)
 		}
 		return fmt.Sprintf("%s from %s", req.Event.Type, req.Object.Name)
+	case event.TypeMute:
+		if req.Incident != nil {
+			return fmt.Sprintf("[#%d] %s is muted", req.Incident.Id, req.Object.Name)
+		}
+		return fmt.Sprintf("%s is muted", req.Object.Name)
+	case event.TypeUnmute:
+		if req.Incident != nil {
+			return fmt.Sprintf("[#%d] %s is unmuted", req.Incident.Id, req.Object.Name)
+		}
+		return fmt.Sprintf("%s is unmuted", req.Object.Name)
 	default:
 		if req.Incident != nil {
 			return fmt.Sprintf("[#%d] %s on %s", req.Incident.Id, req.Event.Type, req.Object.Name)
