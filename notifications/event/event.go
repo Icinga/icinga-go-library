@@ -1,3 +1,4 @@
+// Package event describes the central Icinga Notifications Event type.
 package event
 
 import (
