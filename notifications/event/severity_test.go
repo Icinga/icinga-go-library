@@ -49,6 +49,7 @@ func TestSeverity(t *testing.T) {
 			{Name: "Alert", Expected: SeverityAlert, Data: `"alert"`, Error: nil},
 			{Name: "Emerg", Expected: SeverityEmerg, Data: `"emerg"`, Error: nil},
 			{Name: "Invalid", Expected: SeverityNone, Data: `"invalid"`, Error: testutils.ErrorContains(`unknown severity "invalid"`)},
+			{Name: "Invalid None", Expected: SeverityNone, Data: `"none"`, Error: testutils.ErrorContains(`unknown severity "none"`)},
 		}
 
 		for _, tt := range testData {
