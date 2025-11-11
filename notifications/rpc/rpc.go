@@ -1,3 +1,7 @@
+// Package rpc implements the low-level JSON RPC connection between a channel plugin and Icinga Notifications.
+//
+// This package is used by the plugin package and internally in Icinga Notifications. When aiming to implement a new
+// channel plugin, please consider using the plugin package.
 package rpc
 
 import (

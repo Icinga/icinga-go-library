@@ -1,3 +1,11 @@
+// Package plugin implements a high-level Icinga Notifications Channel Plugin API.
+//
+// For own plugins, the [Plugin] interface must be implemented. After configuring your plugin, calling RunPlugin starts
+// a blocking RPC client, utilizing the underlying [rpc] package.
+//
+// Examples can be found under [cmd/channels] in the Icinga Notifications repository.
+//
+// [cmd/channels]: https://github.com/Icinga/icinga-notifications/tree/main/cmd/channels
 package plugin
 
 import (
