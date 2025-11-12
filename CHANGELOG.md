@@ -1,5 +1,19 @@
 # Icinga Go Library
 
+## 0.8.0 (2025-11-12)
+
+This Icinga Go Library release is made for Icinga DB v1.5.0 and Icinga Notifications v0.2.0.
+
+Most notably, the new `notifications` package provides components for implementing Icinga Notifications sources and channels.
+
+* notifications: Add a package that helps with implementing sources and channels for Icinga Notifications. #145, #160, #161
+* redis: Disable client maint notifications. #162
+* logging: Allow to provide custom core factory func. #152
+* retry: Remove ResetTimeout function. #142 
+* Documentation: Add README.md, CHANGELOG.md, and some API docs. #164, #167
+* New test. #33
+* Bump dependencies.
+
 ## 0.7.2 (2025-06-17)
 
 This IGL release simply updates dependencies to ensure the latest changes are available for the upcoming Icinga DB release.
