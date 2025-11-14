@@ -1,5 +1,10 @@
 # Icinga Go Library
 
+## 0.8.1 (2025-11-14)
+
+This Icinga Go Library release changes only the Notifications Source base URL parameter name from `api-base-url` to `url`.
+The motivation behind this rewording is to have an identical naming between Icinga DB v1.5.0 and Icinga Kubernetes.
+
 ## 0.8.0 (2025-11-12)
 
 This Icinga Go Library release is made for Icinga DB v1.5.0 and Icinga Notifications v0.2.0.
