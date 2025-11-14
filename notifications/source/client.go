@@ -51,7 +51,7 @@ type Client struct {
 //
 // It may return an error if the API base URL cannot be parsed.
 func NewClient(cfg Config, clientName string) (*Client, error) {
-	baseUrl, err := url.Parse(cfg.ApiBaseUrl)
+	baseUrl, err := url.Parse(cfg.Url)
 	if err != nil {
 		return nil, errors.Wrap(err, "unable to parse API base URL")
 	}
