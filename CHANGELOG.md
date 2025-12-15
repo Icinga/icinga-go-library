@@ -1,5 +1,11 @@
 # Icinga Go Library
 
+## 0.8.2 (2025-12-15)
+
+This release of the Icinga Go Library updates dependencies to ensure that the latest changes are available for the upcoming Icinga DB release.
+
+* Bump dependencies. #169, #170, #171, #173, #174, #175
+
 ## 0.8.1 (2025-11-17)
 
 This Icinga Go Library release changes the Notifications Source base URL parameter name from `api-base-url` to `url`.
