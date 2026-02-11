@@ -80,7 +80,6 @@ func NewClientFromConfig(c *Config, logger *logging.Logger) (*Client, error) {
 	client := redis.NewClient(options)
 	options = client.Options()
 	options.PoolSize = max(32, options.PoolSize)
-	options.MaxRetries = options.PoolSize + 1 // https://github.com/go-redis/redis/issues/1737
 
 	return NewClient(redis.NewClient(options), logger, &c.Options), nil
 }
