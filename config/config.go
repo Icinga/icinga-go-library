@@ -8,14 +8,15 @@ package config
 import (
 	stderrors "errors"
 	"fmt"
+	"io/fs"
+	"os"
+	"reflect"
+
 	"github.com/caarlos0/env/v11"
 	"github.com/creasty/defaults"
 	"github.com/goccy/go-yaml"
 	"github.com/jessevdk/go-flags"
 	"github.com/pkg/errors"
-	"io/fs"
-	"os"
-	"reflect"
 )
 
 // ErrInvalidArgument is the error returned by any function that loads configuration if
@@ -353,6 +354,29 @@ func validateNonNilStructPointer(v any) error {
 	if rv.Kind() != reflect.Pointer || rv.IsNil() || rv.Elem().Kind() != reflect.Struct {
 		return errors.Wrapf(ErrInvalidArgument, "non-nil struct pointer expected, got %T", v)
 	}
+
+	return nil
+}
+
+// LoadPasswordFile populates the password field from the content of a password file.
+//
+// This is a helper function to be used in Validator.Validate implementations on types where
+// both a password and a password file field are available. If both a password and a password
+// file are given, an error is returned.
+func LoadPasswordFile(password *string, passwordFile string) error {
+	if *password != "" && passwordFile != "" {
+		return errors.New("both password and password file are set")
+	}
+
+	if passwordFile == "" {
+		return nil
+	}
+
+	filePassword, err := os.ReadFile(passwordFile) // #nosec G304 -- open trusted user input
+	if err != nil {
+		return errors.Wrapf(err, "reading password file %q failed", passwordFile)
+	}
+	*password = string(filePassword)
 
 	return nil
 }

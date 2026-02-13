@@ -1,12 +1,14 @@
 package database
 
 import (
+	"fmt"
+	"os"
+	"testing"
+
 	"github.com/creasty/defaults"
 	"github.com/icinga/icinga-go-library/config"
 	"github.com/icinga/icinga-go-library/testutils"
 	"github.com/stretchr/testify/require"
-	"os"
-	"testing"
 )
 
 // minimalYaml is a constant string representing a minimal valid YAML configuration for
@@ -49,6 +51,9 @@ func withMinimalEnv(v map[string]string) map[string]string {
 func TestConfig(t *testing.T) {
 	var defaultOptions Options
 	require.NoError(t, defaults.Set(&defaultOptions), "setting default options")
+
+	passwordFile, cleanupPasswordFile := testutils.PasswordFile(t, "secret")
+	defer cleanupPasswordFile()
 
 	configTests := []testutils.TestCase[Config, testutils.ConfigTestData]{
 		{
@@ -108,6 +113,33 @@ user: icinga`,
 				Database: "icingadb",
 				Password: "secret",
 				Options:  defaultOptions,
+			},
+		},
+		{
+			Name: "Minimal config with password file",
+			Data: testutils.ConfigTestData{
+				Yaml: fmt.Sprintf(`
+type: pgsql
+host: localhost
+user: icinga
+database: icingadb
+password_file: %s`, passwordFile),
+				Env: map[string]string{
+					"TYPE":          "pgsql",
+					"HOST":          "localhost",
+					"USER":          "icinga",
+					"DATABASE":      "icingadb",
+					"PASSWORD_FILE": passwordFile,
+				},
+			},
+			Expected: Config{
+				Type:         "pgsql",
+				Host:         "localhost",
+				User:         "icinga",
+				Database:     "icingadb",
+				Password:     "secret",
+				PasswordFile: passwordFile,
+				Options:      defaultOptions,
 			},
 		},
 		{

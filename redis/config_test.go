@@ -1,18 +1,23 @@
 package redis
 
 import (
+	"fmt"
+	"os"
+	"testing"
+	"time"
+
 	"github.com/creasty/defaults"
 	"github.com/icinga/icinga-go-library/config"
 	"github.com/icinga/icinga-go-library/testutils"
 	"github.com/stretchr/testify/require"
-	"os"
-	"testing"
-	"time"
 )
 
 func TestConfig(t *testing.T) {
 	var defaultOptions Options
 	require.NoError(t, defaults.Set(&defaultOptions), "setting default options")
+
+	passwordFile, cleanupPasswordFile := testutils.PasswordFile(t, "secret")
+	defer cleanupPasswordFile()
 
 	configTests := []testutils.TestCase[Config, testutils.ConfigTestData]{
 		{
@@ -67,6 +72,27 @@ database: 2`,
 				Password: "password",
 				Database: 2,
 				Options:  defaultOptions,
+			},
+		},
+		{
+			Name: "Customized config with password file",
+			Data: testutils.ConfigTestData{
+				Yaml: fmt.Sprintf(`
+host: localhost
+username: username
+password_file: %s`, passwordFile),
+				Env: map[string]string{
+					"HOST":          "localhost",
+					"USERNAME":      "username",
+					"PASSWORD_FILE": passwordFile,
+				},
+			},
+			Expected: Config{
+				Host:         "localhost",
+				Username:     "username",
+				Password:     "secret",
+				PasswordFile: passwordFile,
+				Options:      defaultOptions,
 			},
 		},
 		{
