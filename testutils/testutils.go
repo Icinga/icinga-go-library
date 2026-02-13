@@ -7,9 +7,11 @@
 package testutils
 
 import (
-	"github.com/stretchr/testify/require"
+	"fmt"
 	"os"
 	"testing"
+
+	"github.com/stretchr/testify/require"
 )
 
 // TestCase represents a generic test case structure.
@@ -93,4 +95,23 @@ func WithYAMLFile(t *testing.T, yaml string, f func(file *os.File)) {
 	require.NoError(t, file.Close())
 
 	f(file)
+}
+
+// PasswordFile creates a temporary file containing the given password for testing PASSWORD_FILE.
+//
+// Unless an error occurs, the function returns the absolute filename and a cleanup function, which
+// should be called deferred.
+func PasswordFile(t *testing.T, password string) (filename string, cleanup func()) {
+	passwordFile, err := os.CreateTemp("", "*")
+	require.NoError(t, err)
+
+	_, err = fmt.Fprint(passwordFile, password)
+	require.NoError(t, err)
+
+	require.NoError(t, passwordFile.Close())
+
+	filename = passwordFile.Name()
+	cleanup = func() { require.NoError(t, os.Remove(filename)) }
+
+	return
 }
