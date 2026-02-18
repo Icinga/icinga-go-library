@@ -12,7 +12,7 @@ type Config struct {
 	Port       int        `yaml:"port" env:"PORT"`
 	Database   string     `yaml:"database" env:"DATABASE"`
 	User       string     `yaml:"user" env:"USER"`
-	Password   string     `yaml:"password" env:"PASSWORD,unset"`
+	Password   string     `yaml:"password" env:"PASSWORD,unset"` // #nosec G117 -- exported password field
 	TlsOptions config.TLS `yaml:",inline"`
 	Options    Options    `yaml:"options" envPrefix:"OPTIONS_"`
 }

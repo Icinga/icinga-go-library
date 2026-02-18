@@ -24,7 +24,7 @@ func Test_loadPemOrFile(t *testing.T) {
 	certFile, err := os.CreateTemp("", "cert-*.pem")
 	require.NoError(t, err)
 	defer func(name string) {
-		_ = os.Remove(name)
+		_ = os.Remove(name) // #nosec G703 -- name is not user supplied, but from os.CreateTemp
 	}(certFile.Name())
 	_, err = certFile.Write(certPem)
 	require.NoError(t, err)
@@ -94,7 +94,7 @@ func TestTLS_MakeConfig(t *testing.T) {
 		certFile, err := os.CreateTemp("", "cert-*.pem")
 		require.NoError(t, err)
 		defer func(name string) {
-			_ = os.Remove(name)
+			_ = os.Remove(name) // #nosec G703 -- name is not user supplied, but from os.CreateTemp
 		}(certFile.Name())
 		err = pem.Encode(certFile, &pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw})
 		require.NoError(t, err)
@@ -102,7 +102,7 @@ func TestTLS_MakeConfig(t *testing.T) {
 		keyFile, err := os.CreateTemp("", "key-*.pem")
 		require.NoError(t, err)
 		defer func(name string) {
-			_ = os.Remove(name)
+			_ = os.Remove(name) // #nosec G703 -- name is not user supplied, but from os.CreateTemp
 		}(keyFile.Name())
 		keyBytes, err := x509.MarshalPKCS8PrivateKey(key)
 		require.NoError(t, err)
@@ -114,7 +114,7 @@ func TestTLS_MakeConfig(t *testing.T) {
 		caFile, err := os.CreateTemp("", "ca-*.pem")
 		require.NoError(t, err)
 		defer func(name string) {
-			_ = os.Remove(name)
+			_ = os.Remove(name) // #nosec G703 -- name is not user supplied, but from os.CreateTemp
 		}(caFile.Name())
 		err = pem.Encode(caFile, &pem.Block{Type: "CERTIFICATE", Bytes: ca.Raw})
 		require.NoError(t, err)
@@ -122,9 +122,11 @@ func TestTLS_MakeConfig(t *testing.T) {
 		corruptFile, err := os.CreateTemp("", "corrupt-*.pem")
 		require.NoError(t, err)
 		defer func(name string) {
-			_ = os.Remove(name)
+			_ = os.Remove(name) // #nosec G703 -- name is not user supplied, but from os.CreateTemp
 		}(corruptFile.Name())
-		err = os.WriteFile(corruptFile.Name(), []byte("-----BEGIN CORRUPT-----\nOOPS\n-----END CORRUPT-----"), 0600)
+		err = os.WriteFile(corruptFile.Name(), // #nosec G703 -- name is not user supplied, but from os.CreateTemp
+			[]byte("-----BEGIN CORRUPT-----\nOOPS\n-----END CORRUPT-----"),
+			0600)
 		require.NoError(t, err)
 
 		t.Run("Valid certificate and key", func(t *testing.T) {
@@ -136,9 +138,9 @@ func TestTLS_MakeConfig(t *testing.T) {
 		})
 
 		t.Run("Valid certificate and key as PEM", func(t *testing.T) {
-			certRaw, err := os.ReadFile(certFile.Name())
+			certRaw, err := os.ReadFile(certFile.Name()) // #nosec G703 -- name is not user supplied, but from os.CreateTemp
 			require.NoError(t, err)
-			keyRaw, err := os.ReadFile(keyFile.Name())
+			keyRaw, err := os.ReadFile(keyFile.Name()) // #nosec G703 -- name is not user supplied, but from os.CreateTemp
 			require.NoError(t, err)
 
 			tlsConfig := &TLS{Enable: true, Cert: string(certRaw), Key: string(keyRaw)}
@@ -149,7 +151,7 @@ func TestTLS_MakeConfig(t *testing.T) {
 		})
 
 		t.Run("Valid certificate and key, mixed file and PEM", func(t *testing.T) {
-			keyRaw, err := os.ReadFile(keyFile.Name())
+			keyRaw, err := os.ReadFile(keyFile.Name()) // #nosec G703 -- name is not user supplied, but from os.CreateTemp
 			require.NoError(t, err)
 
 			tlsConfig := &TLS{Enable: true, Cert: certFile.Name(), Key: string(keyRaw)}
@@ -165,7 +167,7 @@ func TestTLS_MakeConfig(t *testing.T) {
 			_keyFile, err := os.CreateTemp("", "key-*.pem")
 			require.NoError(t, err)
 			defer func(name string) {
-				_ = os.Remove(name)
+				_ = os.Remove(name) // #nosec G703 -- name is not user supplied, but from os.CreateTemp
 			}(_keyFile.Name())
 			_keyBytes, err := x509.MarshalPKCS8PrivateKey(_key)
 			require.NoError(t, err)
@@ -205,9 +207,9 @@ func TestTLS_MakeConfig(t *testing.T) {
 		})
 
 		t.Run("Corrupt certificate as PEM", func(t *testing.T) {
-			corruptRaw, err := os.ReadFile(corruptFile.Name())
+			corruptRaw, err := os.ReadFile(corruptFile.Name()) // #nosec G703 -- name is not user supplied, but from os.CreateTemp
 			require.NoError(t, err)
-			keyRaw, err := os.ReadFile(keyFile.Name())
+			keyRaw, err := os.ReadFile(keyFile.Name()) // #nosec G703 -- name is not user supplied, but from os.CreateTemp
 			require.NoError(t, err)
 
 			tlsConfig := &TLS{Enable: true, Cert: string(corruptRaw), Key: string(keyRaw)}
@@ -251,7 +253,7 @@ func TestTLS_MakeConfig(t *testing.T) {
 		})
 
 		t.Run("Valid CA as PEM", func(t *testing.T) {
-			caRaw, err := os.ReadFile(caFile.Name())
+			caRaw, err := os.ReadFile(caFile.Name()) // #nosec G703 -- name is not user supplied, but from os.CreateTemp
 			require.NoError(t, err)
 
 			tlsConfig := &TLS{Enable: true, Ca: string(caRaw)}

@@ -201,7 +201,7 @@ ca: |-
   LJZsYbxapLeyWoA05Q==
   -----END CERTIFICATE-----
 `,
-				Env: withMinimalEnv(map[string]string{
+				Env: withMinimalEnv(map[string]string{ // #nosec G101 -- demo private key
 					"TLS": "1",
 					"CERT": `-----BEGIN CERTIFICATE-----
 MIIBhTCCASugAwIBAgIQIRi6zePL6mKjOipn+dNuaTAKBggqhkjOPQQDAjASMRAw
@@ -243,7 +243,7 @@ LJZsYbxapLeyWoA05Q==
 				Database: "icingadb",
 				Password: "secret",
 				Options:  defaultOptions,
-				TlsOptions: config.TLS{
+				TlsOptions: config.TLS{ // #nosec G101 -- demo private key
 					Enable: true,
 					Cert: `-----BEGIN CERTIFICATE-----
 MIIBhTCCASugAwIBAgIQIRi6zePL6mKjOipn+dNuaTAKBggqhkjOPQQDAjASMRAw

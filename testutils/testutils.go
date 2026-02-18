@@ -84,7 +84,7 @@ func WithYAMLFile(t *testing.T, yaml string, f func(file *os.File)) {
 	require.NoError(t, err)
 
 	defer func(name string) {
-		_ = os.Remove(name)
+		_ = os.Remove(name) // #nosec G703 -- name is not user supplied, but from os.CreateTemp
 	}(file.Name())
 
 	_, err = file.WriteString(yaml)

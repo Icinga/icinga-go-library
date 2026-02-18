@@ -131,7 +131,7 @@ func TestPackAny(t *testing.T) {
 
 	{
 		var binary [256]byte
-		for i := range binary {
+		for i := range len(binary) { // https://github.com/securego/gosec/issues/1525
 			binary[i] = byte(i)
 		}
 

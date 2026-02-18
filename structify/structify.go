@@ -3,12 +3,14 @@ package structify
 import (
 	"encoding"
 	"fmt"
-	"github.com/pkg/errors"
-	"golang.org/x/exp/constraints"
+	"math"
 	"reflect"
 	"strconv"
 	"strings"
 	"unsafe"
+
+	"github.com/pkg/errors"
+	"golang.org/x/exp/constraints"
 )
 
 // structBranch represents either a leaf or a subTree.
@@ -172,5 +174,13 @@ func parseFloat[T constraints.Float](src string, dest *T) error {
 
 func bitSizeOf[T any]() int {
 	var x T
-	return int(unsafe.Sizeof(x) * 8)
+
+	size := unsafe.Sizeof(x) * 8
+	if size > math.MaxInt {
+		// This should really not happen, especially as this internal function is called for each
+		// parser function above in the tests. Better crash the tests than go weird during production.
+		panic(fmt.Sprintf("bitSizeOf[%T]: size %d > max int", x, size))
+	}
+
+	return int(size)
 }

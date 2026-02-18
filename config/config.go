@@ -80,7 +80,7 @@ func FromYAMLFile(name string, v Validator) error {
 		return errors.WithStack(err)
 	}
 
-	// #nosec G304 -- Accept user-controlled input for config file.
+	// #nosec G304 G703 -- Accept user-controlled input for config file.
 	f, err := os.Open(name)
 	if err != nil {
 		return errors.Wrap(err, "can't open YAML file "+name)
