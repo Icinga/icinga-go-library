@@ -17,11 +17,6 @@ const (
 	TypeAcknowledgementCleared // acknowledgement-cleared
 	TypeAcknowledgementSet     // acknowledgement-set
 	TypeCustom                 // custom
-	TypeDowntimeEnd            // downtime-end
-	TypeDowntimeRemoved        // downtime-removed
-	TypeDowntimeStart          // downtime-start
-	TypeFlappingEnd            // flapping-end
-	TypeFlappingStart          // flapping-start
 	TypeIncidentAge            // incident-age
 	TypeMute                   // mute
 	TypeState                  // state

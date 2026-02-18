@@ -12,25 +12,21 @@ func _() {
 	_ = x[TypeAcknowledgementCleared-1]
 	_ = x[TypeAcknowledgementSet-2]
 	_ = x[TypeCustom-3]
-	_ = x[TypeDowntimeEnd-4]
-	_ = x[TypeDowntimeRemoved-5]
-	_ = x[TypeDowntimeStart-6]
-	_ = x[TypeFlappingEnd-7]
-	_ = x[TypeFlappingStart-8]
-	_ = x[TypeIncidentAge-9]
-	_ = x[TypeMute-10]
-	_ = x[TypeState-11]
-	_ = x[TypeUnmute-12]
-	_ = x[typeMax-13]
+	_ = x[TypeIncidentAge-4]
+	_ = x[TypeMute-5]
+	_ = x[TypeState-6]
+	_ = x[TypeUnmute-7]
+	_ = x[typeMax-8]
 }
 
-const _Type_name = "unknownacknowledgement-clearedacknowledgement-setcustomdowntime-enddowntime-removeddowntime-startflapping-endflapping-startincident-agemutestateunmuteinternal"
+const _Type_name = "unknownacknowledgement-clearedacknowledgement-setcustomincident-agemutestateunmuteinternal"
 
-var _Type_index = [...]uint8{0, 7, 30, 49, 55, 67, 83, 97, 109, 123, 135, 139, 144, 150, 158}
+var _Type_index = [...]uint8{0, 7, 30, 49, 55, 67, 71, 76, 82, 90}
 
 func (i Type) String() string {
-	if i >= Type(len(_Type_index)-1) {
+	idx := int(i) - 0
+	if i < 0 || idx >= len(_Type_index)-1 {
 		return "Type(" + strconv.FormatInt(int64(i), 10) + ")"
 	}
-	return _Type_name[_Type_index[i]:_Type_index[i+1]]
+	return _Type_name[_Type_index[idx]:_Type_index[idx+1]]
 }
