@@ -1,9 +1,10 @@
 package redis
 
 import (
+	"time"
+
 	"github.com/icinga/icinga-go-library/config"
 	"github.com/pkg/errors"
-	"time"
 )
 
 // Options define user configurable Redis options.
@@ -42,19 +43,24 @@ func (o *Options) Validate() error {
 
 // Config defines Config client configuration.
 type Config struct {
-	Host       string     `yaml:"host" env:"HOST"`
-	Port       int        `yaml:"port" env:"PORT"`
-	Username   string     `yaml:"username" env:"USERNAME"`
-	Password   string     `yaml:"password" env:"PASSWORD,unset"` // #nosec G117 -- exported password field
-	Database   int        `yaml:"database" env:"DATABASE" default:"0"`
-	TlsOptions config.TLS `yaml:",inline"`
-	Options    Options    `yaml:"options" envPrefix:"OPTIONS_"`
+	Host         string     `yaml:"host" env:"HOST"`
+	Port         int        `yaml:"port" env:"PORT"`
+	Username     string     `yaml:"username" env:"USERNAME"`
+	Password     string     `yaml:"password" env:"PASSWORD,unset"` // #nosec G117 -- exported password field
+	PasswordFile string     `yaml:"password_file" env:"PASSWORD_FILE"`
+	Database     int        `yaml:"database" env:"DATABASE" default:"0"`
+	TlsOptions   config.TLS `yaml:",inline"`
+	Options      Options    `yaml:"options" envPrefix:"OPTIONS_"`
 }
 
 // Validate checks constraints in the supplied Config configuration and returns an error if they are violated.
 func (r *Config) Validate() error {
 	if r.Host == "" {
 		return errors.New("Redis host missing")
+	}
+
+	if err := config.LoadPasswordFile(&r.Password, r.PasswordFile); err != nil {
+		return err
 	}
 
 	if r.Username != "" && r.Password == "" {

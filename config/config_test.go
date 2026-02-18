@@ -3,14 +3,15 @@ package config
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/icinga/icinga-go-library/testutils"
-	"github.com/pkg/errors"
-	"github.com/stretchr/testify/require"
 	"io/fs"
 	"os"
 	"os/exec"
 	"reflect"
 	"testing"
+
+	"github.com/icinga/icinga-go-library/testutils"
+	"github.com/pkg/errors"
+	"github.com/stretchr/testify/require"
 )
 
 // errInvalidConfiguration is an error that indicates invalid configuration.
@@ -533,4 +534,55 @@ func createValidatorInstance(v Validator) Validator {
 		panic(fmt.Sprintf("cannot create a Validator, got %T", v))
 	}
 	return v
+}
+
+// #nosec G101 -- hardcoded credentials are only for testing purposes
+func TestLoadPasswordFile(t *testing.T) {
+	passwordFileContent := "secret"
+	passwordFile, cleanupPasswordFile := testutils.PasswordFile(t, passwordFileContent)
+	defer cleanupPasswordFile()
+
+	tests := []struct {
+		name           string
+		passwordIn     string
+		passwordFileIn string
+		passwordOut    string
+		wantErr        bool
+	}{
+		{
+			name: "empty",
+		},
+		{
+			name:        "password only",
+			passwordIn:  "insecure",
+			passwordOut: "insecure",
+		},
+		{
+			name:           "password file only",
+			passwordFileIn: passwordFile,
+			passwordOut:    passwordFileContent,
+		},
+		{
+			name:           "password and password file",
+			passwordIn:     "insecure",
+			passwordFileIn: passwordFile,
+			wantErr:        true,
+		},
+		{
+			name:           "non existing password file",
+			passwordFileIn: "/var/empty/should/really/be/empty",
+			wantErr:        true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			gotErr := LoadPasswordFile(&tt.passwordIn, tt.passwordFileIn)
+			require.Equal(t, gotErr != nil, tt.wantErr, "unexpected error state")
+			if gotErr != nil {
+				return
+			}
+
+			require.Equal(t, tt.passwordIn, tt.passwordOut, "updated password does not match expectation")
+		})
+	}
 }
