@@ -119,7 +119,7 @@ func (client *Client) ProcessEvent(ctx context.Context, ev *event.Event) (*Rules
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("Accept", "application/json")
 
-	resp, err := client.httpClient.Do(req)
+	resp, err := client.httpClient.Do(req) // #nosec G704 -- SSRF impossible, trusted user input
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot POST HTTP request to process event")
 	}

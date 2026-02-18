@@ -59,7 +59,7 @@ func loadPemOrFile(pemOrFile string) ([]byte, error) {
 		return []byte(pemOrFile), nil
 	}
 
-	data, err := os.ReadFile(pemOrFile) // #nosec G304 -- inclusion of user-specified file
+	data, err := os.ReadFile(pemOrFile) // #nosec G304 G703 -- inclusion of user-specified file
 	if err != nil {
 		return nil, err
 	}

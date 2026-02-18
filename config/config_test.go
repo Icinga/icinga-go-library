@@ -309,7 +309,7 @@ func TestFromYAMLFile(t *testing.T) {
 		require.NoError(t, yamlFile.Chmod(0000))
 		require.NoError(t, yamlFile.Close())
 		defer func(name string) {
-			_ = os.Remove(name)
+			_ = os.Remove(name) // #nosec G703 -- name is not user supplied, but from os.CreateTemp
 		}(yamlFile.Name())
 
 		err = FromYAMLFile(yamlFile.Name(), &validateValid{})
@@ -511,7 +511,7 @@ func TestParseFlags(t *testing.T) {
 
 		// This block runs in the main test process. It starts this test again in a subprocess with the
 		// TEST_HELP_FLAG=1 environment variable provided in order to run the above code block.
-		// #nosec G204 -- The subprocess is launched with controlled input for testing purposes.
+		// #nosec G204 G702 -- The subprocess is launched with controlled input for testing purposes.
 		// The command and arguments are derived from the test framework and are not influenced by external input.
 		cmd := exec.Command(os.Args[0], fmt.Sprintf("-test.run=%s", t.Name()))
 		cmd.Env = append(os.Environ(), "TEST_HELP_FLAG=1")

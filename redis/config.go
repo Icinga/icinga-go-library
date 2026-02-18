@@ -45,7 +45,7 @@ type Config struct {
 	Host       string     `yaml:"host" env:"HOST"`
 	Port       int        `yaml:"port" env:"PORT"`
 	Username   string     `yaml:"username" env:"USERNAME"`
-	Password   string     `yaml:"password" env:"PASSWORD,unset"`
+	Password   string     `yaml:"password" env:"PASSWORD,unset"` // #nosec G117 -- exported password field
 	Database   int        `yaml:"database" env:"DATABASE" default:"0"`
 	TlsOptions config.TLS `yaml:",inline"`
 	Options    Options    `yaml:"options" envPrefix:"OPTIONS_"`

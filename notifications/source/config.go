@@ -9,5 +9,5 @@ type Config struct {
 	Username string `yaml:"username" env:"USERNAME"`
 
 	// Password is the API user's password for the Icinga Notifications API.
-	Password string `yaml:"password" env:"PASSWORD,unset"`
+	Password string `yaml:"password" env:"PASSWORD,unset"` // #nosec G117 -- exported password field
 }
