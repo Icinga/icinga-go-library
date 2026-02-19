@@ -1,0 +1,44 @@
+name: Compatibility
+
+on:
+  push:
+    branches:
+      - main
+  pull_request: {}
+
+jobs:
+  compatibility:
+    name: ${{ matrix.downstream.name }}
+    runs-on: ubuntu-latest
+
+    strategy:
+      fail-fast: false
+      matrix:
+        downstream:
+          - { name: "Icinga DB",             repo: "Icinga/icingadb" }
+          - { name: "Icinga Notifications",  repo: "Icinga/icinga-notifications" }
+          - { name: "Icinga for Kubernetes", repo: "Icinga/icinga-kubernetes" }
+
+    steps:
+      - name: Setup Go
+        uses: actions/setup-go@v6
+        with:
+          go-version: stable
+
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          repository: ${{ matrix.downstream.repo }}
+
+      - name: Update IGL reference
+        run: |
+          go get -u 'github.com/icinga/icinga-go-library@${{ github.head_ref || github.ref_name }}'
+          go mod tidy
+          git diff
+
+      - name: Compile
+        run: go build ./...
+
+      - name: Run tests
+        timeout-minutes: 10
+        run: go test -v ./...
