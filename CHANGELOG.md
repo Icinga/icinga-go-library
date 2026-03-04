@@ -1,5 +1,18 @@
 # Icinga Go Library
 
+## 0.9.0 (2026-03-04)
+
+This Icinga Go Library release introduces streaming deletions/upserts for databases,
+adds support for password files next to password fields for configurations,
+and includes some further housekeeping.
+
+* database: Stream functionality for deletions and upserts. #16
+* redis: Remove obsolete workaround against reuse of broken connections. #148
+* config: Password files next to password fields. #180
+* Address golangci-lint issues. #182
+* Test downstream Icinga Go applications against latest Icinga Go Library. #183
+* Bump dependencies. #177, #178, #179, #181, #184
+
 ## 0.8.2 (2025-12-15)
 
 This release of the Icinga Go Library updates dependencies to ensure that the latest changes are available for the upcoming Icinga DB release.
