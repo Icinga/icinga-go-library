@@ -62,6 +62,7 @@ func TestBulk(t *testing.T) {
 					defer cancel()
 
 					bulkCtx, cancelBulk := context.WithCancel(ctx)
+					defer cancelBulk()
 
 					ch := make(chan string, 1)
 					go func() {
