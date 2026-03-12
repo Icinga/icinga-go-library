@@ -51,15 +51,15 @@ func TestWaitAsync(t *testing.T) {
 	}
 }
 
-func TestErrgroupReceive(t *testing.T) {
+func TestErrgroupReceiveAndErrgroupReceiveWrap(t *testing.T) {
 	subtests := []struct {
-		name  string
-		input []error
-		error bool
+		name          string
+		input         []error
+		wantErrorType error
 	}{
-		{"nothing", nil, false},
-		{"nil", []error{nil}, false},
-		{"non-nil", []error{io.EOF}, true},
+		{"nothing", nil, nil},
+		{"nil", []error{nil}, nil},
+		{"non-nil", []error{io.EOF}, io.EOF},
 	}
 
 	latencies := []struct {
@@ -75,39 +75,56 @@ func TestErrgroupReceive(t *testing.T) {
 		t.Run(st.name, func(t *testing.T) {
 			for _, l := range latencies {
 				t.Run(l.name, func(t *testing.T) {
-					ctx := t.Context()
-
-					gCtx, gCancel := context.WithCancel(context.Background())
-					gCancel()
-
-					g, _ := errgroup.WithContext(gCtx)
-
-					errs := make(chan error)
-					go func() {
-						defer close(errs)
-
-						for _, e := range st.input {
-							if l.latency > 0 {
-								select {
-								case <-time.After(l.latency):
-								case <-ctx.Done():
-									return
-								}
-							}
-
-							select {
-							case errs <- e:
-							case <-ctx.Done():
-								return
-							}
+					for _, withWrap := range []bool{false, true} {
+						name := "unwrapped"
+						if withWrap {
+							name = "wrapped"
 						}
-					}()
 
-					ErrgroupReceive(g, errs)
-					if err := g.Wait(); st.error {
-						require.Error(t, err)
-					} else {
-						require.NoError(t, err)
+						t.Run(name, func(t *testing.T) {
+							ctx := t.Context()
+
+							gCtx, gCancel := context.WithCancel(context.Background())
+							gCancel()
+
+							g, _ := errgroup.WithContext(gCtx)
+
+							errs := make(chan error)
+							go func() {
+								defer close(errs)
+
+								for _, e := range st.input {
+									if l.latency > 0 {
+										select {
+										case <-time.After(l.latency):
+										case <-ctx.Done():
+											return
+										}
+									}
+
+									select {
+									case errs <- e:
+									case <-ctx.Done():
+										return
+									}
+								}
+							}()
+
+							if withWrap {
+								ErrgroupReceiveWrap(g, errs, "wrap %d", 42)
+							} else {
+								ErrgroupReceive(g, errs)
+							}
+
+							if err := g.Wait(); st.wantErrorType != nil {
+								require.ErrorIs(t, err, st.wantErrorType)
+								if withWrap {
+									require.ErrorContains(t, err, "wrap 42")
+								}
+							} else {
+								require.NoError(t, err)
+							}
+						})
 					}
 				})
 			}
