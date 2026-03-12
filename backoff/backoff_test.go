@@ -29,7 +29,7 @@ func TestNewExponentialWithJitter(t *testing.T) {
 			// Ensure that multiple calls don't breach the upper bound
 			reachedMax := false
 
-			for i := uint64(0); i < 1024; i++ {
+			for i := range uint64(1024) {
 				d := r(i)
 				require.GreaterOrEqual(t, d, tt.min)
 				require.LessOrEqual(t, d, tt.max)

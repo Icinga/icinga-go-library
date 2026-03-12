@@ -2,6 +2,7 @@ package database
 
 import (
 	"fmt"
+	"maps"
 	"os"
 	"testing"
 
@@ -41,9 +42,7 @@ func minimalEnv() map[string]string {
 func withMinimalEnv(v map[string]string) map[string]string {
 	env := minimalEnv()
 
-	for key, value := range v {
-		env[key] = value
-	}
+	maps.Copy(env, v)
 
 	return env
 }

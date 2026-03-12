@@ -11,7 +11,7 @@ import (
 )
 
 // MustPackSlice calls PackAny using items and panics if there was an error.
-func MustPackSlice(items ...interface{}) []byte {
+func MustPackSlice(items ...any) []byte {
 	var buf bytes.Buffer
 
 	if err := PackAny(items, &buf); err != nil {
@@ -39,12 +39,12 @@ func MustPackSlice(items ...interface{}) []byte {
 //
 // map_key([1]uint8{0x42}) => [1]uint8{0x42}
 // map_key(x)              => []byte(fmt.Sprint(x))
-func PackAny(in interface{}, out io.Writer) error {
+func PackAny(in any, out io.Writer) error {
 	return errors.Wrapf(packValue(reflect.ValueOf(in), out), "can't pack %#v", in)
 }
 
-var tByte = reflect.TypeOf(byte(0))
-var tBytes = reflect.TypeOf([]uint8(nil))
+var tByte = reflect.TypeFor[byte]()
+var tBytes = reflect.TypeFor[[]uint8]()
 
 // packValue does the actual job of packAny and just exists for recursion w/o unnecessary reflect.ValueOf calls.
 func packValue(in reflect.Value, out io.Writer) error {
@@ -96,7 +96,7 @@ func packValue(in reflect.Value, out io.Writer) error {
 			return err
 		}
 
-		for i := 0; i < l; i++ {
+		for i := range l {
 			if err := packValue(in.Index(i), out); err != nil {
 				return err
 			}
@@ -150,13 +150,13 @@ func packValue(in reflect.Value, out io.Writer) error {
 						// Not just stringify the key (below), but also pack it (here) - panics on disallowed type.
 						_ = packValue(iter.Key(), io.Discard)
 
-						packedKey = []byte(fmt.Sprint(key.Interface()))
+						packedKey = fmt.Append(nil, key.Interface())
 					}
 				} else {
 					// Not just stringify the key (below), but also pack it (here) - panics on disallowed type.
 					_ = packValue(iter.Key(), io.Discard)
 
-					packedKey = []byte(fmt.Sprint(key.Interface()))
+					packedKey = fmt.Append(nil, key.Interface())
 				}
 
 				sorted = append(sorted, kv{packedKey, iter.Value()})
@@ -189,7 +189,7 @@ func packValue(in reflect.Value, out io.Writer) error {
 		}
 
 		return nil
-	case reflect.Ptr:
+	case reflect.Pointer:
 		if in.IsNil() {
 			err := packValue(reflect.Value{}, out)
 

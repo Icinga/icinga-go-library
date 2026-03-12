@@ -82,7 +82,7 @@ func (binary *Binary) UnmarshalJSON(data []byte) error {
 
 // Scan implements the sql.Scanner interface.
 // Supports SQL NULL.
-func (binary *Binary) Scan(src interface{}) error {
+func (binary *Binary) Scan(src any) error {
 	switch src := src.(type) {
 	case nil:
 		return nil

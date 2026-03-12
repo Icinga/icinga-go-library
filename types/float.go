@@ -17,7 +17,7 @@ type Float struct {
 // MarshalJSON implements the json.Marshaler interface.
 // Supports JSON null.
 func (f Float) MarshalJSON() ([]byte, error) {
-	var v interface{}
+	var v any
 	if f.Valid {
 		v = f.Float64
 	}

@@ -72,10 +72,10 @@ type ConfigOption struct {
 	Options map[string]string `json:"options,omitempty"`
 
 	// Element's min option defines the minimum allowed number value. It can only be used for the type number.
-	Min types.Int `json:"min,omitempty"`
+	Min types.Int `json:"min"`
 
 	// Element's max option defines the maximum allowed number value. It can only be used for the type number.
-	Max types.Int `json:"max,omitempty"`
+	Max types.Int `json:"max"`
 }
 
 // ConfigOptions describes all ConfigOption entries.
