@@ -39,11 +39,18 @@ func WaitAsync(w Waiter) <-chan error {
 }
 
 // ErrgroupReceive adds a goroutine to the specified group that
-// returns the first non-nil error (if any) from the specified channel.
+// returns the first error (if any) from the specified channel.
 // If the channel is closed, it will return nil.
-func ErrgroupReceive(g *errgroup.Group, err <-chan error) {
+func ErrgroupReceive(g *errgroup.Group, errs <-chan error) {
 	g.Go(func() error {
-		return <-err
+		return <-errs
+	})
+}
+
+// ErrgroupReceiveWrap works like ErrgroupReceive, but wraps a non-nil error.
+func ErrgroupReceiveWrap(g *errgroup.Group, errs <-chan error, format string, args ...any) {
+	g.Go(func() error {
+		return errors.Wrapf(<-errs, format, args...)
 	})
 }
 
