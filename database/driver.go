@@ -104,9 +104,9 @@ func (c *RetryConnector) Driver() driver.Driver {
 }
 
 // MysqlFuncLogger is an adapter that allows ordinary functions to be used as a logger for mysql.SetLogger.
-type MysqlFuncLogger func(v ...interface{})
+type MysqlFuncLogger func(v ...any)
 
 // Print implements the mysql.Logger interface.
-func (log MysqlFuncLogger) Print(v ...interface{}) {
+func (log MysqlFuncLogger) Print(v ...any) {
 	log(v)
 }

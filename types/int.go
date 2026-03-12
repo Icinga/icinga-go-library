@@ -40,7 +40,7 @@ func MakeInt(in int64, transformers ...func(*Int)) Int {
 // MarshalJSON implements the json.Marshaler interface.
 // Supports JSON null.
 func (i Int) MarshalJSON() ([]byte, error) {
-	var v interface{}
+	var v any
 	if i.Valid {
 		v = i.Int64
 	}

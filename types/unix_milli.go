@@ -60,7 +60,7 @@ func (t *UnixMilli) UnmarshalText(text []byte) error {
 
 // Scan implements the sql.Scanner interface.
 // Scans from milliseconds. Supports SQL NULL.
-func (t *UnixMilli) Scan(src interface{}) error {
+func (t *UnixMilli) Scan(src any) error {
 	if src == nil {
 		return nil
 	}

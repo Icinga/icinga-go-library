@@ -40,7 +40,7 @@ func MakeString(in string, transformers ...func(*String)) String {
 // MarshalJSON implements the json.Marshaler interface.
 // Supports JSON null.
 func (s String) MarshalJSON() ([]byte, error) {
-	var v interface{}
+	var v any
 	if s.Valid {
 		v = s.String
 	}

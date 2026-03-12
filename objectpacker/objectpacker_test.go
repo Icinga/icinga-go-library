@@ -81,7 +81,7 @@ func TestPackAny(t *testing.T) {
 	assertPackAnyPanic(t, []struct{}(nil), 9)
 	assertPackAnyPanic(t, []struct{}{}, 9)
 
-	assertPackAny(t, []interface{}{nil, true, -42.5}, []byte{
+	assertPackAny(t, []any{nil, true, -42.5}, []byte{
 		5, 0, 0, 0, 0, 0, 0, 0, 3,
 		0,
 		2,
@@ -94,12 +94,12 @@ func TestPackAny(t *testing.T) {
 		4, 0, 0, 0, 0, 0, 0, 0, 1, 'a',
 	})
 
-	assertPackAnyPanic(t, []interface{}{0 + 0i}, 9)
+	assertPackAnyPanic(t, []any{0 + 0i}, 9)
 
 	assertPackAnyPanic(t, map[struct{}]struct{}(nil), 9)
 	assertPackAnyPanic(t, map[struct{}]struct{}{}, 9)
 
-	assertPackAny(t, map[interface{}]interface{}{true: "", "nil": -42.5}, []byte{
+	assertPackAny(t, map[any]any{true: "", "nil": -42.5}, []byte{
 		6, 0, 0, 0, 0, 0, 0, 0, 2,
 		0, 0, 0, 0, 0, 0, 0, 3, 'n', 'i', 'l',
 		3, 0xc0, 0x45, 0x40, 0, 0, 0, 0, 0,
@@ -153,7 +153,7 @@ func TestPackAny(t *testing.T) {
 	assertPackAnyPanic(t, uintptr(0), 0)
 }
 
-func assertPackAny(t *testing.T, in interface{}, out []byte) {
+func assertPackAny(t *testing.T, in any, out []byte) {
 	t.Helper()
 
 	{
@@ -167,17 +167,17 @@ func assertPackAny(t *testing.T, in interface{}, out []byte) {
 		}
 	}
 
-	for i := 0; i < len(out); i++ {
+	for i := range out {
 		if !errors.Is(PackAny(in, &limitedWriter{i}), io.EOF) {
 			t.Errorf("packAny(%#v, &limitedWriter{%d}) != io.EOF", in, i)
 		}
 	}
 }
 
-func assertPackAnyPanic(t *testing.T, in interface{}, allowToWrite int) {
+func assertPackAnyPanic(t *testing.T, in any, allowToWrite int) {
 	t.Helper()
 
-	for i := 0; i < allowToWrite; i++ {
+	for i := range allowToWrite {
 		if !errors.Is(PackAny(in, &limitedWriter{i}), io.EOF) {
 			t.Errorf("packAny(%#v, &limitedWriter{%d}) != io.EOF", in, i)
 		}
