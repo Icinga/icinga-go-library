@@ -46,10 +46,7 @@ func BatchSliceOfStrings(ctx context.Context, keys []string, count int) <-chan [
 		defer close(batches)
 
 		for i := 0; i < len(keys); i += count {
-			end := i + count
-			if end > len(keys) {
-				end = len(keys)
-			}
+			end := min(i+count, len(keys))
 
 			select {
 			case batches <- keys[i:end]:
@@ -68,7 +65,7 @@ func IsContextCanceled(err error) bool {
 }
 
 // Checksum returns the SHA-1 checksum of the data.
-func Checksum(data interface{}) []byte {
+func Checksum(data any) []byte {
 	var chksm [sha1.Size]byte
 
 	switch data := data.(type) {

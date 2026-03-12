@@ -85,7 +85,7 @@ func (b *Bool) UnmarshalJSON(data []byte) error {
 
 // Scan implements the sql.Scanner interface.
 // Supports SQL NULL.
-func (b *Bool) Scan(src interface{}) error {
+func (b *Bool) Scan(src any) error {
 	if src == nil {
 		b.Bool, b.Valid = false, false
 		return nil
