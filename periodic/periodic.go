@@ -55,6 +55,7 @@ func Start(ctx context.Context, interval time.Duration, callback func(Tick), opt
 		option.apply(t)
 	}
 
+	// #nosec G118 -- cancelCtx is called by the caller via the returned Stopper
 	ctx, cancelCtx := context.WithCancel(ctx)
 
 	start := time.Now()
