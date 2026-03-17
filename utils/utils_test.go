@@ -258,14 +258,14 @@ func TestIterateOrderedMap(t *testing.T) {
 			"1k-numbers",
 			func() map[int]string {
 				m := make(map[int]string)
-				for i := 0; i < 1000; i++ {
+				for i := range 1000 {
 					m[i] = "foo"
 				}
 				return m
 			}(),
 			func() []int {
 				keys := make([]int, 1000)
-				for i := 0; i < 1000; i++ {
+				for i := range 1000 {
 					keys[i] = i
 				}
 				return keys

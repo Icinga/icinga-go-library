@@ -20,7 +20,7 @@ func CantPerformQuery(err error, q string) error {
 }
 
 // TableName returns the table of t.
-func TableName(t interface{}) string {
+func TableName(t any) string {
 	if tn, ok := t.(TableNamer); ok {
 		return tn.TableName()
 	} else {
@@ -84,7 +84,7 @@ func InsertObtainID(ctx context.Context, conn TxOrDB, stmt string, arg any) (int
 }
 
 // BuildInsertStmtWithout builds an insert stmt without the provided columns.
-func BuildInsertStmtWithout(db *DB, into interface{}, withoutColumns ...string) string {
+func BuildInsertStmtWithout(db *DB, into any, withoutColumns ...string) string {
 	columns := slices.DeleteFunc(
 		db.BuildColumns(into),
 		func(column string) bool { return slices.Contains(withoutColumns, column) })

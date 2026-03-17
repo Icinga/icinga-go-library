@@ -21,7 +21,7 @@ type Options map[string]zapcore.Level
 func (o *Options) UnmarshalText(text []byte) error {
 	optionsMap := make(map[string]zapcore.Level)
 
-	for _, entry := range strings.Split(string(text), ",") {
+	for entry := range strings.SplitSeq(string(text), ",") {
 		key, valueStr, found := strings.Cut(entry, ":")
 		if !found {
 			return fmt.Errorf("entry %q cannot be unmarshalled as an Option entry", entry)

@@ -73,7 +73,7 @@ func (c *journaldCore) Write(ent zapcore.Entry, fields []zapcore.Field) error {
 
 	// Re-encode keys before passing them to journald. Unfortunately, this cannot be done within addFields or at another
 	// earlier position since zapcore's Field.AddTo may create multiple entries, some with non-compliant names.
-	encFields := make(map[string]interface{})
+	encFields := make(map[string]any)
 	for k, v := range enc.Fields {
 		encFields[encodeJournaldFieldKey(k)] = v
 	}

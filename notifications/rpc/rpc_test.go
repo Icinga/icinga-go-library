@@ -15,10 +15,10 @@ func TestRPC(t *testing.T) {
 	rpc := NewRPC(writer, reader, zaptest.NewLogger(t).Sugar())
 
 	wg := sync.WaitGroup{}
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		wg.Add(1)
 		go func(i int) {
-			for j := 0; j < 100; j++ {
+			for j := range 100 {
 				params := fmt.Sprintf(`{"go":"%d-%d"}`, i, j)
 
 				res, err := rpc.Call("hello", json.RawMessage(params))

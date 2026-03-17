@@ -26,7 +26,7 @@ func testIniter(p any) {
 
 func TestMakeMapStructifier(t *testing.T) {
 	t.Run("empty", func(t *testing.T) {
-		ms := MakeMapStructifier(reflect.TypeOf(struct{}{}), "", nil)
+		ms := MakeMapStructifier(reflect.TypeFor[struct{}](), "", nil)
 		require.NotNil(t, ms)
 
 		actual, err := ms(nil)
@@ -36,19 +36,19 @@ func TestMakeMapStructifier(t *testing.T) {
 
 	t.Run("unsupported", func(t *testing.T) {
 		require.Panics(t, func() {
-			MakeMapStructifier(reflect.TypeOf(struct {
+			MakeMapStructifier(reflect.TypeFor[struct {
 				S struct{} `test:"s"`
-			}{}), "test", nil)
+			}](), "test", nil)
 		})
 	})
 
 	t.Run("embedded-ignored", func(t *testing.T) {
 		require.NotPanics(t, func() {
-			MakeMapStructifier(reflect.TypeOf(struct {
+			MakeMapStructifier(reflect.TypeFor[struct {
 				Embedded struct {
 					Ignored struct{} `test:"s"`
 				}
-			}{}), "test", nil)
+			}](), "test", nil)
 		})
 	})
 

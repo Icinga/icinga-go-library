@@ -259,12 +259,12 @@ func (db *DB) MarshalLogObject(encoder zapcore.ObjectEncoder) error {
 }
 
 // BuildColumns returns all columns of the given struct.
-func (db *DB) BuildColumns(subject interface{}) []string {
+func (db *DB) BuildColumns(subject any) []string {
 	return slices.Clone(db.columnMap.Columns(subject))
 }
 
 // BuildDeleteStmt returns a DELETE statement for the given struct.
-func (db *DB) BuildDeleteStmt(from interface{}) string {
+func (db *DB) BuildDeleteStmt(from any) string {
 	return fmt.Sprintf(
 		`DELETE FROM "%s" WHERE id IN (?)`,
 		TableName(from),
@@ -272,7 +272,7 @@ func (db *DB) BuildDeleteStmt(from interface{}) string {
 }
 
 // BuildInsertStmt returns an INSERT INTO statement for the given struct.
-func (db *DB) BuildInsertStmt(into interface{}) (string, int) {
+func (db *DB) BuildInsertStmt(into any) (string, int) {
 	columns := db.columnMap.Columns(into)
 
 	return fmt.Sprintf(
@@ -285,7 +285,7 @@ func (db *DB) BuildInsertStmt(into interface{}) (string, int) {
 
 // BuildInsertIgnoreStmt returns an INSERT statement for the specified struct for
 // which the database ignores rows that have already been inserted.
-func (db *DB) BuildInsertIgnoreStmt(into interface{}) (string, int) {
+func (db *DB) BuildInsertIgnoreStmt(into any) (string, int) {
 	table := TableName(into)
 	columns := db.columnMap.Columns(into)
 	var clause string
@@ -316,7 +316,7 @@ func (db *DB) BuildInsertIgnoreStmt(into interface{}) (string, int) {
 
 // BuildSelectStmt returns a SELECT query that creates the FROM part from the given table struct
 // and the column list from the specified columns struct.
-func (db *DB) BuildSelectStmt(table interface{}, columns interface{}) string {
+func (db *DB) BuildSelectStmt(table any, columns any) string {
 	q := fmt.Sprintf(
 		`SELECT "%s" FROM "%s"`,
 		strings.Join(db.columnMap.Columns(columns), `", "`),
@@ -332,7 +332,7 @@ func (db *DB) BuildSelectStmt(table interface{}, columns interface{}) string {
 }
 
 // BuildUpdateStmt returns an UPDATE statement for the given struct.
-func (db *DB) BuildUpdateStmt(update interface{}) (string, int) {
+func (db *DB) BuildUpdateStmt(update any) (string, int) {
 	columns := db.columnMap.Columns(update)
 	set := make([]string, 0, len(columns))
 
@@ -348,7 +348,7 @@ func (db *DB) BuildUpdateStmt(update interface{}) (string, int) {
 }
 
 // BuildUpsertStmt returns an upsert statement for the given struct.
-func (db *DB) BuildUpsertStmt(subject interface{}) (stmt string, placeholders int) {
+func (db *DB) BuildUpsertStmt(subject any) (stmt string, placeholders int) {
 	insertColumns := db.columnMap.Columns(subject)
 	table := TableName(subject)
 	var updateColumns []string
@@ -394,7 +394,7 @@ func (db *DB) BuildUpsertStmt(subject interface{}) (stmt string, placeholders in
 
 // BuildWhere returns a WHERE clause with named placeholder conditions built from the specified struct
 // combined with the AND operator.
-func (db *DB) BuildWhere(subject interface{}) (string, int) {
+func (db *DB) BuildWhere(subject any) (string, int) {
 	columns := db.columnMap.Columns(subject)
 	where := make([]string, 0, len(columns))
 	for _, col := range columns {
@@ -452,7 +452,7 @@ func (db *DB) BulkExec(
 				return errors.Wrap(err, "can't acquire semaphore")
 			}
 
-			g.Go(func(b []interface{}) func() error {
+			g.Go(func(b []any) func() error {
 				return func() error {
 					defer sem.Release(1)
 
@@ -652,7 +652,7 @@ func (db *DB) BatchSizeByPlaceholders(n int) int {
 // YieldAll executes the query with the supplied scope,
 // scans each resulting row into an entity returned by the factory function,
 // and streams them into a returned channel.
-func (db *DB) YieldAll(ctx context.Context, factoryFunc EntityFactoryFunc, query string, scope interface{}) (<-chan Entity, <-chan error) {
+func (db *DB) YieldAll(ctx context.Context, factoryFunc EntityFactoryFunc, query string, scope any) (<-chan Entity, <-chan error) {
 	entities := make(chan Entity, 1)
 	g, ctx := errgroup.WithContext(ctx)
 
@@ -792,7 +792,7 @@ func (db *DB) UpdateStreamed(ctx context.Context, entities <-chan Entity) error 
 // concurrency is controlled via Options.MaxConnectionsPerTable.
 // IDs for which the query ran successfully will be passed to onSuccess.
 func (db *DB) DeleteStreamed(
-	ctx context.Context, entityType Entity, ids <-chan interface{}, onSuccess ...OnSuccess[any],
+	ctx context.Context, entityType Entity, ids <-chan any, onSuccess ...OnSuccess[any],
 ) error {
 	sem := db.GetSemaphoreForTable(TableName(entityType))
 	return db.BulkExec(
@@ -804,9 +804,9 @@ func (db *DB) DeleteStreamed(
 // bulk deletes them by passing the channel along with the entityType to DeleteStreamed.
 // IDs for which the query ran successfully will be passed to onSuccess.
 func (db *DB) Delete(
-	ctx context.Context, entityType Entity, ids []interface{}, onSuccess ...OnSuccess[any],
+	ctx context.Context, entityType Entity, ids []any, onSuccess ...OnSuccess[any],
 ) error {
-	idsCh := make(chan interface{}, len(ids))
+	idsCh := make(chan any, len(ids))
 	for _, id := range ids {
 		idsCh <- id
 	}

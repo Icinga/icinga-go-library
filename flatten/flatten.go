@@ -7,13 +7,13 @@ import (
 )
 
 // Flatten creates flat, one-dimensional maps from arbitrarily nested values, e.g. JSON.
-func Flatten(value interface{}, prefix string) map[string]types.String {
-	var flatten func(string, interface{})
+func Flatten(value any, prefix string) map[string]types.String {
+	var flatten func(string, any)
 	flattened := make(map[string]types.String)
 
-	flatten = func(key string, value interface{}) {
+	flatten = func(key string, value any) {
 		switch value := value.(type) {
-		case map[string]interface{}:
+		case map[string]any:
 			if len(value) == 0 {
 				flattened[key] = types.String{}
 				break
@@ -22,7 +22,7 @@ func Flatten(value interface{}, prefix string) map[string]types.String {
 			for k, v := range value {
 				flatten(key+"."+k, v)
 			}
-		case []interface{}:
+		case []any:
 			if len(value) == 0 {
 				flattened[key] = types.String{}
 				break

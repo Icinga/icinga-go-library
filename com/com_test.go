@@ -75,8 +75,7 @@ func TestErrgroupReceive(t *testing.T) {
 		t.Run(st.name, func(t *testing.T) {
 			for _, l := range latencies {
 				t.Run(l.name, func(t *testing.T) {
-					ctx, cancel := context.WithCancel(context.Background())
-					defer cancel()
+					ctx := t.Context()
 
 					gCtx, gCancel := context.WithCancel(context.Background())
 					gCancel()
@@ -141,8 +140,7 @@ func TestCopyFirst(t *testing.T) {
 		t.Run(st.name, func(t *testing.T) {
 			for _, l := range latencies {
 				t.Run(l.name, func(t *testing.T) {
-					ctx, cancel := context.WithCancel(context.Background())
-					defer cancel()
+					ctx := t.Context()
 
 					ch := make(chan string)
 					go func() {

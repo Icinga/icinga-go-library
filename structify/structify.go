@@ -23,7 +23,7 @@ type structBranch struct {
 	subTree []structBranch
 }
 
-type MapStructifier = func(map[string]interface{}) (interface{}, error)
+type MapStructifier = func(map[string]any) (any, error)
 
 // MakeMapStructifier builds a function which parses a map's string values into a new struct of type t
 // and returns a pointer to it. tag specifies which tag connects struct fields to map keys.
@@ -31,7 +31,7 @@ type MapStructifier = func(map[string]interface{}) (interface{}, error)
 func MakeMapStructifier(t reflect.Type, tag string, initer func(any)) MapStructifier {
 	tree := buildStructTree(t, tag)
 
-	return func(kv map[string]interface{}) (interface{}, error) {
+	return func(kv map[string]any) (any, error) {
 		vPtr := reflect.New(t)
 		ptr := vPtr.Interface()
 		if initer != nil {
@@ -49,7 +49,7 @@ func buildStructTree(t reflect.Type, tag string) []structBranch {
 	var tree []structBranch
 	numFields := t.NumField()
 
-	for i := 0; i < numFields; i++ {
+	for i := range numFields {
 		if field := t.Field(i); field.PkgPath == "" {
 			switch tagValue := field.Tag.Get(tag); tagValue {
 			case "", "-":
@@ -70,7 +70,7 @@ func buildStructTree(t reflect.Type, tag string) []structBranch {
 }
 
 // structifyMapByTree parses src's string values into the struct dest according to tree's specification.
-func structifyMapByTree(src map[string]interface{}, tree []structBranch, dest, root reflect.Value, stack *[]int) error {
+func structifyMapByTree(src map[string]any, tree []structBranch, dest, root reflect.Value, stack *[]int) error {
 	*stack = append(*stack, 0)
 	defer func() {
 		*stack = (*stack)[:len(*stack)-1]
@@ -107,7 +107,7 @@ func structifyMapByTree(src map[string]interface{}, tree []structBranch, dest, r
 }
 
 // parseString parses src into *dest.
-func parseString(src string, dest interface{}) error {
+func parseString(src string, dest any) error {
 	switch ptr := dest.(type) {
 	case encoding.TextUnmarshaler:
 		return ptr.UnmarshalText([]byte(src))
