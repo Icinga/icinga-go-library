@@ -661,10 +661,27 @@ func (db *DB) YieldAll(ctx context.Context, factoryFunc EntityFactoryFunc, query
 		defer db.Log(ctx, query, &counter).Stop()
 		defer close(entities)
 
-		rows, err := db.NamedQueryContext(ctx, query, scope)
+		var rows *sqlx.Rows
+		err := retry.WithBackoff(
+			ctx,
+			func(ctx context.Context) error {
+				var err error
+
+				//nolint:sqlclosecheck // deferred close after the retry.WithBackoff call
+				rows, err = db.NamedQueryContext(ctx, query, scope)
+				if err != nil {
+					return CantPerformQuery(err, query)
+				}
+
+				return nil
+			},
+			retry.Retryable,
+			backoff.DefaultBackoff,
+			db.GetDefaultRetrySettings())
 		if err != nil {
-			return CantPerformQuery(err, query)
+			return err
 		}
+
 		defer func() { _ = rows.Close() }()
 
 		for rows.Next() {
@@ -682,7 +699,7 @@ func (db *DB) YieldAll(ctx context.Context, factoryFunc EntityFactoryFunc, query
 			}
 		}
 
-		return nil
+		return rows.Err()
 	})
 
 	return entities, com.WaitAsync(g)
