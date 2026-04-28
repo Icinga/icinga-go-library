@@ -18,14 +18,19 @@ func TestEvent(t *testing.T) {
 			t.Parallel()
 
 			event := &Event{
-				Name:         "TestEvent",
-				URL:          "/icingadb/service?name=https%20ssl%20v3.0%20compatibility%20IE%206.0&host.name=example%20host",
-				Tags:         map[string]string{"tag1": "value1"},
-				ExtraTags:    map[string]string{},
-				Type:         TypeState,
-				Severity:     SeverityOK,
-				Username:     "testuser",
-				Message:      "Test",
+				Name:              "TestEvent",
+				URL:               "/icingadb/service?name=https%20ssl%20v3.0%20compatibility%20IE%206.0&host.name=example%20host",
+				Tags:              map[string]string{"tag1": "value1"},
+				ExtraTags:         map[string]string{},
+				Type:              TypeState,
+				Severity:          SeverityOK,
+				Username:          "testuser",
+				Message:           "Test",
+				CompleteRelations: []string{"relation1", "relation2"},
+				Relations: map[string]any{
+					"relation1": "relation1",
+					"relation2": "relation2",
+				},
 				RulesVersion: "0x1",
 				RuleIds:      []string{"1", "2", "3", "6"},
 			}
@@ -43,6 +48,8 @@ func TestEvent(t *testing.T) {
 					"severity":"ok",
 					"username":"testuser",
 					"message":"Test",
+					"complete_relations":["relation1", "relation2"],
+					"relations":{"relation1":"relation1","relation2":"relation2"},
 					"rules_version": "0x1",
 					"rule_ids": ["1", "2", "3", "6"]
 				}`
