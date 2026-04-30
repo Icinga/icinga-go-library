@@ -21,7 +21,6 @@ func TestEvent(t *testing.T) {
 				Name:              "TestEvent",
 				URL:               "/icingadb/service?name=https%20ssl%20v3.0%20compatibility%20IE%206.0&host.name=example%20host",
 				Tags:              map[string]string{"tag1": "value1"},
-				ExtraTags:         map[string]string{},
 				Type:              TypeState,
 				Severity:          SeverityOK,
 				Username:          "testuser",
@@ -31,8 +30,6 @@ func TestEvent(t *testing.T) {
 					"relation1": "relation1",
 					"relation2": "relation2",
 				},
-				RulesVersion: "0x1",
-				RuleIds:      []string{"1", "2", "3", "6"},
 			}
 
 			data, err := json.Marshal(event)
@@ -43,15 +40,12 @@ func TestEvent(t *testing.T) {
 					"name":"TestEvent",
 					"url":"/icingadb/service?name=https%20ssl%20v3.0%20compatibility%20IE%206.0&host.name=example%20host",
 					"tags":{"tag1":"value1"},
-					"extra_tags":{},
 					"type":"state",
 					"severity":"ok",
 					"username":"testuser",
 					"message":"Test",
 					"complete_relations":["relation1", "relation2"],
-					"relations":{"relation1":"relation1","relation2":"relation2"},
-					"rules_version": "0x1",
-					"rule_ids": ["1", "2", "3", "6"]
+					"relations":{"relation1":"relation1","relation2":"relation2"}
 				}`
 			assert.JSONEq(t, expected, string(data), "JSON encoding does not match expected output")
 		})
