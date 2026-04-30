@@ -5,7 +5,7 @@ go 1.25.0
 require (
 	github.com/caarlos0/env/v11 v11.4.0
 	github.com/creasty/defaults v1.8.0
-	github.com/go-sql-driver/mysql v1.9.3
+	github.com/go-sql-driver/mysql v1.10.0
 	github.com/goccy/go-yaml v1.13.0
 	github.com/google/uuid v1.6.0
 	github.com/jessevdk/go-flags v1.6.1
@@ -21,7 +21,7 @@ require (
 )
 
 require (
-	filippo.io/edwards25519 v1.1.0 // indirect
+	filippo.io/edwards25519 v1.2.0 // indirect
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/fatih/color v1.18.0 // indirect
