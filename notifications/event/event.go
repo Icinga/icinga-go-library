@@ -27,9 +27,6 @@ type Event struct {
 	// For hosts: {"host": "host_name"} and for services: {"host": "host_name", "service": "service_name"}.
 	Tags map[string]string `json:"tags"`
 
-	// ExtraTags supplement Tags, for example with host or service groups for an Icinga DB source.
-	ExtraTags map[string]string `json:"extra_tags"`
-
 	// Type indicates the type of the event.
 	Type Type `json:"type"`
 	// Severity of the event.
@@ -52,10 +49,6 @@ type Event struct {
 	// as Icinga Notifications requires a reason for muting an object. Otherwise, it will be omitted
 	// from the encoded JSON.
 	MuteReason string `json:"mute_reason,omitempty"`
-
-	// RulesVersion and RuleIds are the source rules matching for this Event.
-	RulesVersion string   `json:"rules_version"`
-	RuleIds      []string `json:"rule_ids"`
 
 	// CompleteRelations contains a list of relations that should be considered complete for this event.
 	//
