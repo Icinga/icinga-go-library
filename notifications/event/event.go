@@ -27,9 +27,6 @@ type Event struct {
 	// For hosts: {"host": "host_name"} and for services: {"host": "host_name", "service": "service_name"}.
 	Tags map[string]string `json:"tags"`
 
-	// ExtraTags supplement Tags, for example with host or service groups for an Icinga DB source.
-	ExtraTags map[string]string `json:"extra_tags"`
-
 	// Type indicates the type of the event.
 	Type Type `json:"type"`
 	// Severity of the event.
@@ -53,7 +50,20 @@ type Event struct {
 	// from the encoded JSON.
 	MuteReason string `json:"mute_reason,omitempty"`
 
-	// RulesVersion and RuleIds are the source rules matching for this Event.
-	RulesVersion string   `json:"rules_version"`
-	RuleIds      []string `json:"rule_ids"`
+	// CompleteRelations contains a list of relations that should be considered complete for this event.
+	//
+	// Typically, when Icinga Notifications determines that the event didn't provide complete information
+	// needed to evaluate the rules in the [Relations] field, it will instruct the source to provide the
+	// missing information in a follow-up request. This field can be used by the source to indicate that
+	// it already provided all the available information it has for the certain relations and that the
+	// Icinga Notifications should not ask for more information for these relations.
+	CompleteRelations []string `json:"complete_relations,omitempty"`
+
+	// Relations contains additional information about the relations of the object this event is referring to.
+	//
+	// This will be used to evaluate JSONPath expressions in the filter columns of the event rules.
+	// The structure of this field is flexible and can contain any information that might be relevant
+	// for the evaluation of the rules. It will not be used for anything else than evaluating the rules
+	// and will not be persisted to the database as well.
+	Relations map[string]any `json:"relations,omitempty"`
 }
