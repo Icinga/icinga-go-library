@@ -5,11 +5,13 @@ import (
 	"context"
 	"encoding/json"
 	stderrors "errors"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
 	"strings"
 
+	"github.com/icinga/icinga-go-library/notifications"
 	"github.com/icinga/icinga-go-library/notifications/event"
 	"github.com/pkg/errors"
 )
@@ -71,41 +73,14 @@ func NewClient(cfg Config, clientName string) (*Client, error) {
 	}, nil
 }
 
-// RulesInfo holds information about the event rules for a specific source.
-//
-// A Client can fetch RulesInfo from the Icinga Notifications API via Client.ProcessEvent.
-//
-// The Version represents the current rules version for this Client. This value should be stored by a caller and set to
-// [event.Event.EventVersion] when being passed to Client.ProcessEvent, as described there. This allows detecting
-// outdated source rules.
-//
-// Rules is a map of rule IDs to object filter expressions. These object filter expressions are source-specific. For
-// example, Icinga DB expects an SQL query.
-type RulesInfo struct {
-	// Version of the event rules fetched from the API.
-	Version string
-
-	// Rules is a map of rule IDs to their corresponding object filter expression.
-	Rules map[string]string
-}
-
-// ErrRulesOutdated implies that the rules version between the submitted event and Icinga Notifications mismatches.
-var ErrRulesOutdated = stderrors.New("rules version is outdated")
+// ErrAttrsNegotiation implies missing attributes.
+var ErrAttrsNegotiation = stderrors.New("attribute negotiation required")
 
 // ProcessEvent submits an event.Event to the Icinga Notifications /process-event API endpoint.
 //
-// For a successful submission, this method returns (nil, nil).
-//
-// It may return an ErrRulesOutdated error, implying that the provided ruleVersion does not match the current rules
-// version in the Icinga Notifications daemon. Only in this case, it will also return the current rules specific to this
-// source and their version as RulesInfo, allowing to retry submitting an event after reevaluating it.
-//
-// For the Event to be submitted, Event.RulesVersion and Event.RuleIds should be set. If no appropriate values are
-// known, they can be left empty. This will return ErrRulesOutdated - unless there are no rules configured that need to
-// be evaluated by the source -, which can be handled as described above to retrieve information and resubmit the event.
-//
-// If the request fails or the response is not as expected, it returns an error.
-func (client *Client) ProcessEvent(ctx context.Context, ev *event.Event) (*RulesInfo, error) {
+// When rejectIncompete is set and the returned error is ErrAttrsNegotiation,
+// the first return parameter is an array of required attributes.
+func (client *Client) ProcessEvent(ctx context.Context, ev *event.Event, rejectIncompete bool) ([]string, error) {
 	body, err := json.Marshal(ev)
 	if err != nil {
 		return nil, errors.Wrap(err, "cannot encode event to JSON")
@@ -118,6 +93,7 @@ func (client *Client) ProcessEvent(ctx context.Context, ev *event.Event) (*Rules
 
 	req.Header.Add("Content-Type", "application/json")
 	req.Header.Add("Accept", "application/json")
+	req.Header.Add(notifications.XIcingaRejectIfRelationsIncomplete, fmt.Sprintf("%t", rejectIncompete))
 
 	resp, err := client.httpClient.Do(req) // #nosec G704 -- SSRF impossible, trusted user input
 	if err != nil {
@@ -129,16 +105,14 @@ func (client *Client) ProcessEvent(ctx context.Context, ev *event.Event) (*Rules
 		_ = resp.Body.Close()
 	}()
 
-	if resp.StatusCode == http.StatusPreconditionFailed {
-		// Indicates that the rules version is outdated and the body should contain the current rules and their version.
-		// So, we read the body to extract the rules and return an ErrRulesOutdated error, so the caller can retry
-		// the event submission after it has reevaluated them.
-		var rulesInfo RulesInfo
-		if err := json.NewDecoder(resp.Body).Decode(&rulesInfo); err != nil {
-			return nil, errors.Wrap(err, "cannot decode new rules from process event response")
+	if resp.StatusCode == http.StatusUnprocessableEntity {
+		var attributeNegotiationResp struct{ Attributes []string }
+
+		if err := json.NewDecoder(resp.Body).Decode(&attributeNegotiationResp); err != nil {
+			return nil, errors.Wrap(err, "cannot decode attribute negotiation from process event response")
 		}
 
-		return &rulesInfo, ErrRulesOutdated
+		return attributeNegotiationResp.Attributes, ErrAttrsNegotiation
 	}
 
 	if resp.StatusCode >= http.StatusOK && resp.StatusCode <= 299 {
