@@ -55,8 +55,13 @@ type Event struct {
 	// Typically, when Icinga Notifications determines that the event didn't provide complete information
 	// needed to evaluate the rules in the [Relations] field, it will instruct the source to provide the
 	// missing information in a follow-up request. This field can be used by the source to indicate that
-	// it already provided all the available information it has for the certain relations and that the
-	// Icinga Notifications should not ask for more information for these relations.
+	// it already provided all the available information it has for the certain relations and that Icinga
+	// Notifications should not ask for more information for these relations.
+	//
+	// The relations must be specified as JSONPath expressions that match the structure of the [Relations] field.
+	// For example, if the [Relations] field contains a "host" field with some information about the customvars,
+	// the source can add `host.vars` or `host.vars.something` to this list to indicate that it already provided
+	// all the host's customvars or all the information about the `something` customvar.
 	CompleteRelations []string `json:"complete_relations,omitempty"`
 
 	// Relations contains additional information about the relations of the object this event is referring to.
