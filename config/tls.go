@@ -83,39 +83,8 @@ func (tc *TLSCommon) makeConfig() (*tls.Config, error) {
 // It provides options to enable TLS, specify certificate and key files,
 // CA certificate, and whether to skip verification of the server's certificate chain and host name.
 // Use the [TLS.MakeConfig] method to assemble a [*tls.Config] from the TLS struct.
-//
-// Example usage:
-//
-//	func main() {
-//		tlsConfig := &config.TLS{
-//			Enable:   true,
-//			Cert:     "path/to/cert.pem",
-//			Key:      "path/to/key.pem",
-//			Ca:       "path/to/ca.pem",
-//			Insecure: false,
-//		}
-//
-//		cfg, err := tlsConfig.MakeConfig("example.com")
-//		if err != nil {
-//			log.Fatalf("error creating TLS config: %v", err)
-//		}
-//
-//		// ...
-//	}
 type TLS struct {
-	// Enable indicates whether TLS is enabled.
-	Enable bool `yaml:"tls" env:"TLS"`
-
-	// Cert is either the path to the TLS certificate file or a raw PEM-encoded string representing it.
-	// If provided, Key must also be specified.
-	Cert string `yaml:"cert" env:"CERT"`
-
-	// Key is either the path to the TLS key file or a raw PEM-encoded string representing it.
-	// If specified, Cert must also be provided.
-	Key string `yaml:"key" env:"KEY,unset"`
-
-	// Ca is either the path to the CA certificate file or a raw PEM-encoded string representing it.
-	Ca string `yaml:"ca" env:"CA"`
+	TLSCommon `yaml:",inline"`
 
 	// Insecure indicates whether to skip verification of the server's certificate chain and host name.
 	// If true, any certificate presented by the server and any host name in that certificate is accepted.
@@ -141,12 +110,7 @@ func loadPemOrFile(pemOrFile string) ([]byte, error) {
 // It returns a configured *tls.Config or an error if there are issues with the provided TLS settings.
 // If TLS is not enabled (t.Enable is false), it returns nil without an error.
 func (t *TLS) MakeConfig(serverName string) (*tls.Config, error) {
-	tlsConfig, err := (&TLSCommon{
-		Enable: t.Enable,
-		Cert:   t.Cert,
-		Key:    t.Key,
-		Ca:     t.Ca,
-	}).makeConfig()
+	tlsConfig, err := t.makeConfig()
 	if err != nil {
 		return nil, err
 	}
