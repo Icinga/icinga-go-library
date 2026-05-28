@@ -50,7 +50,7 @@ func TestNewClientFromConfig_GetAddr(t *testing.T) {
 			name: "redis-tls",
 			conf: &Config{
 				Host:       "example.com",
-				TlsOptions: config.TLS{Enable: true},
+				TlsOptions: config.TLS{TLSCommon: config.TLSCommon{Enable: true}},
 			},
 			addr: "redis+tls://example.com:6379",
 		},
@@ -62,7 +62,7 @@ func TestNewClientFromConfig_GetAddr(t *testing.T) {
 				Username:   "user",
 				Password:   "pass",
 				Database:   23,
-				TlsOptions: config.TLS{Enable: true},
+				TlsOptions: config.TLS{TLSCommon: config.TLSCommon{Enable: true}},
 			},
 			addr: "redis+tls://user@example.com:6380/23",
 		},
