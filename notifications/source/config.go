@@ -15,6 +15,9 @@ type Config struct {
 	// Password is the API user's password for the Icinga Notifications API.
 	Password     string `yaml:"password" env:"PASSWORD,unset"` // #nosec G117 -- exported password field
 	PasswordFile string `yaml:"password_file" env:"PASSWORD_FILE"`
+
+	// DefaultRelations to always resolve and include in the events submitted to Icinga Notifications.
+	DefaultRelations []string `yaml:"default_relations" env:"DEFAULT_RELATIONS"`
 }
 
 // Validate the configuration, implements config.Validator.

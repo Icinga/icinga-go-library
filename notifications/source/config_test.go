@@ -53,6 +53,30 @@ password_file: %s`, passwordFile),
 				PasswordFile: passwordFile,
 			},
 		},
+		{
+			Name: "Custom attribute negotiation",
+			Data: testutils.ConfigTestData{
+				Yaml: `
+url: http://localhost:5680
+username: icinga
+password: secret
+default_relations:
+  - 'host.vars'
+  - 'services[*].vars'`,
+				Env: map[string]string{
+					"URL":               "http://localhost:5680",
+					"USERNAME":          "icinga",
+					"PASSWORD":          "secret",
+					"DEFAULT_RELATIONS": "host.vars,services[*].vars",
+				},
+			},
+			Expected: Config{
+				Url:              "http://localhost:5680",
+				Username:         "icinga",
+				Password:         "secret",
+				DefaultRelations: []string{"host.vars", "services[*].vars"},
+			},
+		},
 	}
 
 	t.Run("FromEnv", func(t *testing.T) {
