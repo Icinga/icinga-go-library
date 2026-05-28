@@ -1,13 +1,16 @@
 package config
 
 import (
+	"bytes"
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/elliptic"
 	"crypto/rand"
+	"crypto/tls"
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
+	"github.com/icinga/icinga-go-library/testutils"
 	"github.com/pkg/errors"
 	"github.com/stretchr/testify/require"
 	"math/big"
@@ -79,7 +82,7 @@ func TestTLS_MakeConfig(t *testing.T) {
 	t.Run("Missing client certificate", func(t *testing.T) {
 		tlsConfig := &TLS{Enable: true, Key: "test.key"}
 		_, err := tlsConfig.MakeConfig("icinga.com")
-		require.ErrorContains(t, err, "client certificate missing")
+		require.ErrorContains(t, err, "certificate missing")
 	})
 
 	t.Run("Missing private key", func(t *testing.T) {
@@ -289,6 +292,123 @@ func TestTLS_MakeConfig(t *testing.T) {
 			_, err := tlsConfig.MakeConfig("icinga.com")
 			require.Error(t, err)
 		})
+	})
+}
+
+func TestServerTLS_MakeConfig(t *testing.T) {
+	t.Parallel()
+
+	t.Run("TLS disabled", func(t *testing.T) {
+		tlsConfig := &ServerTLS{TLSCommon: TLSCommon{Enable: false}}
+		config, err := tlsConfig.MakeConfig()
+		require.NoError(t, err)
+		require.Nil(t, config)
+	})
+
+	t.Run("X509", func(t *testing.T) {
+		ca, _, err := generateCert("ca", generateCertOptions{ca: true})
+		require.NoError(t, err)
+		var caBytes bytes.Buffer
+		err = pem.Encode(&caBytes, &pem.Block{Type: "CERTIFICATE", Bytes: ca.Raw})
+		require.NoError(t, err)
+
+		cert, key, err := generateCert("cert", generateCertOptions{})
+		require.NoError(t, err)
+		var certBytes bytes.Buffer
+		require.NoError(t, pem.Encode(&certBytes, &pem.Block{Type: "CERTIFICATE", Bytes: cert.Raw}))
+
+		_keyBytes, err := x509.MarshalPKCS8PrivateKey(key)
+		require.NoError(t, err)
+		var keyBytes bytes.Buffer
+		require.NoError(t, pem.Encode(&keyBytes, &pem.Block{Type: "PRIVATE KEY", Bytes: _keyBytes}))
+
+		t.Run("Valid CA and Server Cert", func(t *testing.T) {
+			tlsConfig := &ServerTLS{TLSCommon: TLSCommon{
+				Enable: true,
+				Cert:   certBytes.String(),
+				Key:    keyBytes.String(),
+				Ca:     caBytes.String(),
+			}}
+			config, err := tlsConfig.MakeConfig()
+			require.NoError(t, err)
+			require.NotNil(t, config)
+			require.NotNil(t, config.ClientCAs)
+			require.Len(t, config.Certificates, 1)
+		})
+
+		t.Run("Invalid CA", func(t *testing.T) {
+			tlsConfig := &ServerTLS{TLSCommon: TLSCommon{
+				Enable: true,
+				Cert:   certBytes.String(),
+				Key:    keyBytes.String(),
+				Ca:     "invalid-ca",
+			}}
+			_, err := tlsConfig.MakeConfig()
+			require.ErrorContains(t, err, "can't load X.509 CA certificate")
+		})
+
+		t.Run("Without Server Cert", func(t *testing.T) {
+			tlsConfig := &ServerTLS{TLSCommon: TLSCommon{Enable: true, Ca: caBytes.String()}}
+			_, err := tlsConfig.MakeConfig()
+			require.ErrorContains(t, err, "TLS is enabled but no certificate/key pair is configured")
+		})
+	})
+}
+
+func TestServerTLS_Validate(t *testing.T) {
+	t.Parallel()
+
+	st := &ServerTLS{
+		TLSCommon: TLSCommon{
+			Enable: true,
+		},
+		ClientAuth: TlsClientAuthType(tls.RequestClientCert),
+	}
+	require.NoError(t, st.Validate())
+
+	st.ClientAuth = TlsClientAuthType(tls.VerifyClientCertIfGiven)
+	require.Error(t, st.Validate())
+	st.ClientAuth = TlsClientAuthType(tls.RequireAndVerifyClientCert)
+	require.Error(t, st.Validate())
+
+	st.Ca = "/nonexistent.ca"
+	require.NoError(t, st.Validate())
+}
+
+func TestTlsClientAuthType(t *testing.T) {
+	t.Parallel()
+
+	t.Run("UnmarshalText", func(t *testing.T) {
+		t.Parallel()
+
+		var st ServerTLS
+		require.NoError(t, FromEnv(&st, EnvOptions{Environment: map[string]string{"CLIENT_AUTH": "NoClientCert"}}))
+		require.Equal(t, tls.NoClientCert, tls.ClientAuthType(st.ClientAuth))
+		require.NoError(t, FromEnv(&st, EnvOptions{Environment: map[string]string{"CLIENT_AUTH": "RequestClientCert"}}))
+		require.Equal(t, tls.RequestClientCert, tls.ClientAuthType(st.ClientAuth))
+
+		st = ServerTLS{}
+		require.Error(t, FromEnv(&st, EnvOptions{Environment: map[string]string{"CLIENT_AUTH": "InvalidValue"}}))
+		require.Equal(t, tls.NoClientCert, tls.ClientAuthType(st.ClientAuth))
+	})
+
+	t.Run("UnmarshalYAML", func(t *testing.T) {
+		t.Parallel()
+
+		var st ServerTLS
+		var err error
+		testutils.WithYAMLFile(t, `client_auth: NoClientCert`, func(file *os.File) { err = FromYAMLFile(file.Name(), &st) })
+		require.NoError(t, err)
+		require.Equal(t, tls.NoClientCert, tls.ClientAuthType(st.ClientAuth))
+
+		testutils.WithYAMLFile(t, `client_auth: RequestClientCert`, func(file *os.File) { err = FromYAMLFile(file.Name(), &st) })
+		require.NoError(t, err)
+		require.Equal(t, tls.RequestClientCert, tls.ClientAuthType(st.ClientAuth))
+
+		st = ServerTLS{}
+		testutils.WithYAMLFile(t, `client_auth: InvalidValue`, func(file *os.File) { err = FromYAMLFile(file.Name(), &st) })
+		require.Error(t, err)
+		require.Equal(t, tls.NoClientCert, tls.ClientAuthType(st.ClientAuth))
 	})
 }
 
