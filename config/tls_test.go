@@ -366,7 +366,11 @@ func TestServerTLS_Validate(t *testing.T) {
 	}
 	require.NoError(t, st.Validate())
 
+	st.Enable = false
 	st.ClientAuth = TlsClientAuthType(tls.VerifyClientCertIfGiven)
+	require.NoError(t, st.Validate())
+
+	st.Enable = true
 	require.Error(t, st.Validate())
 	st.ClientAuth = TlsClientAuthType(tls.RequireAndVerifyClientCert)
 	require.Error(t, st.Validate())
