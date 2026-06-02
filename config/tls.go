@@ -192,6 +192,10 @@ type ServerTLS struct {
 
 // Validate checks the [ServerTLS] configuration for consistency and returns an error if the configuration is invalid.
 func (st *ServerTLS) Validate() error {
+	if !st.Enable {
+		return nil
+	}
+
 	switch cat := tls.ClientAuthType(st.ClientAuth); cat {
 	case tls.NoClientCert, tls.RequestClientCert, tls.RequireAnyClientCert:
 		// These ClientAuth types do not require a CA certificate to be configured,
