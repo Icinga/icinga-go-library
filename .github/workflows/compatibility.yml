@@ -17,7 +17,8 @@ jobs:
         downstream:
           - { name: "Icinga DB",             repo: "Icinga/icingadb" }
           - { name: "Icinga Notifications",  repo: "Icinga/icinga-notifications" }
-          - { name: "Icinga for Kubernetes", repo: "Icinga/icinga-kubernetes" }
+          # Exclude until the latest Icinga Notifications changes are applied.
+          # - { name: "Icinga for Kubernetes", repo: "Icinga/icinga-kubernetes" }
 
     steps:
       - name: Setup Go
