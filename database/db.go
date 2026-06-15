@@ -428,6 +428,24 @@ func OnSuccessSendTo[T any](ch chan<- T) OnSuccess[T] {
 	}
 }
 
+// OnSuccessApplyAndSendTo returns a callback that streams received rows of type T into the given
+// channel of type U after applying the provided function on them.
+func OnSuccessApplyAndSendTo[T, U any](out chan<- U, fn func(T) U) OnSuccess[T] {
+	return func(ctx context.Context, affectedRows []T) error {
+		for _, affectedRow := range affectedRows {
+			if err := ctx.Err(); err != nil {
+				return err
+			}
+			select {
+			case out <- fn(affectedRow):
+			case <-ctx.Done():
+				return ctx.Err()
+			}
+		}
+		return nil
+	}
+}
+
 // BulkExec bulk executes queries with a single slice placeholder in the form of `IN (?)`.
 // Takes in up to the number of arguments specified in count from the arg stream,
 // derives and expands a query and executes it with this set of arguments until the arg stream has been processed.
