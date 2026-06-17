@@ -160,12 +160,6 @@ type Event struct {
 	// Time when this event occurred, being encoded according to RFC 3339 when passed as JSON.
 	Time time.Time `json:"time"`
 
-	// Type of this event, e.g., a "state" change, "mute" or "unmute". See further ./internal/event/event.go
-	Type event.Type `json:"type"`
-
-	// Username may contain a user triggering this event, depending on the event's source.
-	Username string `json:"username"`
-
 	// Message of this event, might be a check output when the related Object is an Icinga 2 object.
 	Message string `json:"message"`
 }
@@ -291,19 +285,10 @@ func RunPlugin(plugin Plugin) {
 // The created message is a multi-line message as one might expect it in an email.
 func FormatMessage(writer io.Writer, req *NotificationRequest) {
 	if req.Event.Message != "" {
-		msgTitle := "Comment"
-		if req.Event.Type == event.TypeState {
-			msgTitle = "Output"
-		}
-
-		_, _ = fmt.Fprintf(writer, "%s: %s\n\n", msgTitle, req.Event.Message)
+		_, _ = fmt.Fprintf(writer, "Message: %s\n\n", req.Event.Message)
 	}
 
 	_, _ = fmt.Fprintf(writer, "When: %s\n\n", req.Event.Time.Format("2006-01-02 15:04:05 MST"))
-
-	if req.Event.Username != "" {
-		_, _ = fmt.Fprintf(writer, "Author: %s\n\n", req.Event.Username)
-	}
 	_, _ = fmt.Fprintf(writer, "Object: %s\n\n", req.Object.Url)
 	_, _ = writer.Write([]byte("Tags:\n"))
 	for k, v := range utils.IterateOrderedMap(req.Object.Tags) {
@@ -317,20 +302,10 @@ func FormatMessage(writer io.Writer, req *NotificationRequest) {
 	}
 }
 
-// FormatSubject returns the formatted subject string based on the event type.
+// FormatSubject returns the formatted subject string.
 func FormatSubject(req *NotificationRequest) string {
-	switch req.Event.Type {
-	case event.TypeState:
-		return fmt.Sprintf("[#%d] %s %s is %s", req.Incident.Id, req.Event.Type, req.Object.Name, req.Incident.Severity)
-	case event.TypeAcknowledgementCleared, event.TypeDowntimeRemoved:
-		if req.Incident != nil {
-			return fmt.Sprintf("[#%d] %s from %s", req.Incident.Id, req.Event.Type, req.Object.Name)
-		}
-		return fmt.Sprintf("%s from %s", req.Event.Type, req.Object.Name)
-	default:
-		if req.Incident != nil {
-			return fmt.Sprintf("[#%d] %s on %s", req.Incident.Id, req.Event.Type, req.Object.Name)
-		}
-		return fmt.Sprintf("%s on %s", req.Event.Type, req.Object.Name)
+	if req.Incident != nil {
+		return fmt.Sprintf("[#%d] %s is %s", req.Incident.Id, req.Object.Name, req.Incident.Severity)
 	}
+	return req.Object.Name
 }
