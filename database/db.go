@@ -820,13 +820,15 @@ func (db *DB) Delete(
 // Starts a new transaction, executes the provided function, and commits the transaction
 // if the function succeeds. If the function returns an error, the transaction is rolled back.
 //
+// Transaction options can be specified, for example, to specify an isolation level. Otherwise, it can be left as nil.
+//
 // Returns an error if starting the transaction, executing the function, or committing the transaction fails.
 //
 // Note that committing the transaction may not honor the context provided. For some database drivers, once a COMMIT
 // query is started, it will block until the database responds. Therefore, for time-critical scenarios, it is
 // recommended to add a select wrapper against the context.
-func (db *DB) ExecTx(ctx context.Context, fn func(context.Context, *sqlx.Tx) error) error {
-	tx, err := db.BeginTxx(ctx, nil)
+func (db *DB) ExecTx(ctx context.Context, opts *sql.TxOptions, fn func(context.Context, *sqlx.Tx) error) error {
+	tx, err := db.BeginTxx(ctx, opts)
 	if err != nil {
 		return errors.Wrap(err, "can't start transaction")
 	}
