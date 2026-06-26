@@ -10,6 +10,19 @@ import (
 // It contains all the necessary fields to fully describe an Icinga Notifications event and can be used to
 // serialize the event to JSON for transmission over HTTP as well as to deserialize it from JSON requests.
 type Event struct {
+	// ID is a unique identifier for this specific event.
+	//
+	// The Name field describes the event, while the ID distinguishes two events that look identical. This is
+	// necessary for otherwise identical-looking events. Consider a "door open" event without any additional
+	// information. When the source sets the ID to the timestamp when the door was opened, it is possible to
+	// distinguish between two consecutive opened doors and the same "door open" event that was submitted twice
+	// due to an error.
+	//
+	// So, when implementing a source, ensure that each event gets its own unique ID. When resubmitting the same
+	// event, keep the ID. When submitting a new event - even if the fields are identical - choose a new ID. For
+	// the "door open" example, the ID could be "door-open-$TIMESTAMP" or "door-open-$COUNTER".
+	ID string `json:"id,omitempty"`
+
 	Name string `json:"name"` // Name is the name of the object this event is all about.
 
 	// URL represents a URL or a relative reference to the object in Icinga Web 2.
