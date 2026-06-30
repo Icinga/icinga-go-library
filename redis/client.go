@@ -18,6 +18,7 @@ import (
 	"golang.org/x/sync/errgroup"
 	"golang.org/x/sync/semaphore"
 	"net"
+	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -287,6 +288,85 @@ func (c *Client) XReadUntilResult(ctx context.Context, a *redis.XReadArgs) ([]re
 
 		return streams, nil
 	}
+}
+
+// XDelOnAllConsumersAck deletes entries from the specified stream once all consumers have acknowledged them.
+//
+// This is only useful if the consumers are supposed to process the same entries independently, but you want
+// to delete the message once all of them have processed it. The number of consumers is determined by the number
+// of input channels, and once that many acknowledgments for a message ID have been received, the message is
+// ultimately deleted from the Redis stream.
+func (c *Client) XDelOnAllConsumersAck(ctx context.Context, stream string, messageIDsIn ...<-chan string) error {
+	ackCount := len(messageIDsIn)
+	if ackCount == 0 {
+		return errors.New("at least one input channel is required")
+	}
+
+	deletes := make(chan string)
+	acks := make(map[string]int)
+	runningConsumers := ackCount
+	var mux sync.Mutex // Protects access to acks and runningConsumers
+
+	g, ctx := errgroup.WithContext(ctx)
+	for _, messageIDIn := range messageIDsIn {
+		g.Go(func() error {
+			defer func() {
+				mux.Lock()
+				defer mux.Unlock()
+				if runningConsumers--; runningConsumers == 0 {
+					close(deletes)
+				}
+			}()
+
+			for {
+				select {
+				case <-ctx.Done():
+					return ctx.Err()
+				case msgID, ok := <-messageIDIn:
+					if !ok {
+						return nil
+					}
+					var ackDone bool
+					mux.Lock()
+					if acks[msgID]++; acks[msgID] == ackCount {
+						ackDone = true
+						delete(acks, msgID)
+					}
+					mux.Unlock()
+
+					if ackDone {
+						select {
+						case deletes <- msgID:
+						case <-ctx.Done():
+							return ctx.Err()
+						}
+					}
+				}
+			}
+		})
+	}
+
+	g.Go(func() error {
+		bulks := com.Bulk(ctx, deletes, c.Options.XReadCount, com.NeverSplit)
+
+		for {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case bulk, ok := <-bulks:
+				if !ok {
+					return nil
+				}
+
+				cmd := c.XDel(ctx, stream, bulk...)
+				if _, err := cmd.Result(); err != nil {
+					return WrapCmdErr(cmd)
+				}
+			}
+		}
+	})
+
+	return g.Wait()
 }
 
 func (c *Client) log(ctx context.Context, key string, counter *com.Counter) periodic.Stopper {
