@@ -37,6 +37,11 @@ func MakeString(in string, transformers ...func(*String)) String {
 	return s
 }
 
+// IsZero implements the json.isZeroer interface.
+//
+// A String is considered zero if it is not valid regardless of the actual string value.
+func (s String) IsZero() bool { return !s.Valid }
+
 // MarshalJSON implements the json.Marshaler interface.
 // Supports JSON null.
 func (s String) MarshalJSON() ([]byte, error) {
