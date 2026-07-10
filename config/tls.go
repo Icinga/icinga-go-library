@@ -4,8 +4,11 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
-	"github.com/pkg/errors"
+	"fmt"
 	"os"
+
+	"github.com/icinga/icinga-go-library/utils"
+	"github.com/pkg/errors"
 )
 
 // TLSCommon represents common TLS config options that are shared between TLS client and server settings.
@@ -35,6 +38,14 @@ type TLSCommon struct {
 	// or to verify client certificates in TLS server mode. Otherwise, the system's root CA pool is used.
 	// This option is ignored if Insecure is true in TLS client mode.
 	Ca string `yaml:"ca" env:"CA"`
+
+	// CrlFile is the path to the Certificate Revocation List (CRL) file.
+	//
+	// If specified, the CRL is used to check for revoked certificates in TLS.
+	// The CRL must be signed by the CA specified in the Ca option. If the CRL file is not found or cannot be loaded,
+	// an error is returned during TLS configuration.
+	// This option is ignored if TLS is not enabled or if the Ca option is not set.
+	CrlFile string `yaml:"crl_file" env:"CRL_FILE"`
 }
 
 // makeConfig assembles a *[tls.Config] from the [TLSCommon] struct.
@@ -77,6 +88,67 @@ func (tc *TLSCommon) makeConfig() (*tls.Config, error) {
 	}
 
 	return tlsConfig, nil
+}
+
+// InitRevocationChecking wires CRL-based client certificate revocation checking into tlsConfig.
+//
+// It loads the CA certificate from [TLSCommon.Ca] and the CRL from [TLSCommon.CrlFile], verifies
+// the CRL's signature against the CA, and installs a [tls.Config.VerifyConnection] hook that
+// rejects any client certificate whose serial number appears in the CRL. If a VerifyConnection
+// hook is already set on tlsConfig, the existing hook is called first and its error, if any,
+// takes precedence.
+//
+// The returned [utils.CrlChecker] owns the loaded CRL and must be kept alive for the duration
+// of the server's lifetime. Callers are responsible for calling [utils.CrlChecker.WatchAndReload]
+// to pick up CRL rotations at runtime.
+//
+// InitRevocationChecking is a no-op and returns (nil, nil) when tlsConfig is nil or when
+// either [TLSCommon.CrlFile] or [TLSCommon.Ca] is not configured.
+func (tc *TLSCommon) InitRevocationChecking(tlsConfig *tls.Config) (*utils.CrlChecker, error) {
+	if tlsConfig == nil || tc.CrlFile == "" || tc.Ca == "" {
+		return nil, nil
+	}
+
+	caPem, err := loadPemOrFile(tc.Ca)
+	if err != nil {
+		return nil, err
+	}
+
+	block, _ := pem.Decode(caPem)
+	caCert, err := x509.ParseCertificate(block.Bytes)
+	if err != nil {
+		return nil, err
+	}
+
+	crlChecker, err := utils.NewCRLChecker(tc.CrlFile, caCert)
+	if err != nil {
+		return nil, fmt.Errorf("cannot load CRL: %w", err)
+	}
+
+	existing := tlsConfig.VerifyConnection
+	tlsConfig.VerifyConnection = func(cs tls.ConnectionState) error {
+		if existing != nil {
+			if err := existing(cs); err != nil {
+				return err
+			}
+		}
+
+		if len(cs.VerifiedChains) == 0 {
+			return nil // no client cert presented — skip
+		}
+
+		leaf := cs.VerifiedChains[0][0]
+		revoked, err := crlChecker.IsRevoked(leaf.SerialNumber)
+		if err != nil {
+			return fmt.Errorf("CRL check failed: %w", err)
+		} else if revoked {
+			return fmt.Errorf("client certificate revoked (serial %s)", leaf.SerialNumber)
+		}
+
+		return nil
+	}
+
+	return crlChecker, nil
 }
 
 // TLS represents configuration for a TLS client.
