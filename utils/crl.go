@@ -91,15 +91,18 @@ func (c *CrlChecker) WatchAndReload(ctx context.Context, logger *zap.SugaredLogg
 			if !ok {
 				return fmt.Errorf("CRL watcher channel closed unexpectedly")
 			}
-			if event.Has(fsnotify.Write) || event.Has(fsnotify.Create) || event.Has(fsnotify.Rename) || event.Has(fsnotify.Remove) {
-				// Re-add path on every event: on Linux (inotify), atomic file
-				// replacement (mv tmp.crl ca.crl) fires IN_DELETE_SELF (Remove) on
-				// the old inode, not Rename — the watcher must re-add the path to
-				// pick up the new inode. On macOS (kqueue) the same operation fires
-				// Rename instead. Handling all four events keeps both platforms working.
-				_ = watcher.Add(c.path)
+			if event.Has(fsnotify.Write | fsnotify.Rename | fsnotify.Remove) {
 				if err := c.reload(); err != nil {
 					logger.Warnw("CRL reload failed", zap.Error(err))
+				}
+				if event.Has(fsnotify.Remove | fsnotify.Rename) {
+					// On Linux (inotify) seems to not follow the new inode after a file replacement, but it just
+					// triggers a Remove event on the old inode, which causes fsnotify to stop watching the file
+					// as states in the [fsnotify.Watcher.Add] doc block. So, readding it must not fail unless the
+					// file is really deleted and not replaced.
+					if err := watcher.Add(event.Name); err != nil {
+						logger.Errorw("CRL watcher failed to re-add removed file", zap.Error(err))
+					}
 				}
 			}
 		case err, ok := <-watcher.Errors:

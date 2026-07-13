@@ -211,8 +211,17 @@ func TestCRLChecker_WatchAndReload(t *testing.T) {
 
 		require.Eventually(t, func() bool {
 			revoked, err := checker.IsRevoked(revokedSerial)
-			logger.Debug("Checking if revoked serial ", revoked)
+			logger.Debug("Checking for revoked serial after CRL reload ", revoked)
 			return err == nil && !revoked
+		}, 20*time.Second, 100*time.Millisecond)
+
+		// Re-add the revoked serial to the CRL and replace it again and verify the checker picks it up.
+		atomicReplaceCRL(t, path, ca, caKey, future, revokedSerial)
+
+		require.Eventually(t, func() bool {
+			revoked, err := checker.IsRevoked(revokedSerial)
+			logger.Debug("Checking for revoked serial after CRL reload ", revoked)
+			return err == nil && revoked
 		}, 20*time.Second, 100*time.Millisecond)
 	})
 }
