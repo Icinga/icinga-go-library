@@ -348,10 +348,20 @@ func (db *DB) BuildUpdateStmt(update any) (string, int) {
 }
 
 // BuildUpsertStmt returns an upsert statement for the given struct.
-func (db *DB) BuildUpsertStmt(subject any) (stmt string, placeholders int) {
-	insertColumns := db.columnMap.Columns(subject)
+//
+// If the withoutColumns parameter is provided, the specified columns will be excluded from the insert and update
+// clauses. Note that if subject implements [Upserter], the update clause will be built from the columns of the
+// struct returned by [Upsert]() instead and the withoutColumns param won't have any effect on the update clause.
+func (db *DB) BuildUpsertStmt(subject any, withoutColumns ...string) (stmt string, placeholders int) {
 	table := TableName(subject)
-	var updateColumns []string
+	var insertColumns, updateColumns []string
+	if len(withoutColumns) > 0 {
+		insertColumns = slices.DeleteFunc(db.BuildColumns(subject), func(column string) bool {
+			return slices.Contains(withoutColumns, column)
+		})
+	} else {
+		insertColumns = db.columnMap.Columns(subject)
+	}
 
 	if upserter, ok := subject.(Upserter); ok {
 		updateColumns = db.columnMap.Columns(upserter.Upsert())
