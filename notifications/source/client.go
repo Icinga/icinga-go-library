@@ -18,6 +18,17 @@ import (
 	"github.com/pkg/errors"
 )
 
+var (
+	// ErrAttrsNegotiation implies missing attributes.
+	ErrAttrsNegotiation = stderrors.New("attribute negotiation required")
+
+	// ErrUnauthorizedRequest indicates that the request was unauthorized, typically due to invalid credentials.
+	ErrUnauthorizedRequest = stderrors.New("unauthorized request")
+
+	// ErrReadPartialResp indicates that a partial response was received from the API, which may require special handling.
+	ErrReadPartialResp = stderrors.New("read partial response")
+)
+
 // clientTransport is a http.RoundTripper to be used in NewClient.
 type clientTransport struct {
 	http.RoundTripper
@@ -111,9 +122,6 @@ func NewClient(cfg Config, clientName string) (*Client, error) {
 	}, nil
 }
 
-// ErrAttrsNegotiation implies missing attributes.
-var ErrAttrsNegotiation = stderrors.New("attribute negotiation required")
-
 // ProcessEvent submits an event.Event to the Icinga Notifications /process-event API endpoint.
 //
 // When rejectIncomplete is set and the returned error is ErrAttrsNegotiation,
@@ -170,27 +178,82 @@ func (client *Client) ProcessEvent(ctx context.Context, ev *event.Event, rejectI
 // be marshaled to JSON. If filter is nil, an error is returned. Please refer to the Icinga Notifications API doc
 // for details on the filter syntax and supported fields.
 func (client *Client) GetIncidents(ctx context.Context, filter any) ([]Incident, error) {
-	if filter == nil {
-		return nil, errors.New("filter parameter must be non-nil")
-	}
-
-	//nolint:bodyclose // False positive, drainBody is called in the defer statement below.
-	resp, err := client.doRequest(ctx, http.MethodGet, client.endpoints.Incidents, filter, nil, nil)
-	if err != nil {
-		return nil, errors.Wrap(err, "cannot GET incidents from API")
-	}
-	defer drainBody(resp.Body)
-
-	if resp.StatusCode != http.StatusOK {
-		return nil, errors.Errorf("unexpected response from incidents API, status %q (%d): %q",
-			resp.Status, resp.StatusCode, readLimitedBody(resp.Body))
-	}
-
+	incidentsCh, errCh := client.YieldIncidents(ctx, filter)
 	var incidents []Incident
-	if err := json.NewDecoder(resp.Body).Decode(&incidents); err != nil {
-		return nil, errors.Wrap(err, "cannot decode incidents response")
+
+	for incident := range incidentsCh {
+		incidents = append(incidents, incident)
+	}
+	if err := <-errCh; err != nil {
+		return nil, err
 	}
 	return incidents, nil
+}
+
+// YieldIncidents retrieves the current incidents of this source from the Icinga Notifications /incidents endpoint
+// and yields them as a stream of [Incident] objects.
+//
+// The filter parameter is used to filter the incidents returned by the API. It must be a non-nil value that can
+// be marshaled to JSON. If filter is nil, an error is returned. Please refer to the Icinga Notifications API doc
+// for details on the filter syntax and supported fields.
+//
+// The function returns a channel of [Incident] objects and a channel of errors. The caller should read from both
+// channels until they are closed. If an error occurs during the request or while decoding the response, it will
+// be sent to the error channel. Also, this might send [ErrReadPartialResp] to the error channel when it receives
+// an incident with a non-zero [ErrorState] from the API, which indicates that something went wrong after streaming
+// the first chunk of the response body.
+//
+// If you want to collect all incidents into a slice, consider using [Client.GetIncidents] instead, which internally
+// uses this function and collects the incidents for you.
+func (client *Client) YieldIncidents(ctx context.Context, filter any) (<-chan Incident, <-chan error) {
+	incidentsCh := make(chan Incident)
+	errCh := make(chan error, 1)
+
+	go func() {
+		defer close(incidentsCh)
+		defer close(errCh)
+
+		if filter == nil {
+			errCh <- errors.New("filter parameter must be non-nil")
+			return
+		}
+
+		//nolint:bodyclose // False positive, drainBody is called in the defer statement below.
+		resp, err := client.doRequest(ctx, http.MethodGet, client.endpoints.Incidents, filter, nil, nil)
+		if err != nil {
+			errCh <- errors.Wrap(err, "cannot GET incidents from API")
+			return
+		}
+		defer drainBody(resp.Body)
+
+		if resp.StatusCode != http.StatusAccepted {
+			errCh <- errors.Errorf("unexpected response from incidents API, status %q (%d): %q",
+				resp.Status, resp.StatusCode, readLimitedBody(resp.Body))
+			return
+		}
+
+		for dec := json.NewDecoder(resp.Body); dec.More(); {
+			var incident Incident
+			if err := dec.Decode(&incident); err != nil {
+				errCh <- errors.Wrap(err, "cannot decode incident from response")
+				return
+			}
+
+			if incident.Error != "" {
+				errCh <- errors.Wrap(ErrReadPartialResp, incident.Error)
+				return
+			}
+
+			select {
+			case incidentsCh <- incident:
+			case <-ctx.Done():
+				errCh <- ctx.Err()
+				return
+			}
+		}
+	}()
+
+	return incidentsCh, errCh
 }
 
 // ModifyIncidents modifies the incidents that match the provided filter with the given attributes.
@@ -198,6 +261,10 @@ func (client *Client) GetIncidents(ctx context.Context, filter any) ([]Incident,
 // The filter parameter is used to select which incidents to modify. It must be a non-nil value that can be
 // marshaled to JSON. If filter is nil, an error is returned. Please refer to the Icinga Notifications API
 // doc for details on the filter syntax and supported fields.
+//
+// If some matching incidents couldn't be modified, the function returns a [ModifyError] containing the details
+// of the incidents that failed to be modified. The caller can inspect that error to determine and act up the
+// erroneous incidents if needed.
 func (client *Client) ModifyIncidents(ctx context.Context, attrs ModifiableIncidentAttrs, filter any) error {
 	if filter == nil {
 		return errors.New("filter parameter must be non-nil")
@@ -228,15 +295,26 @@ func (client *Client) ModifyIncidents(ctx context.Context, attrs ModifiableIncid
 	}
 	defer drainBody(resp.Body)
 
-	if resp.StatusCode != http.StatusOK {
+	if resp.StatusCode != http.StatusAccepted {
 		return errors.Errorf("unexpected response from modify incidents API, status %q (%d): %q",
 			resp.Status, resp.StatusCode, readLimitedBody(resp.Body))
 	}
+
+	var results []ModifiedIncidentResp
+	for dec := json.NewDecoder(resp.Body); dec.More(); {
+		var modifiedResp ModifiedIncidentResp
+		if err := dec.Decode(&modifiedResp); err != nil {
+			return errors.Wrap(err, "cannot decode modified incident response from API")
+		}
+		if modifiedResp.Error != "" {
+			results = append(results, modifiedResp)
+		}
+	}
+	if len(results) > 0 {
+		return errors.WithStack(&ModifyError{results: results})
+	}
 	return nil
 }
-
-// ErrUnauthorizedRequest indicates that the request was unauthorized, typically due to invalid credentials.
-var ErrUnauthorizedRequest = stderrors.New("unauthorized request")
 
 // doRequest is a helper function that performs an HTTP request to the specified endpoint with the given method, filter,
 // body, and headers.
@@ -286,11 +364,25 @@ func (client *Client) doRequest(
 	return resp, nil
 }
 
+// ErrorState represents the error state of an incident as returned by the Icinga Notifications /incidents API endpoint.
+type ErrorState struct {
+	Error string `json:"error,omitempty"`
+}
+
 // Incident represents a single incident object as returned by the Icinga Notifications /incidents API endpoint.
+//
+// Since Icinga Notifications streams the response in a NDJSON format, the Error field will be set to a non-zero
+// value when something goes wrong after sending the HTTP response headers and the first chunk of the response body.
+// In that case, such an object will be the last object in the response stream and the client should handle it
+// accordingly. In all other cases, the [ErrState.Error] field will be zero and can be ignored.
+//
+// All other fields are set according to the incident's current state at the time of the request.
 type Incident struct {
 	IsMuted    bool              `json:"is_muted"`
-	ObjectTags map[string]string `json:"object_tags"`
-	Severity   event.Severity    `json:"severity"`
+	ObjectTags map[string]string `json:"object_tags,omitempty"`
+	Severity   event.Severity    `json:"severity,omitempty"`
+
+	ErrorState
 }
 
 // ModifiableIncidentAttrs represents the attributes of an incident that can be modified via the /incident endpoint.
@@ -314,6 +406,17 @@ func (attrs *ModifiableIncidentAttrs) Validate() error {
 	return nil
 }
 
+// ModifiedIncidentResp represents the response for a single incident from the POST /incident endpoint.
+//
+// The ObjectTags field contains the tags of the incident object, but it might not always be populated.
+// In such cases, Icinga Notifications will just populate the [ErrorState] field with the appropriate
+// error message. The caller should check the Error field to determine if the modification was successful
+// or not.
+type ModifiedIncidentResp struct {
+	ObjectTags map[string]string `json:"object_tags,omitempty"`
+	ErrorState
+}
+
 // readLimitedBody reads from the provided [io.ReadCloser] up to 1<<16 bytes and returns it as a string.
 //
 // If an error occurs during reading, the error message is appended to the returned string.
@@ -334,3 +437,16 @@ func drainBody(body io.ReadCloser) {
 	_, _ = io.Copy(io.Discard, body)
 	_ = body.Close()
 }
+
+// ModifyError represents an error that occurred while modifying incidents via the /incident endpoint.
+type ModifyError struct {
+	results []ModifiedIncidentResp
+}
+
+// Error implements the error interface for ModifyError.
+func (e *ModifyError) Error() string {
+	return fmt.Sprintf("failed to modify %d incidents", len(e.results))
+}
+
+// Results returns the slice of [ModifiedIncidentResp] that contains the details of the incidents that failed to be modified.
+func (e *ModifyError) Results() []ModifiedIncidentResp { return e.results }
