@@ -48,6 +48,7 @@ type Client struct {
 	endpoints struct {
 		ProcessEvent string
 		Incidents    string
+		Health       string
 	}
 }
 
@@ -77,15 +78,37 @@ func NewClient(cfg Config, clientName string) (*Client, error) {
 		endpoints: struct {
 			ProcessEvent string
 			Incidents    string
+			Health       string
 		}{
 			ProcessEvent: baseUrl.JoinPath("/process-event").String(),
 			Incidents:    baseUrl.JoinPath("/incidents").String(),
+			Health:       baseUrl.JoinPath("/health").String(),
 		},
 	}, nil
 }
 
 // ErrAttrsNegotiation implies missing attributes.
 var ErrAttrsNegotiation = stderrors.New("attribute negotiation required")
+
+// CheckHealth performs a health check against the Icinga Notifications /health API endpoint.
+//
+// It returns nil if the health check is successful (HTTP 200 OK), or an error if the health check
+// fails or the response status code is not 200. This also includes invalid credentials, which will
+// return an ErrUnauthorizedRequest error.
+func (client *Client) CheckHealth(ctx context.Context) error {
+	//nolint:bodyclose // False positive, drainBody is called in the defer statement below.
+	resp, err := client.doRequest(ctx, http.MethodGet, client.endpoints.Health, nil, nil, nil)
+	if err != nil {
+		return errors.Wrap(err, "cannot GET health from API")
+	}
+	defer drainBody(resp.Body)
+
+	if resp.StatusCode != http.StatusOK {
+		return errors.Errorf("unexpected response from health API, status %q (%d): %q",
+			resp.Status, resp.StatusCode, readLimitedBody(resp.Body))
+	}
+	return nil
+}
 
 // ProcessEvent submits an event.Event to the Icinga Notifications /process-event API endpoint.
 //
