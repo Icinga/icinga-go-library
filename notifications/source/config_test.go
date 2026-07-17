@@ -7,6 +7,7 @@ import (
 
 	"github.com/icinga/icinga-go-library/config"
 	"github.com/icinga/icinga-go-library/testutils"
+	"github.com/stretchr/testify/assert"
 )
 
 func TestConfig(t *testing.T) {
@@ -15,7 +16,7 @@ func TestConfig(t *testing.T) {
 
 	configTests := []testutils.TestCase[Config, testutils.ConfigTestData]{
 		{
-			Name: "Minimal config",
+			Name: "HTTP config",
 			Data: testutils.ConfigTestData{
 				Yaml: `
 url: http://localhost:5680
@@ -34,7 +35,7 @@ password: secret`,
 			},
 		},
 		{
-			Name: "Minimal config with password file",
+			Name: "HTTP config with password file",
 			Data: testutils.ConfigTestData{
 				Yaml: fmt.Sprintf(`
 url: http://localhost:5680
@@ -51,6 +52,122 @@ password_file: %s`, passwordFile),
 				Username:     "icinga",
 				Password:     "secret",
 				PasswordFile: passwordFile,
+			},
+		},
+		{
+			Name: "HTTP config missing credentials",
+			Data: testutils.ConfigTestData{
+				Yaml: `url: http://localhost:5680`,
+				Env: map[string]string{
+					"URL": "http://localhost:5680",
+				},
+			},
+			Error: func(t *testing.T, err error) {
+				assert.ErrorContains(t, err, "requires a username and password")
+			},
+		},
+		{
+			Name: "HTTPS config",
+			Data: testutils.ConfigTestData{
+				Yaml: `
+url: https://localhost:5680
+username: icinga
+password: secret`,
+				Env: map[string]string{
+					"URL":      "https://localhost:5680",
+					"USERNAME": "icinga",
+					"PASSWORD": "secret",
+				},
+			},
+			Expected: Config{
+				Url:        "https://localhost:5680",
+				Username:   "icinga",
+				Password:   "secret",
+				TlsOptions: config.TLS{TLSCommon: config.TLSCommon{Enable: true}},
+			},
+		},
+		{
+			Name: "HTTPS config with password file",
+			Data: testutils.ConfigTestData{
+				Yaml: fmt.Sprintf(`
+url: https://localhost:5680
+username: icinga
+password_file: %s`, passwordFile),
+				Env: map[string]string{
+					"URL":           "https://localhost:5680",
+					"USERNAME":      "icinga",
+					"PASSWORD_FILE": passwordFile,
+				},
+			},
+			Expected: Config{
+				Url:          "https://localhost:5680",
+				Username:     "icinga",
+				Password:     "secret",
+				PasswordFile: passwordFile,
+				TlsOptions:   config.TLS{TLSCommon: config.TLSCommon{Enable: true}},
+			},
+		},
+		{
+			Name: "HTTPS config with client cert",
+			Data: testutils.ConfigTestData{
+				Yaml: `
+url: https://localhost:5680
+cert: /client.crt
+key: /client.key`,
+				Env: map[string]string{
+					"URL":  "https://localhost:5680",
+					"CERT": "/client.crt",
+					"KEY":  "/client.key",
+				},
+			},
+			Expected: Config{
+				Url: "https://localhost:5680",
+				TlsOptions: config.TLS{TLSCommon: config.TLSCommon{
+					Enable: true,
+					Cert:   "/client.crt",
+					Key:    "/client.key",
+				}},
+			},
+		},
+		{
+			Name: "HTTPS config missing credentials",
+			Data: testutils.ConfigTestData{
+				Yaml: `url: https://localhost:5680`,
+				Env: map[string]string{
+					"URL": "https://localhost:5680",
+				},
+			},
+			Error: func(t *testing.T, err error) {
+				assert.ErrorContains(t, err, "requires either certificates or username and password")
+			},
+		},
+		{
+			Name: "Unix domain socket config",
+			Data: testutils.ConfigTestData{
+				Yaml: `url: unix:///path/to/socket`,
+				Env: map[string]string{
+					"URL": "unix:///path/to/socket",
+				},
+			},
+			Expected: Config{
+				Url: "unix:///path/to/socket",
+			},
+		},
+		{
+			Name: "Unix domain socket config with credentials",
+			Data: testutils.ConfigTestData{
+				Yaml: `
+url: unix:///path/to/socket
+username: icinga
+password: secret`,
+				Env: map[string]string{
+					"URL":      "unix:///path/to/socket",
+					"USERNAME": "icinga",
+					"PASSWORD": "secret",
+				},
+			},
+			Error: func(t *testing.T, err error) {
+				assert.ErrorContains(t, err, "uses no username/password authentication")
 			},
 		},
 		{
@@ -75,6 +192,18 @@ default_relations:
 				Username:         "icinga",
 				Password:         "secret",
 				DefaultRelations: []string{"host.vars", "services[*].vars"},
+			},
+		},
+		{
+			Name: "Invalid URL scheme",
+			Data: testutils.ConfigTestData{
+				Yaml: `url: invalid:nope`,
+				Env: map[string]string{
+					"URL": "invalid:nope",
+				},
+			},
+			Error: func(t *testing.T, err error) {
+				assert.ErrorContains(t, err, "unsupported notifications scheme")
 			},
 		},
 	}

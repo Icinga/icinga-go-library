@@ -7,6 +7,7 @@ import (
 	stderrors "errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"strings"
@@ -17,25 +18,25 @@ import (
 	"github.com/pkg/errors"
 )
 
-// basicAuthTransport is an http.RoundTripper that adds basic authentication and a User-Agent header to HTTP requests.
-type basicAuthTransport struct {
-	http.RoundTripper // RoundTripper is the underlying HTTP transport to use for making requests.
+// clientTransport is a http.RoundTripper to be used in NewClient.
+type clientTransport struct {
+	http.RoundTripper
 
-	// username and password are set as HTTP basic authentication.
+	// userAgent for the User-Agent request header.
+	userAgent string
+
+	// username and password are sent as HTTP basic authentication if the username is not empty.
 	username string
 	password string
-	// userAgent is used to set the User-Agent header.
-	userAgent string
 }
 
-// RoundTrip adds basic authentication headers to the request and executes the HTTP request.
-func (b *basicAuthTransport) RoundTrip(req *http.Request) (*http.Response, error) {
-	req.SetBasicAuth(b.username, b.password)
-	// As long as our round tripper is used for the client, the User-Agent header below
-	// overrides any other value set by the user.
-	req.Header.Set("User-Agent", b.userAgent)
-
-	return b.RoundTripper.RoundTrip(req)
+// RoundTrip implements http.RoundTripper.
+func (ct *clientTransport) RoundTrip(req *http.Request) (*http.Response, error) {
+	req.Header.Set("User-Agent", ct.userAgent)
+	if ct.username != "" {
+		req.SetBasicAuth(ct.username, ct.password)
+	}
+	return ct.RoundTripper.RoundTrip(req)
 }
 
 // Client provides a common interface to interact with the Icinga Notifications API.
@@ -65,13 +66,39 @@ func NewClient(cfg Config, clientName string) (*Client, error) {
 	// Clear any query parameters from the base URL not to interfere with the filter query parameter used in requests.
 	baseUrl.RawQuery = ""
 
+	transport := http.DefaultTransport.(*http.Transport).Clone() //nolint:forcetypeassert
+	switch baseUrl.Scheme {
+	case schemeHttp:
+		// Nothing to do here.
+
+	case schemeHttps:
+		cfg.TlsOptions.Enable = true
+		tlsConfig, err := cfg.TlsOptions.MakeConfig(baseUrl.Hostname())
+		if err != nil {
+			return nil, errors.Wrap(err, "unable to create TLS config")
+		}
+		transport.TLSClientConfig = tlsConfig
+
+	case schemeUnix:
+		// Extract the socket path used for lower level connection and use a dummy HTTP URL instead.
+		socketPath := baseUrl.Path
+		baseUrl = &url.URL{Scheme: "http", Host: "localhost:5680"}
+		transport.DialContext = func(ctx context.Context, _, _ string) (net.Conn, error) {
+			dialer := &net.Dialer{}
+			return dialer.DialContext(ctx, "unix", socketPath)
+		}
+
+	default:
+		return nil, errors.Errorf("unsupported notifications scheme %q", baseUrl.Scheme)
+	}
+
 	return &Client{
 		httpClient: http.Client{
-			Transport: &basicAuthTransport{
-				RoundTripper: http.DefaultTransport,
+			Transport: &clientTransport{
+				RoundTripper: transport,
+				userAgent:    clientName,
 				username:     cfg.Username,
 				password:     cfg.Password,
-				userAgent:    clientName,
 			},
 		},
 		endpoints: struct {
