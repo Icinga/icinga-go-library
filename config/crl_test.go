@@ -126,7 +126,7 @@ func TestNewCRLChecker(t *testing.T) {
 
 	t.Run("Nonexistent file", func(t *testing.T) {
 		_, err := NewCRLChecker("/nonexistent/crl.pem", ca)
-		require.ErrorContains(t, err, "cannot read initial CRL file ")
+		require.ErrorContains(t, err, "cannot read CRL file")
 	})
 
 	t.Run("Corrupt data", func(t *testing.T) {
@@ -146,11 +146,6 @@ func TestNewCRLChecker(t *testing.T) {
 		path := createCRLFile(t, otherCA, otherKey, future)
 		_, err := NewCRLChecker(path, ca)
 		require.ErrorContains(t, err, "CRL signature invalid")
-	})
-
-	t.Run("Multiple CA certificates", func(t *testing.T) {
-		_, err := NewCRLChecker("/nonexistent/crl.pem", ca, ca)
-		require.ErrorContains(t, err, "expected exactly one issuer certificate")
 	})
 }
 

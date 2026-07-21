@@ -198,8 +198,10 @@ type ServerTLS struct {
 	// an error is returned during TLS configuration.
 	// This option is ignored if TLS is not enabled. If the Ca option is not set it returns an error.
 	//
+	// At the moment, only one CA certificate is supported.
+	//
 	// Note that populating this field alone does not enable CRL checking.
-	// [TLSCommon.InitRevocationChecking] must be called after assembling the [tls.Config]
+	// [ServerTLS.InitRevocationChecking] must be called after assembling the [tls.Config]
 	// to wire up the actual revocation check.
 	CrlFile string `yaml:"crl_file" env:"CRL_FILE"`
 }
@@ -301,11 +303,11 @@ func (st *ServerTLS) InitRevocationChecking(tlsConfig *tls.Config) (*CrlChecker,
 		}
 		caCerts = append(caCerts, cert)
 	}
-	if len(caCerts) == 0 {
-		return nil, errors.New("failed to decode X.509 certificate")
+	if len(caCerts) != 1 {
+		return nil, fmt.Errorf("expected one CA certificate in the CA bundle, got %d", len(caCerts))
 	}
 
-	checker, err := NewCRLChecker(st.CrlFile, caCerts...)
+	checker, err := NewCRLChecker(st.CrlFile, caCerts[0])
 	if err != nil {
 		return nil, fmt.Errorf("cannot load CRL: %w", err)
 	}

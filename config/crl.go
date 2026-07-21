@@ -5,7 +5,6 @@ import (
 	"crypto/x509"
 	"encoding/pem"
 	"fmt"
-	"io/fs"
 	"math/big"
 	"os"
 	"path/filepath"
@@ -13,7 +12,6 @@ import (
 	"time"
 
 	"github.com/fsnotify/fsnotify"
-	"github.com/pkg/errors"
 	"go.uber.org/zap"
 )
 
@@ -22,24 +20,18 @@ import (
 // lookups. The in-memory CRL is protected by a read/write mutex so that background reloads
 // via [CrlChecker.WatchAndReload] are safe to run concurrently with ongoing checks.
 type CrlChecker struct {
-	path    string
-	issuers []*x509.Certificate
-	mu      sync.RWMutex
-	crl     *x509.RevocationList
+	mu         sync.RWMutex
+	path       string
+	issuer     *x509.Certificate
+	crlExpiry  time.Time
+	crlRevoked map[string]struct{}
 }
 
 // NewCRLChecker creates a [CrlChecker] by loading the CRL at path and verifying its signature
 // against issuer. The file may be PEM- or DER-encoded. An error is returned if the file cannot
 // be read, is not a valid CRL, or its signature does not match issuer.
-//
-// If a CA bundle is used to sign the CRL, it must contain exactly one certificate, the issuer of the CRL.
-// Multiple certificates in the bundle will result in an error.
-func NewCRLChecker(path string, issuers ...*x509.Certificate) (*CrlChecker, error) {
-	if len(issuers) != 1 {
-		return nil, fmt.Errorf("expected exactly one issuer certificate, got %d", len(issuers))
-	}
-
-	c := &CrlChecker{path: path, issuers: issuers}
+func NewCRLChecker(path string, issuer *x509.Certificate) (*CrlChecker, error) {
+	c := &CrlChecker{path: path, issuer: issuer}
 	if err := c.reload(); err != nil {
 		return nil, err
 	}
@@ -50,16 +42,7 @@ func NewCRLChecker(path string, issuers ...*x509.Certificate) (*CrlChecker, erro
 func (c *CrlChecker) reload() error {
 	data, err := os.ReadFile(c.path)
 	if err != nil {
-		c.mu.RLock()
-		defer c.mu.RUnlock()
-		if c.crl == nil {
-			// avoid nil pointer panic if CrlChecker is created without the factory method
-			return fmt.Errorf("cannot read initial CRL file %q: %w", c.path, err)
-		}
-		if errors.Is(err, fs.ErrNotExist) {
-			return fmt.Errorf("cannot read CRL file %q: %w", c.path, err)
-		}
-		return nil
+		return fmt.Errorf("cannot read CRL file: %w", err)
 	}
 	if block, _ := pem.Decode(data); block != nil {
 		data = block.Bytes // strip PEM wrapper if present; ParseRevocationList wants DER
@@ -69,18 +52,19 @@ func (c *CrlChecker) reload() error {
 		return fmt.Errorf("cannot parse CRL: %w", err)
 	}
 
-	if len(c.issuers) == 0 {
-		return fmt.Errorf("no issuer certificates provided to verify CRL signature")
-	} else if len(c.issuers) > 1 {
-		return fmt.Errorf("multiple issuer certificates provided; expected exactly one")
+	err = rl.CheckSignatureFrom(c.issuer)
+	if err != nil {
+		return fmt.Errorf("CRL signature invalid: %w", err)
 	}
 
-	if signatureErr := rl.CheckSignatureFrom(c.issuers[0]); signatureErr != nil {
-		return fmt.Errorf("CRL signature invalid: %w", signatureErr)
+	revoked := make(map[string]struct{})
+	for _, entry := range rl.RevokedCertificateEntries {
+		revoked[entry.SerialNumber.Text(16)] = struct{}{}
 	}
 
 	c.mu.Lock()
-	c.crl = rl
+	c.crlExpiry = rl.NextUpdate
+	c.crlRevoked = revoked
 	c.mu.Unlock()
 
 	return nil
@@ -129,24 +113,16 @@ func (c *CrlChecker) WatchAndReload(ctx context.Context, logger *zap.SugaredLogg
 }
 
 // IsRevoked reports whether serial appears in the CRL.
-// It returns an error if the CRL is outdated (NextUpdate in the past) or if the CRL cannot be accessed.
+//
+// It returns an error if the CRL is outdated (NextUpdate in the past).
 func (c *CrlChecker) IsRevoked(serial *big.Int) (bool, error) {
 	c.mu.RLock()
 	defer c.mu.RUnlock()
 
-	if c.crl == nil {
-		return false, fmt.Errorf("CRL is not loaded")
+	if time.Now().After(c.crlExpiry) {
+		return false, fmt.Errorf("CRL is outdated (NextUpdate=%s)", c.crlExpiry)
 	}
 
-	if c.crl.NextUpdate.Before(time.Now()) {
-		return false, fmt.Errorf("CRL is outdated (NextUpdate=%s)", c.crl.NextUpdate)
-	}
-
-	for _, entry := range c.crl.RevokedCertificateEntries {
-		if entry.SerialNumber.Cmp(serial) == 0 {
-			return true, nil
-		}
-	}
-
-	return false, nil
+	_, revoked := c.crlRevoked[serial.Text(16)]
+	return revoked, nil
 }
