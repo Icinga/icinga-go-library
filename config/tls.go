@@ -4,8 +4,10 @@ import (
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/pem"
-	"github.com/pkg/errors"
+	"fmt"
 	"os"
+
+	"github.com/pkg/errors"
 )
 
 // TLSCommon represents common TLS config options that are shared between TLS client and server settings.
@@ -188,6 +190,20 @@ type ServerTLS struct {
 	// Valid values are all the [tls.ClientAuthType] options typed out as strings:
 	// "NoClientCert", "RequestClientCert", "RequireAnyClientCert", "VerifyClientCertIfGiven", and "RequireAndVerifyClientCert".
 	ClientAuth TlsClientAuthType `yaml:"client_auth" env:"CLIENT_AUTH" default:"NoClientCert"`
+
+	// CrlFile is the path to the Certificate Revocation List (CRL) file.
+	//
+	// If specified, the CRL is used to check for revoked certificates in TLS.
+	// The CRL must be signed by the CA specified in the Ca option. If the CRL file is not found or cannot be loaded,
+	// an error is returned during TLS configuration.
+	// This option is ignored if TLS is not enabled. If the Ca option is not set it returns an error.
+	//
+	// At the moment, only one CA certificate is supported.
+	//
+	// Note that populating this field alone does not enable CRL checking.
+	// [ServerTLS.InitRevocationChecking] must be called after assembling the [tls.Config]
+	// to wire up the actual revocation check.
+	CrlFile string `yaml:"crl_file" env:"CRL_FILE"`
 }
 
 // Validate checks the [ServerTLS] configuration for consistency and returns an error if the configuration is invalid.
@@ -198,6 +214,9 @@ func (st *ServerTLS) Validate() error {
 
 	switch cat := tls.ClientAuthType(st.ClientAuth); cat {
 	case tls.NoClientCert, tls.RequestClientCert, tls.RequireAnyClientCert:
+		if st.CrlFile != "" {
+			return errors.New("CRL file given, but given ClientAuth mode doesn't verify client certificates")
+		}
 		// These ClientAuth types do not require a CA certificate to be configured,
 		// since the server will not verify client certificates in these modes.
 		return nil
@@ -216,6 +235,9 @@ func (st *ServerTLS) Validate() error {
 // It returns a configured *tls.Config or an error if there are issues with the provided TLS settings.
 // If TLS is not enabled (st.Enable is false), it returns nil without an error.
 func (st *ServerTLS) MakeConfig() (*tls.Config, error) {
+	if st.CrlFile != "" && st.Ca == "" {
+		return nil, errors.New("CRL file given, but CA certificate missing")
+	}
 	tlsConfig, err := st.makeConfig()
 	if err != nil {
 		return nil, err
@@ -242,4 +264,76 @@ func (st *ServerTLS) MakeConfig() (*tls.Config, error) {
 	}
 
 	return tlsConfig, nil
+}
+
+// InitRevocationChecking wires CRL-based client certificate revocation checking into tlsConfig.
+//
+// It loads the CA certificate from [TLSCommon.Ca] and the CRL from [ServerTLS.CrlFile], verifies
+// the CRL's signature against the CA, and installs a [tls.Config.VerifyConnection] hook that
+// rejects any client certificate whose serial number appears in the CRL. If a VerifyConnection
+// hook is already set on tlsConfig, the existing hook is called first and its error, if any,
+// takes precedence.
+//
+// The returned [CrlChecker] owns the loaded CRL and must be kept alive for the duration
+// of the server's lifetime. Callers are responsible for calling [CrlChecker.WatchAndReload]
+// to pick up CRL rotations at runtime.
+//
+// InitRevocationChecking returns an error if tlsConfig, the CA certificate or CRL cannot be loaded or verified.
+func (st *ServerTLS) InitRevocationChecking(tlsConfig *tls.Config) (*CrlChecker, error) {
+	if tlsConfig == nil || st.CrlFile == "" || st.Ca == "" {
+		return nil, errors.New("tls config for crl is required")
+	}
+
+	caPem, err := loadPemOrFile(st.Ca)
+	if err != nil {
+		return nil, err
+	}
+
+	var caCerts []*x509.Certificate
+	rest := caPem
+	for {
+		var block *pem.Block
+		block, rest = pem.Decode(rest)
+		if block == nil {
+			break
+		}
+		cert, err := x509.ParseCertificate(block.Bytes)
+		if err != nil {
+			return nil, err
+		}
+		caCerts = append(caCerts, cert)
+	}
+	if len(caCerts) != 1 {
+		return nil, fmt.Errorf("expected one CA certificate in the CA bundle, got %d", len(caCerts))
+	}
+
+	checker, err := NewCRLChecker(st.CrlFile, caCerts[0])
+	if err != nil {
+		return nil, fmt.Errorf("cannot load CRL: %w", err)
+	}
+
+	existing := tlsConfig.VerifyConnection
+	tlsConfig.VerifyConnection = func(cs tls.ConnectionState) error {
+		if existing != nil {
+			if err := existing(cs); err != nil {
+				return err
+			}
+		}
+
+		if len(cs.VerifiedChains) == 0 {
+			return nil // no client cert presented - skip
+		}
+
+		leaf := cs.VerifiedChains[0][0]
+		revoked, err := checker.IsRevoked(leaf.SerialNumber)
+		if err != nil {
+			return fmt.Errorf("CRL check failed: %w", err)
+		} else if revoked {
+			return fmt.Errorf("client certificate revoked (serial %s)", leaf.SerialNumber)
+		}
+
+		return nil
+	}
+
+	return checker, nil
 }

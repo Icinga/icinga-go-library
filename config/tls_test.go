@@ -10,13 +10,14 @@ import (
 	"crypto/x509"
 	"crypto/x509/pkix"
 	"encoding/pem"
-	"github.com/icinga/icinga-go-library/testutils"
-	"github.com/pkg/errors"
-	"github.com/stretchr/testify/require"
 	"math/big"
 	"os"
 	"testing"
 	"time"
+
+	"github.com/icinga/icinga-go-library/testutils"
+	"github.com/pkg/errors"
+	"github.com/stretchr/testify/require"
 )
 
 func Test_loadPemOrFile(t *testing.T) {
@@ -416,6 +417,112 @@ func TestTlsClientAuthType(t *testing.T) {
 	})
 }
 
+func TestTLSCommon_InitRevocationChecking(t *testing.T) {
+	ca, caKey, err := generateCert("ca", generateCertOptions{ca: true})
+	require.NoError(t, err)
+
+	var caPem bytes.Buffer
+	require.NoError(t, pem.Encode(&caPem, &pem.Block{Type: "CERTIFICATE", Bytes: ca.Raw}))
+	caStr := caPem.String()
+
+	revokedCert, _, err := generateCert("revoked", generateCertOptions{issuer: ca, issuerKey: caKey})
+	require.NoError(t, err)
+	validCert, _, err := generateCert("valid", generateCertOptions{issuer: ca, issuerKey: caKey})
+	require.NoError(t, err)
+
+	nextUpdate := time.Now().Add(24 * time.Hour)
+	emptyCrlFile := createCRLFile(t, ca, caKey, nextUpdate)
+	revokedCrlFile := createCRLFile(t, ca, caKey, nextUpdate, revokedCert.SerialNumber)
+
+	t.Run("Nil tlsConfig", func(t *testing.T) {
+		st := &ServerTLS{TLSCommon: TLSCommon{Ca: caStr}, CrlFile: emptyCrlFile}
+		checker, err := st.InitRevocationChecking(nil)
+		require.ErrorContains(t, err, "tls config for crl is required")
+		require.Nil(t, checker)
+	})
+
+	t.Run("Empty CrlFile", func(t *testing.T) {
+		st := &ServerTLS{TLSCommon: TLSCommon{Ca: caStr}}
+		checker, err := st.InitRevocationChecking(&tls.Config{})
+		require.ErrorContains(t, err, "tls config for crl is required")
+		require.Nil(t, checker)
+	})
+
+	t.Run("Empty Ca", func(t *testing.T) {
+		st := &ServerTLS{CrlFile: emptyCrlFile}
+		checker, err := st.InitRevocationChecking(&tls.Config{})
+		require.ErrorContains(t, err, "tls config for crl is required")
+		require.Nil(t, checker)
+	})
+
+	t.Run("Invalid Ca", func(t *testing.T) {
+		st := &ServerTLS{TLSCommon: TLSCommon{Ca: "/nonexistent/ca.pem"}, CrlFile: emptyCrlFile}
+		_, err := st.InitRevocationChecking(&tls.Config{})
+		require.Error(t, err)
+	})
+
+	t.Run("Nonexistent CRL file", func(t *testing.T) {
+		st := &ServerTLS{TLSCommon: TLSCommon{Ca: caStr}, CrlFile: "/nonexistent/crl.pem"}
+		_, err := st.InitRevocationChecking(&tls.Config{})
+		require.ErrorContains(t, err, "cannot load CRL")
+	})
+
+	t.Run("Valid CA and Valid CRL", func(t *testing.T) {
+		st := &ServerTLS{TLSCommon: TLSCommon{Ca: caStr}, CrlFile: emptyCrlFile}
+		tlsConf := &tls.Config{}
+		checker, err := st.InitRevocationChecking(tlsConf)
+		require.NoError(t, err)
+		require.NotNil(t, checker)
+		require.NotNil(t, tlsConf.VerifyConnection)
+	})
+
+	t.Run("VerifyConnection", func(t *testing.T) {
+		t.Run("Empty VerifiedChains", func(t *testing.T) {
+			st := &ServerTLS{TLSCommon: TLSCommon{Ca: caStr}, CrlFile: emptyCrlFile}
+			tlsConf := &tls.Config{}
+			_, err := st.InitRevocationChecking(tlsConf)
+			require.NoError(t, err)
+			require.NoError(t, tlsConf.VerifyConnection(tls.ConnectionState{}))
+		})
+
+		t.Run("Valid Cert", func(t *testing.T) {
+			st := &ServerTLS{TLSCommon: TLSCommon{Ca: caStr}, CrlFile: revokedCrlFile}
+			tlsConf := &tls.Config{}
+			_, err := st.InitRevocationChecking(tlsConf)
+			require.NoError(t, err)
+			err = tlsConf.VerifyConnection(tls.ConnectionState{
+				VerifiedChains: [][]*x509.Certificate{{validCert}},
+			})
+			require.NoError(t, err)
+		})
+
+		t.Run("Revoked Cert", func(t *testing.T) {
+			st := &ServerTLS{TLSCommon: TLSCommon{Ca: caStr}, CrlFile: revokedCrlFile}
+			tlsConf := &tls.Config{}
+			_, err := st.InitRevocationChecking(tlsConf)
+			require.NoError(t, err)
+			err = tlsConf.VerifyConnection(tls.ConnectionState{
+				VerifiedChains: [][]*x509.Certificate{{revokedCert}},
+			})
+			require.ErrorContains(t, err, "client certificate revoked")
+		})
+
+		t.Run("Chains existing VerifyConnection", func(t *testing.T) {
+			st := &ServerTLS{TLSCommon: TLSCommon{Ca: caStr}, CrlFile: emptyCrlFile}
+			sentinel := errors.New("existing verify error")
+			tlsConf := &tls.Config{
+				VerifyConnection: func(_ tls.ConnectionState) error { return sentinel },
+			}
+			_, err := st.InitRevocationChecking(tlsConf)
+			require.NoError(t, err)
+			err = tlsConf.VerifyConnection(tls.ConnectionState{
+				VerifiedChains: [][]*x509.Certificate{{validCert}},
+			})
+			require.ErrorIs(t, err, sentinel)
+		})
+	})
+}
+
 type generateCertOptions struct {
 	ca        bool
 	issuer    *x509.Certificate
@@ -433,12 +540,17 @@ func generateCert(cn string, options generateCertOptions) (*x509.Certificate, cr
 		return nil, nil, err
 	}
 
+	keyUsage := x509.KeyUsageCertSign
+	if options.ca {
+		keyUsage |= x509.KeyUsageCRLSign
+	}
+
 	template := &x509.Certificate{
 		SerialNumber:          serialNumber,
 		Subject:               pkix.Name{CommonName: cn},
 		NotBefore:             time.Now().Add(-1 * time.Hour),
 		NotAfter:              time.Now().Add(24 * time.Hour),
-		KeyUsage:              x509.KeyUsageCertSign,
+		KeyUsage:              keyUsage,
 		BasicConstraintsValid: true,
 		IsCA:                  options.ca,
 	}
