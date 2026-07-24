@@ -12,3 +12,11 @@
 // [Channel Plugins]: https://icinga.com/docs/icinga-notifications/latest/doc/10-Channels/
 // [HTTP API]: https://icinga.com/docs/icinga-notifications/latest/doc/20-HTTP-API/
 package notifications
+
+const (
+	// MethodLog is the JSON-RPC method used by channel plugins to log messages to Icinga Notifications' logging system.
+	//
+	// Note: This method is intended to be used by channel plugins to make JSON-RPC calls back to Icinga Notifications
+	// to log messages. It is not meant to be implemented by channel plugins themselves.
+	MethodLog = "channel::Log"
+)
