@@ -1,7 +1,9 @@
 // Package plugin implements a high-level Icinga Notifications Channel Plugin API.
 //
-// For own plugins, the [Plugin] interface must be implemented. After configuring your plugin, calling RunPlugin starts
-// a blocking RPC client, utilizing the underlying [rpc] package.
+// For own plugins, the [Plugin] interface must be implemented. After configuring your plugin, calling [Run] starts
+// a blocking JSON-RPC server that handles incoming requests from the Icinga Notifications process. The plugin can
+// also implement the [RPCEndpointReceiver] interface to receive the internally used RPC endpoint, allowing the plugin
+// to make RPC calls back to the Icinga Notifications process.
 //
 // Examples can be found under [cmd/channels] in the Icinga Notifications repository.
 //
@@ -9,19 +11,24 @@
 package plugin
 
 import (
+	"context"
 	"database/sql/driver"
 	"encoding/json"
 	"errors"
 	"fmt"
-	"github.com/icinga/icinga-go-library/notifications/event"
-	"github.com/icinga/icinga-go-library/notifications/rpc"
-	"github.com/icinga/icinga-go-library/types"
-	"github.com/icinga/icinga-go-library/utils"
 	"io"
 	"log"
 	"os"
+	"os/signal"
 	"sync"
+	"syscall"
 	"time"
+
+	"github.com/icinga/icinga-go-library/notifications/event"
+	"github.com/icinga/icinga-go-library/notifications/jsonrpc"
+	"github.com/icinga/icinga-go-library/notifications/rpc"
+	"github.com/icinga/icinga-go-library/types"
+	"github.com/icinga/icinga-go-library/utils"
 )
 
 const (
@@ -183,8 +190,9 @@ type NotificationRequest struct {
 
 // Plugin defines necessary methods for a channel plugin.
 //
-// Those methods are being called via the internal JSON-RPC and allow channel interaction. Within the channel's main
-// function, the channel should be launched via RunPlugin.
+// Those methods are being called by the Icinga Notifications process via JSON-RPC. The plugin must implement this
+// interface to be able to receive and handle those requests. The plugin can be launched via the [Run] function,
+// which will start a JSON-RPC server and block until the plugin is terminated.
 type Plugin interface {
 	// GetInfo returns the corresponding plugin *Info.
 	GetInfo() *Info
@@ -194,6 +202,14 @@ type Plugin interface {
 
 	// SendNotification sends the notification, returns an error on failure.
 	SendNotification(req *NotificationRequest) error
+}
+
+// RPCEndpointReceiver is an interface that can be implemented by a plugin to receive the RPC endpoint used internally.
+//
+// If a channel plugin implements this interface, the [Run] function will inject the RPC endpoint into the plugin
+// before starting the server. This allows the plugin to make RPC calls back to the Icinga Notifications process.
+type RPCEndpointReceiver interface {
+	ReceiveEndpoint(ctx context.Context, ep *jsonrpc.Endpoint)
 }
 
 // PopulateDefaults sets the struct fields from Info.ConfigAttributes where ConfigOption.Default is set.
@@ -213,6 +229,93 @@ func PopulateDefaults(typePtr Plugin) error {
 	}
 
 	return json.Unmarshal(defaultConf, typePtr)
+}
+
+// rpcHandler is a JSON-RPC handler for a channel plugin (on the server/plugin side).
+//
+// It is used by plugins to handle incoming JSON-RPC requests and dispatch them to the appropriate methods
+// of the Plugin interface (see [Run]).
+type rpcHandler struct {
+	p Plugin
+}
+
+func (rh *rpcHandler) Handle(ctx context.Context, conn *jsonrpc.Conn, req *jsonrpc.Request) {
+	switch req.Method {
+	case MethodGetInfo:
+		if err := conn.Reply(ctx, req.ID, rh.p.GetInfo()); err != nil {
+			log.Fatalf("failed to send GetInfo response: %v", err)
+		}
+
+	case MethodSetConfig:
+		if req.Params == nil {
+			if err := jsonrpc.ReplyError(ctx, conn, req.ID, jsonrpc.CodeInvalidRequest, "missing required parameter"); err != nil {
+				log.Fatalf("failed to send SetConfig response: %v", err)
+			}
+		}
+
+		if err := rh.p.SetConfig(*req.Params); err != nil {
+			if err := jsonrpc.ReplyError(ctx, conn, req.ID, jsonrpc.CodeInvalidParams, err.Error()); err != nil {
+				log.Fatalf("failed to send SetConfig response: %v", err)
+			}
+		}
+		if err := conn.Reply(ctx, req.ID, nil); err != nil {
+			log.Fatalf("failed to send SetConfig response: %v", err)
+		}
+
+	case MethodSendNotification:
+		if req.Params == nil {
+			if err := jsonrpc.ReplyError(ctx, conn, req.ID, jsonrpc.CodeInvalidRequest, "missing required parameter"); err != nil {
+				log.Fatalf("failed to send SendNotification response: %v", err)
+			}
+		}
+
+		var nr NotificationRequest
+		if err := json.Unmarshal(*req.Params, &nr); err != nil {
+			if err := jsonrpc.ReplyError(ctx, conn, req.ID, jsonrpc.CodeParseError, err.Error()); err != nil {
+				log.Fatalf("failed to send SendNotification response: %v", err)
+			}
+		} else if err = rh.p.SendNotification(&nr); err != nil {
+			if err := jsonrpc.ReplyError(ctx, conn, req.ID, jsonrpc.CodeInternalError, err.Error()); err != nil {
+				log.Fatalf("failed to send SendNotification response: %v", err)
+			}
+		}
+		if err := conn.Reply(ctx, req.ID, nil); err != nil {
+			log.Fatalf("failed to send SendNotification response: %v", err)
+		}
+
+	default:
+		if err := jsonrpc.ReplyMethodNotFound(ctx, conn, req.ID); err != nil {
+			log.Fatalf("failed to send error response: %v", err)
+		}
+	}
+}
+
+// Run starts the RPC server for a channel plugin.
+//
+// The RPC server reads requests from stdin, calls the associated RPC method, and writes the responses to stdout.
+// It blocks until either the process receives a termination signal (SIGINT or SIGTERM) or the RPC connection is
+// closed. If the plugin implements the [RPCEndpointReceiver] interface, the internally used RPC endpoint will be
+// injected into the plugin before starting the server, allowing the plugin to make RPC calls back to the Icinga
+// Notifications process.
+//
+// This function should be called last in a channel plugin's main function.
+func Run(p Plugin) {
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer cancel()
+
+	endpoint := jsonrpc.New(ctx, os.Stdin, os.Stdout, &rpcHandler{p: p})
+	if er, ok := p.(RPCEndpointReceiver); ok {
+		er.ReceiveEndpoint(ctx, endpoint)
+	}
+
+	defer func() { _ = endpoint.Conn().Close() }()
+
+	select {
+	case <-ctx.Done():
+		return
+	case <-endpoint.Done():
+		return
+	}
 }
 
 // RunPlugin serves the RPC for a Channel Plugin.

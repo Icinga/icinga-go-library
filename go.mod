@@ -14,6 +14,7 @@ require (
 	github.com/lib/pq v1.12.3
 	github.com/pkg/errors v0.9.1
 	github.com/redis/go-redis/v9 v9.21.0
+	github.com/sourcegraph/jsonrpc2 v0.2.1
 	github.com/ssgreg/journald v1.0.0
 	github.com/stretchr/testify v1.11.1
 	go.uber.org/zap v1.28.0
