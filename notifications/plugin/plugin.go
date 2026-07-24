@@ -14,19 +14,16 @@ import (
 	"context"
 	"database/sql/driver"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io"
 	"log"
 	"os"
 	"os/signal"
-	"sync"
 	"syscall"
 	"time"
 
 	"github.com/icinga/icinga-go-library/notifications/event"
 	"github.com/icinga/icinga-go-library/notifications/jsonrpc"
-	"github.com/icinga/icinga-go-library/notifications/rpc"
 	"github.com/icinga/icinga-go-library/types"
 	"github.com/icinga/icinga-go-library/utils"
 )
@@ -316,71 +313,6 @@ func Run(p Plugin) {
 	case <-endpoint.Done():
 		return
 	}
-}
-
-// RunPlugin serves the RPC for a Channel Plugin.
-//
-// This function reads requests from stdin, calls the associated RPC method, and writes the responses to stdout. As this
-// function blocks, it should be called last in a channel plugin's main function.
-func RunPlugin(plugin Plugin) {
-	encoder := json.NewEncoder(os.Stdout)
-	decoder := json.NewDecoder(os.Stdin)
-	var encoderMu sync.Mutex
-
-	wg := sync.WaitGroup{}
-
-	for {
-		var req rpc.Request
-		err := decoder.Decode(&req)
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				// plugin shutdown requested
-				break
-			}
-
-			log.Fatal("failed to read request:", err)
-		}
-
-		wg.Add(1)
-		go func(request rpc.Request) {
-			defer wg.Done()
-			var response = rpc.Response{Id: request.Id}
-			switch request.Method {
-			case MethodGetInfo:
-				result, err := json.Marshal(plugin.GetInfo())
-				if err != nil {
-					response.Error = fmt.Errorf("failed to collect plugin info: %w", err).Error()
-				} else {
-					response.Result = result
-				}
-
-			case MethodSetConfig:
-				if err = plugin.SetConfig(request.Params); err != nil {
-					response.Error = fmt.Errorf("failed to set plugin config: %w", err).Error()
-				}
-
-			case MethodSendNotification:
-				var nr NotificationRequest
-				if err = json.Unmarshal(request.Params, &nr); err != nil {
-					response.Error = fmt.Errorf("failed to json.Unmarshal request: %w", err).Error()
-				} else if err = plugin.SendNotification(&nr); err != nil {
-					response.Error = err.Error()
-				}
-
-			default:
-				response.Error = fmt.Sprintf("unknown method: %q", request.Method)
-			}
-
-			encoderMu.Lock()
-			err = encoder.Encode(response)
-			encoderMu.Unlock()
-			if err != nil {
-				panic(fmt.Errorf("failed to write response: %w", err))
-			}
-		}(req)
-	}
-
-	wg.Wait()
 }
 
 // FormatMessage formats a NotificationRequest message and adds to the given io.Writer.
