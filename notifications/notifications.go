@@ -19,4 +19,17 @@ const (
 	// Note: This method is intended to be used by channel plugins to make JSON-RPC calls back to Icinga Notifications
 	// to log messages. It is not meant to be implemented by channel plugins themselves.
 	MethodLog = "channel::Log"
+
+	// MethodUpsertState is the JSON-RPC method used by channel plugins to upsert their state in the database.
+	//
+	// Note: This method is intended to be used by channel plugins to make JSON-RPC calls back to Icinga Notifications
+	// to upsert their state in the database. It is not meant to be implemented by channel plugins themselves.
+	MethodUpsertState = "channel::UpsertState"
+
+	// MethodDeleteState is the JSON-RPC method used by channel plugins to delete their state for a specific key
+	// from the database.
+	//
+	// Note: This method is intended to be used by channel plugins to make JSON-RPC calls back to Icinga Notifications.
+	// It is not meant to be implemented by channel plugins themselves.
+	MethodDeleteState = "channel::DeleteState"
 )
