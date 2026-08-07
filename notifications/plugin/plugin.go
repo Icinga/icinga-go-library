@@ -157,6 +157,12 @@ type Incident struct {
 
 	// Severity of this Incident.
 	Severity event.Severity `json:"severity"`
+
+	// IsMuted indicates whether this Incident is being muted with the ongoing event.
+	IsMuted bool `json:"muted"`
+
+	// IsRecovered indicates whether this Incident is going to be resolved/recovered with the ongoing event.
+	IsRecovered bool `json:"recovered"`
 }
 
 // Event indicating this NotificationRequest.
