@@ -82,6 +82,15 @@ type invalidConfig struct {
 	validateInvalid
 }
 
+type passwordFileConfig struct {
+	Password     string `yaml:"password" env:"PASSWORD,unset"` // #nosec G117 -- exported password field
+	PasswordFile string `yaml:"password_file" env:"PASSWORD_FILE"`
+}
+
+func (c *passwordFileConfig) Validate() error {
+	return LoadPasswordFile(&c.Password, c.PasswordFile)
+}
+
 // configWithInvalidDefault is a test configuration struct used to verify error propagation from defaults.Set().
 // It intentionally defines an invalid default value for a map,
 // which the defaults package parses using json.Unmarshal().
@@ -336,6 +345,9 @@ func (f testFlags) IsExplicitConfigPath() bool {
 }
 
 func TestLoad(t *testing.T) {
+	passwordFile, cleanupPasswordFile := testutils.PasswordFile(t, "insecure")
+	defer cleanupPasswordFile()
+
 	loadTests := []testutils.TestCase[Validator, testutils.ConfigTestData]{
 		{
 			Name: "Load from YAML only",
@@ -397,6 +409,37 @@ func TestLoad(t *testing.T) {
 				Key: "value",
 			},
 			Error: testutils.ErrorIs(errInvalidConfiguration),
+		},
+		{
+			Name: "Password file in YAML",
+			Data: testutils.ConfigTestData{
+				Yaml: "password_file: " + passwordFile,
+			},
+			Expected: &passwordFileConfig{
+				Password:     "insecure",
+				PasswordFile: passwordFile,
+			},
+		},
+		{
+			Name: "Password file in Env",
+			Data: testutils.ConfigTestData{
+				Env: map[string]string{"PASSWORD_FILE": passwordFile},
+			},
+			Expected: &passwordFileConfig{
+				Password:     "insecure",
+				PasswordFile: passwordFile,
+			},
+		},
+		{
+			Name: "Password file in both",
+			Data: testutils.ConfigTestData{
+				Yaml: "password_file: " + passwordFile,
+				Env:  map[string]string{"PASSWORD_FILE": passwordFile},
+			},
+			Expected: &passwordFileConfig{
+				Password:     "insecure",
+				PasswordFile: passwordFile,
+			},
 		},
 	}
 
