@@ -32,6 +32,33 @@ var ErrInvalidArgument = stderrors.New("invalid argument")
 // the original errors returned from Validate.
 var ErrInvalidConfiguration = stderrors.New("invalid configuration")
 
+// fromYAMLFile parses the configuration from a YAML file. Used internally in FromYAMLFile.
+func fromYAMLFile(name string, v Validator) error {
+	if err := validateNonNilStructPointer(v); err != nil {
+		return errors.WithStack(err)
+	}
+
+	// #nosec G304 G703 -- Accept user-controlled input for config file.
+	f, err := os.Open(name)
+	if err != nil {
+		return errors.Wrap(err, "can't open YAML file "+name)
+	}
+	defer func(f *os.File) {
+		_ = f.Close()
+	}(f)
+
+	if err := defaults.Set(v); err != nil {
+		return errors.Wrap(err, "can't set config defaults")
+	}
+
+	d := yaml.NewDecoder(f, yaml.DisallowUnknownField())
+	if err := d.Decode(v); err != nil {
+		return errors.Wrap(err, "can't parse YAML file "+name)
+	}
+
+	return nil
+}
+
 // FromYAMLFile parses the given YAML file and stores the result
 // in the value pointed to by v. If v is nil or not a struct pointer,
 // FromYAMLFile returns an [ErrInvalidArgument] error.
@@ -77,26 +104,8 @@ var ErrInvalidConfiguration = stderrors.New("invalid configuration")
 //		// ...
 //	}
 func FromYAMLFile(name string, v Validator) error {
-	if err := validateNonNilStructPointer(v); err != nil {
-		return errors.WithStack(err)
-	}
-
-	// #nosec G304 G703 -- Accept user-controlled input for config file.
-	f, err := os.Open(name)
-	if err != nil {
-		return errors.Wrap(err, "can't open YAML file "+name)
-	}
-	defer func(f *os.File) {
-		_ = f.Close()
-	}(f)
-
-	if err := defaults.Set(v); err != nil {
-		return errors.Wrap(err, "can't set config defaults")
-	}
-
-	d := yaml.NewDecoder(f, yaml.DisallowUnknownField())
-	if err := d.Decode(v); err != nil {
-		return errors.Wrap(err, "can't parse YAML file "+name)
+	if err := fromYAMLFile(name, v); err != nil {
+		return err
 	}
 
 	if err := v.Validate(); err != nil {
@@ -108,6 +117,23 @@ func FromYAMLFile(name string, v Validator) error {
 
 // EnvOptions is a type alias for [env.Options], so that only this package needs to import [env].
 type EnvOptions = env.Options
+
+// fromEnv parses the configuration from environment variables. Used internally in FromEnv.
+func fromEnv(v Validator, options EnvOptions) error {
+	if err := validateNonNilStructPointer(v); err != nil {
+		return errors.WithStack(err)
+	}
+
+	if err := defaults.Set(v); err != nil {
+		return errors.Wrap(err, "can't set config defaults")
+	}
+
+	if err := env.ParseWithOptions(v, options); err != nil {
+		return errors.Wrap(err, "can't parse environment variables")
+	}
+
+	return nil
+}
 
 // FromEnv parses environment variables and stores the result in the value pointed to by v.
 // If v is nil or not a struct pointer, FromEnv returns an [ErrInvalidArgument] error.
@@ -153,16 +179,8 @@ type EnvOptions = env.Options
 //		// ...
 //	}
 func FromEnv(v Validator, options EnvOptions) error {
-	if err := validateNonNilStructPointer(v); err != nil {
-		return errors.WithStack(err)
-	}
-
-	if err := defaults.Set(v); err != nil {
-		return errors.Wrap(err, "can't set config defaults")
-	}
-
-	if err := env.ParseWithOptions(v, options); err != nil {
-		return errors.Wrap(err, "can't parse environment variables")
+	if err := fromEnv(v, options); err != nil {
+		return err
 	}
 
 	if err := v.Validate(); err != nil {
@@ -264,7 +282,7 @@ func Load(v Validator, options LoadOptions) error {
 
 	var configFileIsDefaultAndDoesNotExist bool
 
-	if err := FromYAMLFile(options.Flags.GetConfigPath(), v); err != nil {
+	if err := fromYAMLFile(options.Flags.GetConfigPath(), v); err != nil {
 		// Allow continuation with FromEnv by handling:
 		//
 		// - ErrInvalidConfiguration:
@@ -283,7 +301,7 @@ func Load(v Validator, options LoadOptions) error {
 	// If no environment variables are set, configuration relies entirely on YAML.
 	// Otherwise, environment variables can supplement, override YAML settings, or serve as the sole source.
 	// FromEnv also includes validation, ensuring completeness after considering both sources.
-	if err := FromEnv(v, options.EnvOptions); err != nil {
+	if err := fromEnv(v, options.EnvOptions); err != nil {
 		if configFileIsDefaultAndDoesNotExist {
 			return stderrors.Join(
 				errors.WithStack(err),
@@ -296,6 +314,10 @@ func Load(v Validator, options LoadOptions) error {
 		}
 
 		return errors.WithStack(err)
+	}
+
+	if err := v.Validate(); err != nil {
+		return fmt.Errorf("%w: %w", ErrInvalidConfiguration, errors.WithStack(err))
 	}
 
 	return nil
