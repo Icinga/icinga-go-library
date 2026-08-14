@@ -174,6 +174,26 @@ type Event struct {
 	Message string `json:"message"`
 }
 
+// State represents a key-value pair associated with a channel, used to store the state of a plugin in the database.
+type State struct {
+	// Key is the unique identifier for this state entry within the channel plugin's state.
+	//
+	// Within a channel plugin, the Key is expected to be unique, but not necessarily unique across
+	// different channel plugins. Each channel plugin can manage its own state entries independently,
+	// allowing for isolated state management. This must not be not empty and should not exceed 255
+	// characters in length.
+	//
+	// It is recommended to use descriptive keys that clearly indicate the purpose of the state entry.
+	Key string `db:"state_key" json:"state_key"`
+
+	// Value is the associated value for this state entry, which can be any string that the plugin needs to persist.
+	//
+	// The Value can be used to store various types of information, such as configuration settings, status
+	// information, or any other relevant data that the channel plugin needs to maintain between notification
+	// requests. The Value should not exceed 4096 characters in length.
+	Value string `db:"value" json:"value"`
+}
+
 // NotificationRequest is being sent to a channel plugin via Plugin.SendNotification to request notification dispatching.
 type NotificationRequest struct {
 	// Contact to receive this NotificationRequest.
@@ -189,6 +209,19 @@ type NotificationRequest struct {
 
 	// Event being responsible for creating this NotificationRequest, e.g., a firing Icinga 2 Service Check.
 	Event *Event `json:"event"`
+
+	// States of the channel plugin freshly retrieved from the database.
+	//
+	// This is a list of key-value pairs that can be used to store and retrieve plugin-specific state information.
+	// The plugin can use this state to maintain context between notifications or to store any relevant data that
+	// needs to persist across multiple notification requests. Icinga Notifications will include the current state
+	// in each [MethodSendNotification] request, so the plugin doesn't need to perform any additional RPC calls to
+	// obtain the state.
+	//
+	// Once the plugin no longer needs a specific state, it can/must perform a [notifications.MethodDeleteState]
+	// RPC call to remove it from the database. This helps keep the state clean and prevents unnecessary data
+	// accumulation.
+	States []State `json:"states,omitempty"`
 }
 
 // Plugin defines necessary methods for a channel plugin.
