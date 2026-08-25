@@ -125,7 +125,7 @@ func TestEvent(t *testing.T) {
 			parsedUUID, err := uuid.Parse("2e9dd0b2-9555-4627-871e-c8696e742486")
 			require.NoError(t, err, "Failed to parse UUID")
 
-			assert.Equal(t, types.UUID{UUID: parsedUUID}, event.ID)
+			assert.Equal(t, types.MakeUUID(parsedUUID), event.ID)
 			assertFunc(t, event)
 		})
 
@@ -179,7 +179,7 @@ func TestEvent(t *testing.T) {
 			require.NoError(t, err, "Failed to parse UUID")
 
 			event := &Event{
-				ID:                types.UUID{UUID: originalUUID},
+				ID:                types.MakeUUID(originalUUID),
 				Name:              "TestEvent",
 				URL:               "/icingadb/service?name=https%20ssl%20v3.0%20compatibility%20IE%206.0&host.name=example%20host",
 				Tags:              map[string]string{"tag1": "value1"},
