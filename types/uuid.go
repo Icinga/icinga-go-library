@@ -1,23 +1,53 @@
 package types
 
 import (
+	"database/sql"
 	"database/sql/driver"
 	"encoding"
+
 	"github.com/google/uuid"
 )
 
-// UUID is like uuid.UUID, but marshals itself binarily (not like xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx) in SQL context.
+// UUID is like uuid.NullUUID, but marshals itself binarily (not like xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx) in SQL.
 type UUID struct {
-	uuid.UUID
+	uuid.NullUUID
 }
 
+// TransformNilUUIDToNull transforms a valid UUID carrying a nil value to a SQL NULL.
+func TransformNilUUIDToNull(u *UUID) {
+	if u.Valid && u.UUID == uuid.Nil {
+		u.Valid = false
+	}
+}
+
+// MakeUUID constructs a new UUID.
+//
+// Multiple transformer functions can be given, each transforming the generated UUID, e.g., TransformNilUUIDToNull.
+func MakeUUID(in uuid.UUID, opts ...func(*UUID)) UUID {
+	u := UUID{NullUUID: uuid.NullUUID{UUID: in, Valid: true}}
+	for _, opt := range opts {
+		opt(&u)
+	}
+	return u
+}
+
+// IsZero implements the json.isZeroer interface.
+//
+// A NullUUID is considered zero if it is not valid regardless of the actual UUID value.
+func (u *UUID) IsZero() bool { return !u.Valid }
+
 // Value implements driver.Valuer.
-func (uuid UUID) Value() (driver.Value, error) {
-	return uuid.UUID[:], nil
+// Supports SQL NULL.
+func (u UUID) Value() (driver.Value, error) {
+	if !u.Valid {
+		return nil, nil
+	}
+	return u.UUID[:], nil
 }
 
 // Assert interface compliance.
 var (
 	_ encoding.TextUnmarshaler = (*UUID)(nil)
 	_ driver.Valuer            = UUID{}
+	_ sql.Scanner              = (*UUID)(nil)
 )
