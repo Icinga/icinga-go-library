@@ -4,6 +4,7 @@ package event
 import (
 	"errors"
 	"fmt"
+	"net/url"
 
 	"github.com/icinga/icinga-go-library/types"
 )
@@ -156,6 +157,20 @@ func (e *Event) Validate() error {
 		}
 		if len(tag) > 255 {
 			return fmt.Errorf("invalid event: tag %q is too long, at most 255 chars allowed, %d given", tag, len(tag))
+		}
+	}
+
+	// A source has to submit an absolute URL, as Icinga Notifications does not know where the source's web
+	// interface lives and can therefore not complete a relative reference for the notified contacts. An empty
+	// URL is still okay, it just means that this object has no web interface to link to.
+	if e.URL != "" {
+		u, err := url.Parse(e.URL)
+		if err != nil {
+			return fmt.Errorf("invalid event: url is not a valid URL: %w", err)
+		}
+
+		if !u.IsAbs() {
+			return fmt.Errorf("invalid event: url must be an absolute URL, got %q", e.URL)
 		}
 	}
 
