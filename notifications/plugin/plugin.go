@@ -152,9 +152,6 @@ type Incident struct {
 	// Id is the unique identifier for this Icinga Notifications Incident, allows linking related events.
 	Id int64 `json:"id"`
 
-	// Url pointing to the Icinga Notifications Web module's Incident page.
-	Url string `json:"url"`
-
 	// Severity of this Incident.
 	Severity event.Severity `json:"severity"`
 
@@ -376,12 +373,6 @@ func FormatMessage(writer io.Writer, req *NotificationRequest) {
 	_, _ = writer.Write([]byte("Tags:\n"))
 	for k, v := range utils.IterateOrderedMap(req.Object.Tags) {
 		_, _ = fmt.Fprintf(writer, "%s: %s\n", k, v)
-	}
-
-	if req.Incident != nil {
-		_, _ = fmt.Fprintf(writer, "\nIncident: %s", req.Incident.Url)
-	} else {
-		_, _ = fmt.Fprint(writer, "\nIncident: No active incident found for this object")
 	}
 }
 
