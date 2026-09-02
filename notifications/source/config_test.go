@@ -2,12 +2,14 @@ package source
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"testing"
 
 	"github.com/icinga/icinga-go-library/config"
 	"github.com/icinga/icinga-go-library/testutils"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestConfig(t *testing.T) {
@@ -195,6 +197,48 @@ default_relations:
 			},
 		},
 		{
+			Name: "Absolute Icinga Web 2 URL",
+			Data: testutils.ConfigTestData{
+				Yaml: `
+url: http://localhost:5680
+username: icinga
+password: secret
+icingaweb2_url: https://example.com/icingaweb2`,
+				Env: map[string]string{
+					"URL":            "http://localhost:5680",
+					"USERNAME":       "icinga",
+					"PASSWORD":       "secret",
+					"ICINGAWEB2_URL": "https://example.com/icingaweb2",
+				},
+			},
+			Expected: Config{
+				Url:                 "http://localhost:5680",
+				Username:            "icinga",
+				Password:            "secret",
+				Icingaweb2Url:       "https://example.com/icingaweb2",
+				Icingaweb2UrlParsed: mustParseUrl(t, "https://example.com/icingaweb2/"),
+			},
+		},
+		{
+			Name: "Relative Icinga Web 2 URL",
+			Data: testutils.ConfigTestData{
+				Yaml: `
+url: http://localhost:5680
+username: icinga
+password: secret
+icingaweb2_url: /icingaweb2`,
+				Env: map[string]string{
+					"URL":            "http://localhost:5680",
+					"USERNAME":       "icinga",
+					"PASSWORD":       "secret",
+					"ICINGAWEB2_URL": "/icingaweb2",
+				},
+			},
+			Error: func(t *testing.T, err error) {
+				assert.ErrorContains(t, err, "icingaweb2_url has to be an absolute URL")
+			},
+		},
+		{
 			Name: "Invalid URL scheme",
 			Data: testutils.ConfigTestData{
 				Yaml: `url: invalid:nope`,
@@ -234,4 +278,12 @@ default_relations:
 			}))
 		}
 	})
+}
+
+// mustParseUrl parses rawUrl and fails the test if it cannot be parsed.
+func mustParseUrl(t *testing.T, rawUrl string) *url.URL {
+	u, err := url.Parse(rawUrl)
+	require.NoError(t, err)
+
+	return u
 }

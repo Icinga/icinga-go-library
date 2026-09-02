@@ -28,11 +28,12 @@ type Event struct {
 
 	Name string `json:"name"` // Name is the name of the object this event is all about.
 
-	// URL represents a URL or a relative reference to the object in Icinga Web 2.
+	// URL points to the object this event is all about, e.g. its detail view in the source's web interface.
 	//
-	// If the URL field does not contain a URL, but only a reference relative to an Icinga Web URL, the Icinga
-	// Notifications daemon will create a URL. This allows a source to set this to something like
-	// "/icingadb/host?name=example.com" without having to know the Icinga Web 2 root URL by itself.
+	// It is passed on to the notified contacts, so it has to be an absolute URL such as
+	// "https://example.com/icingaweb2/icingadb/host?name=example". Icinga Notifications does not know
+	// where the source's web interface lives and therefore rejects a relative reference. This field may be
+	// left empty if the object has no web interface to link to.
 	URL string `json:"url"`
 
 	// Tags contains additional metadata for the event that uniquely identifies the object it's referring to.
