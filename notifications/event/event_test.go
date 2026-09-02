@@ -38,6 +38,40 @@ func TestEvent(t *testing.T) {
 			assert.ErrorContains(t, ev.Validate(), fmt.Sprintf(`tag %q is too long, at most 255 chars allowed, %d given`, oversized, 256))
 		})
 
+		t.Run("URL", func(t *testing.T) {
+			t.Parallel()
+
+			for _, tc := range []struct {
+				name    string
+				url     string
+				isValid bool
+			}{
+				{name: "Absolute URL", url: "https://example.com/icingaweb2/icingadb/host?name=example", isValid: true},
+				{name: "Absolute URL of unknown scheme", url: "icinga://example.com/host/example", isValid: true},
+				{name: "Empty URL", url: "", isValid: true},
+				{name: "Relative URL with leading slash", url: "/icingadb/host?name=example", isValid: false},
+				{name: "Relative URL without leading slash", url: "icingadb/host?name=example", isValid: false},
+				{name: "Protocol relative URL", url: "//example.com/icingadb/host?name=example", isValid: false},
+				{name: "Invalid URL", url: "http://[invalid-url", isValid: false},
+			} {
+				t.Run(tc.name, func(t *testing.T) {
+					t.Parallel()
+
+					ev := &Event{
+						URL:      tc.url,
+						Tags:     map[string]string{"foo": "bar"},
+						Incident: types.MakeBool(true),
+					}
+
+					if tc.isValid {
+						assert.NoError(t, ev.Validate())
+					} else {
+						assert.ErrorContains(t, ev.Validate(), "invalid event: url")
+					}
+				})
+			}
+		})
+
 		t.Run("Flags", func(t *testing.T) {
 			t.Parallel()
 
