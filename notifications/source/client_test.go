@@ -122,9 +122,9 @@ func TestClient(t *testing.T) {
 			server: func(t *testing.T, h http.Handler) *httptest.Server { return httptest.NewServer(h) },
 			handler: func(t *testing.T, rw http.ResponseWriter, r *http.Request) bool {
 				incidents := []any{
-					Incident{IsMuted: false, ObjectTags: map[string]string{"icinga": "test"}, Severity: event.SeverityCrit},
-					Incident{IsMuted: true, ObjectTags: map[string]string{"icinga": "test2"}, Severity: event.SeverityWarning},
-					Incident{IsMuted: false, ObjectTags: map[string]string{"icinga": "test3"}, Severity: event.SeverityInfo},
+					Response[Incident]{Status: ResponseStatusSuccess, Result: Incident{IsMuted: false, ObjectTags: map[string]string{"icinga": "test"}, Severity: event.SeverityCrit}},
+					Response[Incident]{Status: ResponseStatusSuccess, Result: Incident{IsMuted: true, ObjectTags: map[string]string{"icinga": "test2"}, Severity: event.SeverityWarning}},
+					Response[Incident]{Status: ResponseStatusSuccess, Result: Incident{IsMuted: false, ObjectTags: map[string]string{"icinga": "test3"}, Severity: event.SeverityInfo}},
 				}
 				writeResp(t, rw, incidents)
 				return true
@@ -153,8 +153,8 @@ func TestClient(t *testing.T) {
 			server: func(t *testing.T, h http.Handler) *httptest.Server { return httptest.NewServer(h) },
 			handler: func(t *testing.T, rw http.ResponseWriter, r *http.Request) bool {
 				incidents := []any{
-					Incident{IsMuted: false, ObjectTags: map[string]string{"icinga": "test"}, Severity: event.SeverityCrit},
-					Incident{ErrorState: ErrorState{Error: "something went wrong"}},
+					Response[Incident]{Status: ResponseStatusSuccess, Result: Incident{IsMuted: false, ObjectTags: map[string]string{"icinga": "test"}, Severity: event.SeverityCrit}},
+					Response[ErrorState]{Status: ResponseStatusError, Result: ErrorState{Error: "something went wrong"}},
 				}
 				writeResp(t, rw, incidents)
 				return true
@@ -171,8 +171,8 @@ func TestClient(t *testing.T) {
 			server: func(t *testing.T, h http.Handler) *httptest.Server { return httptest.NewServer(h) },
 			handler: func(t *testing.T, rw http.ResponseWriter, r *http.Request) bool {
 				results := []any{
-					ModifiedIncidentResp{ObjectTags: map[string]string{"icinga": "test"}},
-					ModifiedIncidentResp{ObjectTags: map[string]string{"icinga": "test2"}},
+					Response[ModifiedIncidentResp]{Status: ResponseStatusSuccess, Result: ModifiedIncidentResp{ObjectTags: map[string]string{"icinga": "test"}}},
+					Response[ModifiedIncidentResp]{Status: ResponseStatusSuccess, Result: ModifiedIncidentResp{ObjectTags: map[string]string{"icinga": "test2"}}},
 				}
 				writeResp(t, rw, results)
 				return true
@@ -185,8 +185,11 @@ func TestClient(t *testing.T) {
 			server: func(t *testing.T, h http.Handler) *httptest.Server { return httptest.NewServer(h) },
 			handler: func(t *testing.T, rw http.ResponseWriter, r *http.Request) bool {
 				results := []any{
-					ModifiedIncidentResp{ObjectTags: map[string]string{"icinga": "test"}},
-					ModifiedIncidentResp{ObjectTags: map[string]string{"icinga": "test2"}, ErrorState: ErrorState{Error: "something went wrong"}},
+					Response[ModifiedIncidentResp]{Status: ResponseStatusSuccess, Result: ModifiedIncidentResp{ObjectTags: map[string]string{"icinga": "test"}}},
+					Response[ModifiedIncidentResp]{Status: ResponseStatusError, Result: ModifiedIncidentResp{
+						ObjectTags: map[string]string{"icinga": "test2"},
+						ErrorState: ErrorState{Error: "something went wrong"}},
+					},
 				}
 				writeResp(t, rw, results)
 				return true
@@ -280,25 +283,31 @@ func TestClientGetNotificationHistory(t *testing.T) {
 		verify  func(t *testing.T, err error, result []NotificationHistory)
 	}{
 		{
-			name:  "success",
+			name:  "Success",
 			since: 1,
 			handler: func(t *testing.T, rw http.ResponseWriter, r *http.Request) bool {
-				entries := []NotificationHistory{
+				entries := []Response[NotificationHistory]{
 					{
-						EventID:      uuid1,
-						TriggeredAt:  types.UnixMilli(time.Unix(0, 1234567890123*int64(time.Millisecond))),
-						ContactName:  types.MakeString("first-contact"),
-						ChannelName:  types.MakeString("first-channel"),
-						EventMessage: types.MakeString("hello"),
-						State:        NotificationStateSent,
+						Status: ResponseStatusSuccess,
+						Result: NotificationHistory{
+							EventID:      uuid1,
+							TriggeredAt:  types.UnixMilli(time.Unix(0, 1234567890123*int64(time.Millisecond))),
+							ContactName:  types.MakeString("first-contact"),
+							ChannelName:  types.MakeString("first-channel"),
+							EventMessage: types.MakeString("hello"),
+							State:        NotificationStateSent,
+						},
 					},
 					{
-						EventID:      uuid2,
-						TriggeredAt:  types.UnixMilli(time.Unix(0, 1234567890456*int64(time.Millisecond))),
-						ContactName:  types.MakeString("second-contact"),
-						ChannelName:  types.MakeString("second-channel"),
-						EventMessage: types.MakeString("hello"),
-						State:        NotificationStateFailed,
+						Status: ResponseStatusSuccess,
+						Result: NotificationHistory{
+							EventID:      uuid2,
+							TriggeredAt:  types.UnixMilli(time.Unix(0, 1234567890456*int64(time.Millisecond))),
+							ContactName:  types.MakeString("second-contact"),
+							ChannelName:  types.MakeString("second-channel"),
+							EventMessage: types.MakeString("hello"),
+							State:        NotificationStateFailed,
+						},
 					},
 				}
 				writeResp(t, rw, entries)
@@ -327,12 +336,12 @@ func TestClientGetNotificationHistory(t *testing.T) {
 			},
 		},
 		{
-			name:  "partial error",
+			name:  "Partial Error",
 			since: 1,
 			handler: func(t *testing.T, rw http.ResponseWriter, r *http.Request) bool {
-				entries := []NotificationHistory{
-					{State: NotificationStateSent},
-					{ErrorState: ErrorState{Error: "something went wrong"}},
+				entries := []any{
+					Response[NotificationHistory]{Status: ResponseStatusSuccess, Result: NotificationHistory{State: NotificationStateSent}},
+					Response[ErrorState]{Status: ResponseStatusError, Result: ErrorState{Error: "something went wrong"}},
 				}
 				writeResp(t, rw, entries)
 				return true
@@ -344,14 +353,14 @@ func TestClientGetNotificationHistory(t *testing.T) {
 			},
 		},
 		{
-			name:  "unexpected status",
+			name:  "Unexpected Status",
 			since: 1,
 			handler: func(t *testing.T, rw http.ResponseWriter, r *http.Request) bool {
 				rw.WriteHeader(http.StatusInternalServerError)
 				return true
 			},
 			verify: func(t *testing.T, err error, result []NotificationHistory) {
-				require.ErrorContains(t, err, "unexpected response from notification history API")
+				require.ErrorContains(t, err, "unexpected response from API")
 				assert.Len(t, result, 0)
 			},
 		},
