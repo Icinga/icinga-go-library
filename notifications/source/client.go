@@ -154,6 +154,10 @@ func (client *Client) ProcessEvent(ctx context.Context, ev *event.Event, rejectI
 	}
 	defer drainBody(resp.Body)
 
+	if resp.StatusCode == http.StatusNoContent {
+		return nil, nil // Successfully processed the event.
+	}
+
 	if resp.StatusCode == http.StatusUnprocessableEntity {
 		var attributeNegotiationResp struct{ Attributes []string }
 
@@ -162,14 +166,6 @@ func (client *Client) ProcessEvent(ctx context.Context, ev *event.Event, rejectI
 		}
 
 		return attributeNegotiationResp.Attributes, ErrAttrsNegotiation
-	}
-
-	if resp.StatusCode >= http.StatusOK && resp.StatusCode <= 299 {
-		return nil, nil // Successfully processed the event.
-	}
-
-	if resp.StatusCode == http.StatusNotAcceptable {
-		return nil, nil // Superfluous state change event.
 	}
 
 	return nil, errors.Errorf("unexpected response from process event API, status %q (%d): %q",
