@@ -45,6 +45,17 @@ func (u UUID) Value() (driver.Value, error) {
 	return u.UUID[:], nil
 }
 
+// String implements fmt.Stringer.
+//
+// It is necessary to implement this method because the embedded NullUUID's doesn't embed the uuid.UUID type, but has
+// it as a field, so the String() method of the UUID field of NullUUID is not promoted.
+func (u UUID) String() string {
+	if !u.Valid {
+		return ""
+	}
+	return u.UUID.String()
+}
+
 // Assert interface compliance.
 var (
 	_ encoding.TextUnmarshaler = (*UUID)(nil)

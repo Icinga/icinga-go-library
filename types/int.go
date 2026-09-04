@@ -37,6 +37,11 @@ func MakeInt(in int64, transformers ...func(*Int)) Int {
 	return i
 }
 
+// IsZero implements the json.isZeroer interface.
+//
+// An Integer is considered zero if it is not valid regardless of the actual int64 value.
+func (i *Int) IsZero() bool { return !i.Valid }
+
 // MarshalJSON implements the json.Marshaler interface.
 // Supports JSON null.
 func (i Int) MarshalJSON() ([]byte, error) {

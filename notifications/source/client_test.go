@@ -19,6 +19,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/icinga/icinga-go-library/config"
 	"github.com/icinga/icinga-go-library/notifications/event"
 	"github.com/icinga/icinga-go-library/types"
@@ -32,18 +33,6 @@ func TestClient(t *testing.T) {
 	clientCert, clientKey := generateClientCert(t)
 	clientCertPool := x509.NewCertPool()
 	require.True(t, clientCertPool.AppendCertsFromPEM([]byte(clientCert)))
-
-	writeResp := func(t *testing.T, rw http.ResponseWriter, results []any) {
-		rw.Header().Set("Content-Type", "application/x-ndjson")
-		rw.WriteHeader(http.StatusAccepted)
-
-		ctrl := http.NewResponseController(rw)
-		enc := json.NewEncoder(rw)
-		for _, result := range results {
-			require.NoError(t, enc.Encode(result))
-			require.NoError(t, ctrl.Flush())
-		}
-	}
 
 	tests := []struct {
 		name    string
@@ -276,4 +265,149 @@ func generateClientCert(t *testing.T) (string, string) {
 	keyPem := string(pem.EncodeToMemory(&pem.Block{Type: "PRIVATE KEY", Bytes: keyDer}))
 
 	return certPem, keyPem
+}
+
+func TestClientGetNotificationHistory(t *testing.T) {
+	t.Parallel()
+
+	uuid1 := types.MakeUUID(uuid.New())
+	uuid2 := types.MakeUUID(uuid.New())
+
+	tests := []struct {
+		name    string
+		since   int64
+		handler func(t *testing.T, rw http.ResponseWriter, r *http.Request) bool
+		verify  func(t *testing.T, err error, result []NotificationHistory)
+	}{
+		{
+			name:  "success",
+			since: 1,
+			handler: func(t *testing.T, rw http.ResponseWriter, r *http.Request) bool {
+				entries := []NotificationHistory{
+					{
+						EventID:      uuid1,
+						TriggeredAt:  types.UnixMilli(time.Unix(0, 1234567890123*int64(time.Millisecond))),
+						ContactName:  types.MakeString("first-contact"),
+						ChannelName:  types.MakeString("first-channel"),
+						EventMessage: types.MakeString("hello"),
+						State:        NotificationStateSent,
+					},
+					{
+						EventID:      uuid2,
+						TriggeredAt:  types.UnixMilli(time.Unix(0, 1234567890456*int64(time.Millisecond))),
+						ContactName:  types.MakeString("second-contact"),
+						ChannelName:  types.MakeString("second-channel"),
+						EventMessage: types.MakeString("hello"),
+						State:        NotificationStateFailed,
+					},
+				}
+				writeResp(t, rw, entries)
+
+				return true
+			},
+			verify: func(t *testing.T, err error, result []NotificationHistory) {
+				require.NoError(t, err)
+				require.Len(t, result, 2)
+
+				first := result[0]
+				assert.Equal(t, uuid1, first.EventID)
+				assert.Equal(t, types.UnixMilli(time.Unix(0, 1234567890123*int64(time.Millisecond))), first.TriggeredAt)
+				assert.Equal(t, "first-contact", first.ContactName.String)
+				assert.Equal(t, "first-channel", first.ChannelName.String)
+				assert.Equal(t, "hello", first.EventMessage.String)
+				assert.Equal(t, NotificationStateSent, first.State)
+
+				second := result[1]
+				assert.Equal(t, uuid2, second.EventID)
+				assert.Equal(t, types.UnixMilli(time.Unix(0, 1234567890456*int64(time.Millisecond))), second.TriggeredAt)
+				assert.Equal(t, "second-contact", second.ContactName.String)
+				assert.Equal(t, "second-channel", second.ChannelName.String)
+				assert.Equal(t, "hello", second.EventMessage.String)
+				assert.Equal(t, NotificationStateFailed, second.State)
+			},
+		},
+		{
+			name:  "partial error",
+			since: 1,
+			handler: func(t *testing.T, rw http.ResponseWriter, r *http.Request) bool {
+				entries := []NotificationHistory{
+					{State: NotificationStateSent},
+					{ErrorState: ErrorState{Error: "something went wrong"}},
+				}
+				writeResp(t, rw, entries)
+				return true
+			},
+			verify: func(t *testing.T, err error, result []NotificationHistory) {
+				require.ErrorIs(t, err, ErrReadPartialResp)
+				require.ErrorContains(t, err, "something went wrong")
+				assert.Len(t, result, 0)
+			},
+		},
+		{
+			name:  "unexpected status",
+			since: 1,
+			handler: func(t *testing.T, rw http.ResponseWriter, r *http.Request) bool {
+				rw.WriteHeader(http.StatusInternalServerError)
+				return true
+			},
+			verify: func(t *testing.T, err error, result []NotificationHistory) {
+				require.ErrorContains(t, err, "unexpected response from notification history API")
+				assert.Len(t, result, 0)
+			},
+		},
+		{
+			name:  "invalid since",
+			since: 0,
+			handler: func(t *testing.T, rw http.ResponseWriter, r *http.Request) bool {
+				t.Fatal("request should not have reached the server")
+				return true
+			},
+			verify: func(t *testing.T, err error, result []NotificationHistory) {
+				require.ErrorContains(t, err, "since parameter must be a positive integer")
+				assert.Len(t, result, 0)
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			var reached bool
+			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				reached = true
+				assert.Equal(t, "test-client", r.Header.Get("User-Agent"))
+				if tc.handler(t, w, r) {
+					return // headers and status code already written by handler
+				}
+				w.WriteHeader(http.StatusAccepted)
+			}))
+			defer srv.Close()
+
+			client, err := NewClient(Config{Url: srv.URL}, "test-client")
+			require.NoError(t, err)
+
+			result, err := client.GetNotificationHistory(t.Context(), tc.since)
+			if tc.since > 0 {
+				assert.True(t, reached, "request should have reached the server")
+			} else {
+				assert.False(t, reached, "request should not have reached the server")
+			}
+			tc.verify(t, err, result)
+		})
+	}
+}
+
+// writeResp writes each of results as a chunk of a streamed x-ndjson response with a 202 Accepted status,
+// mirroring how the Icinga Notifications API streams /incidents and /notification-history responses.
+func writeResp[T any](t *testing.T, rw http.ResponseWriter, results []T) {
+	rw.Header().Set("Content-Type", "application/x-ndjson")
+	rw.WriteHeader(http.StatusAccepted)
+
+	ctrl := http.NewResponseController(rw)
+	enc := json.NewEncoder(rw)
+	for i := range results {
+		require.NoError(t, enc.Encode(&results[i]))
+		require.NoError(t, ctrl.Flush())
+	}
 }

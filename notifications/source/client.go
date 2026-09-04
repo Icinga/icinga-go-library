@@ -58,8 +58,9 @@ type Client struct {
 	httpClient http.Client
 
 	endpoints struct {
-		ProcessEvent string
-		Incidents    string
+		ProcessEvent        string
+		Incidents           string
+		NotificationHistory string
 	}
 }
 
@@ -113,11 +114,13 @@ func NewClient(cfg Config, clientName string) (*Client, error) {
 			},
 		},
 		endpoints: struct {
-			ProcessEvent string
-			Incidents    string
+			ProcessEvent        string
+			Incidents           string
+			NotificationHistory string
 		}{
-			ProcessEvent: baseUrl.JoinPath("/process-event").String(),
-			Incidents:    baseUrl.JoinPath("/incidents").String(),
+			ProcessEvent:        baseUrl.JoinPath("/process-event").String(),
+			Incidents:           baseUrl.JoinPath("/incidents").String(),
+			NotificationHistory: baseUrl.JoinPath("/notification-history").String(),
 		},
 	}, nil
 }
@@ -314,6 +317,91 @@ func (client *Client) ModifyIncidents(ctx context.Context, attrs ModifiableIncid
 		return errors.WithStack(&ModifyError{results: results})
 	}
 	return nil
+}
+
+// GetNotificationHistory retrieves the notification history from the API for the specified time range.
+//
+// The since parameter is a Unix timestamp in milliseconds that specifies the start of the time range for which
+// to retrieve notification history entries. It must be a positive integer. If since is less than or equal to zero,
+// an error is returned.
+func (client *Client) GetNotificationHistory(ctx context.Context, since int64) ([]NotificationHistory, error) {
+	notificationHistoryCh, errCh := client.YieldNotificationHistory(ctx, since)
+
+	var notificationHistoryEntries []NotificationHistory
+	for entry := range notificationHistoryCh {
+		notificationHistoryEntries = append(notificationHistoryEntries, entry)
+	}
+	if err := <-errCh; err != nil {
+		return nil, err
+	}
+
+	return notificationHistoryEntries, nil
+}
+
+// YieldNotificationHistory retrieves the notification history from the API for the specified time range and yields
+// them as a stream of [NotificationHistory] objects.
+//
+// The since parameter is a Unix timestamp in milliseconds that specifies the start of the time range for which
+// to retrieve notification history entries. It must be a positive integer. If since is less than or equal to zero,
+// an error is returned.
+//
+// The function returns a channel of [NotificationHistory] objects and a channel of errors. The caller should read
+// from both channels until they are closed. If an error occurs during the request or while decoding the response,
+// it will be sent to the error channel. Also, this might send [ErrReadPartialResp] to the error channel when it
+// receives a notification history entry with a non-zero Error field from the API, which indicates that something
+// went wrong after streaming the first chunk of the response body.
+//
+// If you want to collect all notification history entries into a slice, consider using [Client.GetNotificationHistory]
+// instead, which internally uses this function and collects the entries for you.
+func (client *Client) YieldNotificationHistory(ctx context.Context, since int64) (<-chan NotificationHistory, <-chan error) {
+	entryCh := make(chan NotificationHistory)
+	errCh := make(chan error, 1)
+
+	go func() {
+		defer close(entryCh)
+		defer close(errCh)
+
+		if since <= 0 {
+			errCh <- errors.New("since parameter must be a positive integer")
+			return
+		}
+
+		//nolint:bodyclose // False positive, drainBody is called in the defer statement below.
+		resp, err := client.doRequest(ctx, http.MethodGet, client.endpoints.NotificationHistory, map[string]int64{"since": since}, nil, nil)
+		if err != nil {
+			errCh <- errors.Wrap(err, "cannot GET notification history from API")
+			return
+		}
+		defer drainBody(resp.Body)
+
+		if resp.StatusCode != http.StatusAccepted {
+			errCh <- errors.Errorf("unexpected response from notification history API, status %q (%d): %q",
+				resp.Status, resp.StatusCode, readLimitedBody(resp.Body))
+			return
+		}
+
+		for dec := json.NewDecoder(resp.Body); dec.More(); {
+			var entry NotificationHistory
+			if err := dec.Decode(&entry); err != nil {
+				errCh <- errors.Wrap(err, "cannot decode notification history entry from response")
+				return
+			}
+
+			if entry.Error != "" {
+				errCh <- errors.Wrap(ErrReadPartialResp, entry.Error)
+				return
+			}
+
+			select {
+			case entryCh <- entry:
+			case <-ctx.Done():
+				errCh <- ctx.Err()
+				return
+			}
+		}
+	}()
+
+	return entryCh, errCh
 }
 
 // doRequest is a helper function that performs an HTTP request to the specified endpoint with the given method, filter,
