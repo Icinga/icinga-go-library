@@ -18,6 +18,13 @@ import (
 	"github.com/pkg/errors"
 )
 
+const (
+	// ResponseStatusSuccess indicates a successful response from the Icinga Notifications API.
+	ResponseStatusSuccess = "success"
+	// ResponseStatusError indicates an error response from the Icinga Notifications API.
+	ResponseStatusError = "error"
+)
+
 var (
 	// ErrAttrsNegotiation implies missing attributes.
 	ErrAttrsNegotiation = stderrors.New("attribute negotiation required")
@@ -203,61 +210,14 @@ func (client *Client) GetIncidents(ctx context.Context, filter any) ([]Incident,
 //
 // The function returns a channel of [Incident] objects and a channel of errors. The caller should read from both
 // channels until they are closed. If an error occurs during the request or while decoding the response, it will
-// be sent to the error channel. Also, this might send [ErrReadPartialResp] to the error channel when it receives
-// an incident with a non-zero [ErrorState] from the API, which indicates that something went wrong after streaming
-// the first chunk of the response body.
+// be sent to the error channel. Also, this might send [ErrReadPartialResp] to the error channel when something
+// went wrong midstream in Icinga Notifications, and that will be the last thing sent to the error channel, after
+// which no more incidents will be sent to the incident channel.
 //
 // If you want to collect all incidents into a slice, consider using [Client.GetIncidents] instead, which internally
 // uses this function and collects the incidents for you.
 func (client *Client) YieldIncidents(ctx context.Context, filter any) (<-chan Incident, <-chan error) {
-	incidentsCh := make(chan Incident)
-	errCh := make(chan error, 1)
-
-	go func() {
-		defer close(incidentsCh)
-		defer close(errCh)
-
-		if filter == nil {
-			errCh <- errors.New("filter parameter must be non-nil")
-			return
-		}
-
-		//nolint:bodyclose // False positive, drainBody is called in the defer statement below.
-		resp, err := client.doRequest(ctx, http.MethodGet, client.endpoints.Incidents, filter, 0, nil, nil)
-		if err != nil {
-			errCh <- errors.Wrap(err, "cannot GET incidents from API")
-			return
-		}
-		defer drainBody(resp.Body)
-
-		if resp.StatusCode != http.StatusAccepted {
-			errCh <- errors.Errorf("unexpected response from incidents API, status %q (%d): %q",
-				resp.Status, resp.StatusCode, readLimitedBody(resp.Body))
-			return
-		}
-
-		for dec := json.NewDecoder(resp.Body); dec.More(); {
-			var incident Incident
-			if err := dec.Decode(&incident); err != nil {
-				errCh <- errors.Wrap(err, "cannot decode incident from response")
-				return
-			}
-
-			if incident.Error != "" {
-				errCh <- errors.Wrap(ErrReadPartialResp, incident.Error)
-				return
-			}
-
-			select {
-			case incidentsCh <- incident:
-			case <-ctx.Done():
-				errCh <- ctx.Err()
-				return
-			}
-		}
-	}()
-
-	return incidentsCh, errCh
+	return client.yield[Incident](ctx, client.endpoints.Incidents, filter, 0, false)
 }
 
 // ModifyIncidents modifies the incidents that match the provided filter with the given attributes.
@@ -307,12 +267,12 @@ func (client *Client) ModifyIncidents(ctx context.Context, attrs ModifiableIncid
 
 	var results []ModifiedIncidentResp
 	for dec := json.NewDecoder(resp.Body); dec.More(); {
-		var modifiedResp ModifiedIncidentResp
+		var modifiedResp Response[ModifiedIncidentResp]
 		if err := dec.Decode(&modifiedResp); err != nil {
 			return errors.Wrap(err, "cannot decode modified incident response from API")
 		}
-		if modifiedResp.Error != "" {
-			results = append(results, modifiedResp)
+		if modifiedResp.Status != ResponseStatusSuccess {
+			results = append(results, modifiedResp.Result)
 		}
 	}
 	if len(results) > 0 {
@@ -356,59 +316,54 @@ func (client *Client) GetNotificationHistory(ctx context.Context, filter any, si
 // If you want to collect all notification history entries into a slice, consider using [Client.GetNotificationHistory]
 // instead, which internally uses this function and collects the entries for you.
 func (client *Client) YieldNotificationHistory(ctx context.Context, filter any, since int64) (<-chan NotificationHistory, <-chan error) {
-	entryCh := make(chan NotificationHistory)
+	return client.yield[NotificationHistory](ctx, client.endpoints.NotificationHistory, filter, since, true)
+}
+
+// yield is a generic helper function that retrieves data from the specified API endpoint and yields it as a stream of
+// type T objects.
+//
+// The filter parameter is used to filter the data returned by the API. It must be a non-nil value that can
+// be marshaled to JSON. If filter is nil, an error is returned. Please refer to the Icinga Notifications API doc
+// for details on the filter syntax and supported fields.
+//
+// The function returns a channel of type T objects and a channel of errors. The caller should read from both
+// channels until they are closed. If an error occurs during the request or while decoding the response, it will
+// be sent to the error channel.
+func (client *Client) yield[T any](ctx context.Context, endpoint string, filter any, since int64, requireSince bool) (<-chan T, <-chan error) {
+	ch := make(chan T)
 	errCh := make(chan error, 1)
 
 	go func() {
-		defer close(entryCh)
+		defer close(ch)
 		defer close(errCh)
 
-		if since <= 0 {
+		if requireSince && since <= 0 {
 			errCh <- errors.New("since parameter must be a positive integer")
 			return
 		}
 
-		if filter == nil {
-			errCh <- errors.New("filter parameter must be non-nil")
-			return
-		}
-
 		//nolint:bodyclose // False positive, drainBody is called in the defer statement below.
-		resp, err := client.doRequest(ctx, http.MethodGet, client.endpoints.NotificationHistory, filter, since, nil, nil)
+		resp, err := client.doRequest(ctx, http.MethodGet, endpoint, filter, since, nil, nil)
 		if err != nil {
-			errCh <- errors.Wrap(err, "cannot GET notification history from API")
+			errCh <- errors.Wrapf(err, "cannot GET data from API endpoint %q", endpoint)
 			return
 		}
 		defer drainBody(resp.Body)
 
 		if resp.StatusCode != http.StatusAccepted {
-			errCh <- errors.Errorf("unexpected response from notification history API, status %q (%d): %q",
-				resp.Status, resp.StatusCode, readLimitedBody(resp.Body))
+			errCh <- errors.Errorf("unexpected response from API %q, status %q (%d): %q",
+				endpoint, resp.Status, resp.StatusCode, readLimitedBody(resp.Body))
 			return
 		}
 
 		for dec := json.NewDecoder(resp.Body); dec.More(); {
-			var entry NotificationHistory
-			if err := dec.Decode(&entry); err != nil {
-				errCh <- errors.Wrap(err, "cannot decode notification history entry from response")
-				return
-			}
-
-			if entry.Error != "" {
-				errCh <- errors.Wrap(ErrReadPartialResp, entry.Error)
-				return
-			}
-
-			select {
-			case entryCh <- entry:
-			case <-ctx.Done():
-				errCh <- ctx.Err()
-				return
+			if !decodeAndDispatchResponseItem(ctx, dec, ch, errCh) {
+				return // An error occurred, and it has been sent to errCh, so we stop processing further.
 			}
 		}
 	}()
 
-	return entryCh, errCh
+	return ch, errCh
 }
 
 // doRequest is a helper function that performs an HTTP request to the specified endpoint with the given method, filter,
@@ -467,25 +422,28 @@ func (client *Client) doRequest(
 	return resp, nil
 }
 
-// ErrorState represents the error state of an incident as returned by the Icinga Notifications /incidents API endpoint.
+// ErrorState represents an error state returned by the Icinga Notifications API as a Response.Result
+// when the Response.Status is "error".
 type ErrorState struct {
 	Error string `json:"error,omitempty"`
 }
 
-// Incident represents a single incident object as returned by the Icinga Notifications /incidents API endpoint.
-//
-// Since Icinga Notifications streams the response in a NDJSON format, the Error field will be set to a non-zero
-// value when something goes wrong after sending the HTTP response headers and the first chunk of the response body.
-// In that case, such an object will be the last object in the response stream and the client should handle it
-// accordingly. In all other cases, the [ErrState.Error] field will be zero and can be ignored.
-//
-// All other fields are set according to the incident's current state at the time of the request.
+// Incident represents an incident as returned by the Icinga Notifications /incidents API endpoint as a Response.Result
+// when the Response.Status is "success".
 type Incident struct {
 	IsMuted    bool              `json:"is_muted"`
 	ObjectTags map[string]string `json:"object_tags,omitempty"`
 	Severity   event.Severity    `json:"severity,omitempty"`
+}
 
-	ErrorState
+// Response represents a generic response from the Icinga Notifications API.
+//
+// The Status field indicates whether the request was successful or resulted in an error. The Result field contains
+// the actual response data, which can be of any type T. If the request was successful, Result will contain the
+// expected data, otherwise, contains the error state information.
+type Response[T any] struct {
+	Status string `json:"status"` // success or error
+	Result T      `json:"result"`
 }
 
 // ModifiableIncidentAttrs represents the attributes of an incident that can be modified via the /incident endpoint.
@@ -509,12 +467,11 @@ func (attrs *ModifiableIncidentAttrs) Validate() error {
 	return nil
 }
 
-// ModifiedIncidentResp represents the response for a single incident from the POST /incident endpoint.
+// ModifiedIncidentResp represents the response for a modified incident from the Icinga Notifications API as a
+// Response.Result in both success and error cases. However, if Response.Status is "error", the ErrorState field
+// will be populated with the error details, otherwise, it's omitted entirely.
 //
-// The ObjectTags field contains the tags of the incident object, but it might not always be populated.
-// In such cases, Icinga Notifications will just populate the [ErrorState] field with the appropriate
-// error message. The caller should check the Error field to determine if the modification was successful
-// or not.
+// It contains the ObjectTags of the modified incident.
 type ModifiedIncidentResp struct {
 	ObjectTags map[string]string `json:"object_tags,omitempty"`
 	ErrorState
@@ -539,6 +496,49 @@ func readLimitedBody(body io.ReadCloser) string {
 func drainBody(body io.ReadCloser) {
 	_, _ = io.Copy(io.Discard, body)
 	_ = body.Close()
+}
+
+// decodeAndDispatchResponseItem decodes a single response item from the JSON decoder and sends it to the provided channel.
+//
+// If the response item indicates success, it decodes the result into the specified type T and sends it to the ch
+// channel, otherwise it decodes the error state and sends an error to the errCh channel. If the context is canceled
+// before sending the result, it sends the context error to the errCh channel instead.
+//
+// The function returns true if the result was successfully sent to the ch channel, and false if an error was sent to
+// the errCh channel.
+func decodeAndDispatchResponseItem[T any](ctx context.Context, dec *json.Decoder, ch chan<- T, errCh chan<- error) bool {
+	var respRes Response[json.RawMessage]
+	if err := dec.Decode(&respRes); err != nil {
+		errCh <- errors.Wrap(err, "cannot decode response from API")
+		return false
+	}
+
+	switch respRes.Status {
+	case ResponseStatusSuccess:
+		var resultT T
+		if err := json.Unmarshal(respRes.Result, &resultT); err != nil {
+			errCh <- errors.Wrap(err, "cannot decode result from API")
+			return false
+		}
+
+		select {
+		case ch <- resultT:
+			return true
+
+		case <-ctx.Done():
+			errCh <- ctx.Err()
+			return false
+		}
+
+	default:
+		var errState ErrorState
+		if err := json.Unmarshal(respRes.Result, &errState); err != nil {
+			errCh <- errors.Wrap(err, "cannot decode error state from API")
+			return false
+		}
+		errCh <- errors.Wrap(ErrReadPartialResp, errState.Error)
+		return false
+	}
 }
 
 // ModifyError represents an error that occurred while modifying incidents via the /incident endpoint.

@@ -107,7 +107,6 @@ func ParseNotificationState(name string) (NotificationState, error) {
 // NotificationHistory represents a single entry in the notification history retrieved from the Icinga Notifications API.
 //
 // The struct is designed to be used with JSON serialization and deserialization.
-// The ErrorState field is embedded to capture any error state associated with the notification history entry.
 type NotificationHistory struct {
 	EventID          types.UUID        `json:"event_id"`
 	TriggeredAt      types.UnixMilli   `json:"triggered_at"`
@@ -117,6 +116,4 @@ type NotificationHistory struct {
 	ChannelName      types.String      `json:"channel_name"`
 	EventMessage     types.String      `json:"event_message"`
 	State            NotificationState `json:"state"`
-
-	ErrorState
 }
