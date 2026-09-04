@@ -387,7 +387,7 @@ func TestClientGetNotificationHistory(t *testing.T) {
 			client, err := NewClient(Config{Url: srv.URL}, "test-client")
 			require.NoError(t, err)
 
-			result, err := client.GetNotificationHistory(t.Context(), tc.since)
+			result, err := client.GetNotificationHistory(t.Context(), map[string]string{}, tc.since)
 			if tc.since > 0 {
 				assert.True(t, reached, "request should have reached the server")
 			} else {
