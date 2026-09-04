@@ -141,6 +141,7 @@ func (client *Client) ProcessEvent(ctx context.Context, ev *event.Event, rejectI
 		http.MethodPost,
 		client.endpoints.ProcessEvent,
 		nil,
+		0,
 		bytes.NewReader(body),
 		map[string]string{
 			"Content-Type": "application/json",
@@ -222,7 +223,7 @@ func (client *Client) YieldIncidents(ctx context.Context, filter any) (<-chan In
 		}
 
 		//nolint:bodyclose // False positive, drainBody is called in the defer statement below.
-		resp, err := client.doRequest(ctx, http.MethodGet, client.endpoints.Incidents, filter, nil, nil)
+		resp, err := client.doRequest(ctx, http.MethodGet, client.endpoints.Incidents, filter, 0, nil, nil)
 		if err != nil {
 			errCh <- errors.Wrap(err, "cannot GET incidents from API")
 			return
@@ -288,6 +289,7 @@ func (client *Client) ModifyIncidents(ctx context.Context, attrs ModifiableIncid
 		http.MethodPost,
 		client.endpoints.Incidents,
 		filter,
+		0,
 		bytes.NewReader(body),
 		map[string]string{
 			"Content-Type": "application/json",
@@ -324,8 +326,8 @@ func (client *Client) ModifyIncidents(ctx context.Context, attrs ModifiableIncid
 // The since parameter is a Unix timestamp in milliseconds that specifies the start of the time range for which
 // to retrieve notification history entries. It must be a positive integer. If since is less than or equal to zero,
 // an error is returned.
-func (client *Client) GetNotificationHistory(ctx context.Context, since int64) ([]NotificationHistory, error) {
-	notificationHistoryCh, errCh := client.YieldNotificationHistory(ctx, since)
+func (client *Client) GetNotificationHistory(ctx context.Context, filter any, since int64) ([]NotificationHistory, error) {
+	notificationHistoryCh, errCh := client.YieldNotificationHistory(ctx, filter, since)
 
 	var notificationHistoryEntries []NotificationHistory
 	for entry := range notificationHistoryCh {
@@ -353,7 +355,7 @@ func (client *Client) GetNotificationHistory(ctx context.Context, since int64) (
 //
 // If you want to collect all notification history entries into a slice, consider using [Client.GetNotificationHistory]
 // instead, which internally uses this function and collects the entries for you.
-func (client *Client) YieldNotificationHistory(ctx context.Context, since int64) (<-chan NotificationHistory, <-chan error) {
+func (client *Client) YieldNotificationHistory(ctx context.Context, filter any, since int64) (<-chan NotificationHistory, <-chan error) {
 	entryCh := make(chan NotificationHistory)
 	errCh := make(chan error, 1)
 
@@ -366,8 +368,13 @@ func (client *Client) YieldNotificationHistory(ctx context.Context, since int64)
 			return
 		}
 
+		if filter == nil {
+			errCh <- errors.New("filter parameter must be non-nil")
+			return
+		}
+
 		//nolint:bodyclose // False positive, drainBody is called in the defer statement below.
-		resp, err := client.doRequest(ctx, http.MethodGet, client.endpoints.NotificationHistory, map[string]int64{"since": since}, nil, nil)
+		resp, err := client.doRequest(ctx, http.MethodGet, client.endpoints.NotificationHistory, filter, since, nil, nil)
 		if err != nil {
 			errCh <- errors.Wrap(err, "cannot GET notification history from API")
 			return
@@ -420,15 +427,23 @@ func (client *Client) doRequest(
 	method,
 	endpoint string,
 	filter any,
+	since int64,
 	body io.Reader,
 	headers map[string]string,
 ) (*http.Response, error) {
+	if since > 0 {
+		endpoint = fmt.Sprintf("%s?since=%d", endpoint, since)
+	}
 	if filter != nil {
 		filterBytes, err := json.Marshal(filter)
 		if err != nil {
 			return nil, errors.Wrap(err, "cannot encode filter to JSON")
 		}
-		endpoint = fmt.Sprintf("%s?filter=%s", endpoint, url.QueryEscape(string(filterBytes)))
+		separator := "?"
+		if since > 0 {
+			separator = "&"
+		}
+		endpoint = fmt.Sprintf("%s%sfilter=%s", endpoint, separator, url.QueryEscape(string(filterBytes)))
 	}
 
 	req, err := http.NewRequestWithContext(ctx, method, endpoint, body)
