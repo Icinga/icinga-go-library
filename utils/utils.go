@@ -5,10 +5,6 @@ import (
 	"context"
 	"crypto/sha1" // #nosec G505 -- Blocklisted import crypto/sha1
 	"fmt"
-	"github.com/go-sql-driver/mysql"
-	"github.com/lib/pq"
-	"github.com/pkg/errors"
-	"golang.org/x/exp/utf8string"
 	"iter"
 	"net"
 	"net/url"
@@ -17,6 +13,12 @@ import (
 	"slices"
 	"strings"
 	"time"
+	"unicode/utf8"
+
+	"github.com/go-sql-driver/mysql"
+	"github.com/lib/pq"
+	"github.com/pkg/errors"
+	"golang.org/x/exp/utf8string"
 )
 
 // Timed calls the given callback with the time that has elapsed since the start.
@@ -107,8 +109,8 @@ func IsDeadlock(err error) bool {
 
 var ellipsis = utf8string.NewString("...")
 
-// Ellipsize shortens s to <=limit runes and indicates shortening by "...".
-func Ellipsize(s string, limit int) string {
+// EllipsizeRunes shortens s to <=limit runes and indicates shortening by "...".
+func EllipsizeRunes(s string, limit int) string {
 	utf8 := utf8string.NewString(s)
 	switch {
 	case utf8.RuneCount() <= limit:
@@ -117,6 +119,30 @@ func Ellipsize(s string, limit int) string {
 		return ellipsis.String()
 	default:
 		return utf8.Slice(0, limit-ellipsis.RuneCount()) + ellipsis.String()
+	}
+}
+
+// EllipsizeBytes shortens s to <=limit bytes and indicates shortening by "...".
+//
+// It's similar to [EllipsizeRunes], but works on bytes instead of runes.
+// It ensures that the returned string is valid UTF-8, even if the input string contains multibyte
+// characters and the limit cuts through one of them.
+func EllipsizeBytes(s string, limit int) string {
+	length := len(s)
+	ellipsisLen := len(ellipsis.String())
+	switch {
+	case length <= limit:
+		return s
+	case length <= ellipsisLen:
+		return ellipsis.String()
+	default:
+		// Now, we must truncate the string to the limit, but we must ensure that we
+		// don't cut a multibyte UTF-8 character in half.
+		truncated := s[:max(limit-ellipsisLen, 0)]
+		for !utf8.ValidString(truncated) {
+			truncated = truncated[:len(truncated)-1]
+		}
+		return truncated + ellipsis.String()
 	}
 }
 
