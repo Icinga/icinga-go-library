@@ -2,6 +2,7 @@ package redis
 
 import (
 	"context"
+
 	"github.com/icinga/icinga-go-library/utils"
 	"github.com/pkg/errors"
 	"github.com/redis/go-redis/v9"
@@ -12,7 +13,7 @@ import (
 func WrapCmdErr(cmd redis.Cmder) error {
 	err := cmd.Err()
 	if err != nil {
-		err = errors.Wrapf(err, "can't perform %q", utils.Ellipsize(
+		err = errors.Wrapf(err, "can't perform %q", utils.EllipsizeRunes(
 			redis.NewCmd(context.Background(), cmd.Args()).String(), // Omits error in opposite to cmd.String()
 			100,
 		))

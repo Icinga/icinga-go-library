@@ -4,12 +4,13 @@ import (
 	"context"
 	"encoding/hex"
 	"fmt"
+	"testing"
+	"time"
+
 	"github.com/go-sql-driver/mysql"
 	"github.com/lib/pq"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"testing"
-	"time"
 )
 
 func TestBatchSliceOfStrings(t *testing.T) {
@@ -137,22 +138,30 @@ func TestIsDeadlock(t *testing.T) {
 
 func TestEllipsize(t *testing.T) {
 	subtests := []struct {
-		name   string
-		s      string
-		limit  int
-		output string
+		name        string
+		s           string
+		limit       int
+		expectRunes string
+		expectBytes string
 	}{
-		{"negative", "", -1, "..."},
-		{"empty", "", 0, ""},
-		{"shorter", " ", 2, " "},
-		{"equal", " ", 1, " "},
-		{"longer", " ", 0, "..."},
-		{"unicode", "äöüß€", 4, "ä..."},
+		{"negative", "", -1, "...", "..."},
+		{"empty", "", 0, "", ""},
+		{"shorter", " ", 2, " ", " "},
+		{"equal", " ", 1, " ", " "},
+		{"longer", " ", 0, "...", "..."},
+		// The "\xc3" is the first byte of the UTF-8 codepoint of "ä" (U+00E4) and since the EllipsizeBytes function
+		// doesn't cut in the middle of a codepoint, it will return "..." instead of "\xc3..." in this case.
+		{"unicode", "äöüß€", 4, "ä...", "..."},
+		// The "☃" is the Unicode snowman (U+2603) and is represented by three bytes in UTF-8.
+		// The EllipsizeBytes function will return "..." instead of "☃..." in this case, since the limit
+		// (2 bytes) is less than the length of the snowman character (3 bytes).
+		{"unicode snowman (each len 3))", "☃☃", 2, "☃☃", "..."},
 	}
 
 	for _, st := range subtests {
 		t.Run(st.name, func(t *testing.T) {
-			require.Equal(t, st.output, Ellipsize(st.s, st.limit))
+			require.Equal(t, st.expectRunes, EllipsizeRunes(st.s, st.limit))
+			require.Equal(t, st.expectBytes, EllipsizeBytes(st.s, st.limit))
 		})
 	}
 }
