@@ -24,7 +24,7 @@ func TransformNilUUIDToNull(u *UUID) {
 //
 // Multiple transformer functions can be given, each transforming the generated UUID, e.g., TransformNilUUIDToNull.
 func MakeUUID(in uuid.UUID, opts ...func(*UUID)) UUID {
-	u := UUID{NullUUID: uuid.NullUUID{UUID: in, Valid: true}}
+	u := UUID{UUID: in, Valid: true}
 	for _, opt := range opts {
 		opt(&u)
 	}

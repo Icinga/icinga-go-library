@@ -96,7 +96,7 @@ func TestString_UnmarshalText(t *testing.T) {
 			var actual String
 
 			require.NoError(t, actual.UnmarshalText([]byte(st.io)))
-			require.Equal(t, String{NullString: sql.NullString{String: st.io, Valid: true}}, actual)
+			require.Equal(t, String{String: st.io, Valid: true}, actual)
 		})
 	}
 }
