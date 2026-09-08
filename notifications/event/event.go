@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"unicode/utf8"
 
 	"github.com/icinga/icinga-go-library/types"
 )
@@ -155,8 +156,8 @@ func (e *Event) Validate() error {
 		if val == "" {
 			return errors.New("invalid event: tag values must not be empty")
 		}
-		if len(tag) > 255 {
-			return fmt.Errorf("invalid event: tag %q is too long, at most 255 chars allowed, %d given", tag, len(tag))
+		if l := utf8.RuneCountInString(tag); l > 255 {
+			return fmt.Errorf("invalid event: tag %q is too long, at most 255 chars allowed, %d given", tag, l)
 		}
 	}
 
