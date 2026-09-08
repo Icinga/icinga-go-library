@@ -53,14 +53,14 @@ func Test_loadPemOrFile(t *testing.T) {
 
 func TestTLS_MakeConfig(t *testing.T) {
 	t.Run("TLS disabled", func(t *testing.T) {
-		tlsConfig := &TLS{TLSCommon: TLSCommon{Enable: false}}
+		tlsConfig := &TLS{Enable: false}
 		config, err := tlsConfig.MakeConfig("icinga.com")
 		require.NoError(t, err)
 		require.Nil(t, config)
 	})
 
 	t.Run("Server name", func(t *testing.T) {
-		tlsConfig := &TLS{TLSCommon: TLSCommon{Enable: true}}
+		tlsConfig := &TLS{Enable: true}
 		config, err := tlsConfig.MakeConfig("icinga.com")
 		require.NoError(t, err)
 		require.NotNil(t, config)
@@ -73,7 +73,7 @@ func TestTLS_MakeConfig(t *testing.T) {
 	})
 
 	t.Run("Insecure skip verify", func(t *testing.T) {
-		tlsConfig := &TLS{TLSCommon: TLSCommon{Enable: true}, Insecure: true}
+		tlsConfig := &TLS{Enable: true, Insecure: true}
 		config, err := tlsConfig.MakeConfig("icinga.com")
 		require.NoError(t, err)
 		require.NotNil(t, config)
@@ -81,13 +81,13 @@ func TestTLS_MakeConfig(t *testing.T) {
 	})
 
 	t.Run("Missing client certificate", func(t *testing.T) {
-		tlsConfig := &TLS{TLSCommon: TLSCommon{Enable: true, Key: "test.key"}}
+		tlsConfig := &TLS{Enable: true, Key: "test.key"}
 		_, err := tlsConfig.MakeConfig("icinga.com")
 		require.ErrorContains(t, err, "certificate missing")
 	})
 
 	t.Run("Missing private key", func(t *testing.T) {
-		tlsConfig := &TLS{TLSCommon: TLSCommon{Enable: true, Cert: "test.crt"}}
+		tlsConfig := &TLS{Enable: true, Cert: "test.crt"}
 		_, err := tlsConfig.MakeConfig("icinga.com")
 		require.ErrorContains(t, err, "private key missing")
 	})
@@ -134,7 +134,7 @@ func TestTLS_MakeConfig(t *testing.T) {
 		require.NoError(t, err)
 
 		t.Run("Valid certificate and key", func(t *testing.T) {
-			tlsConfig := &TLS{TLSCommon: TLSCommon{Enable: true, Cert: certFile.Name(), Key: keyFile.Name()}}
+			tlsConfig := &TLS{Enable: true, Cert: certFile.Name(), Key: keyFile.Name()}
 			config, err := tlsConfig.MakeConfig("icinga.com")
 			require.NoError(t, err)
 			require.NotNil(t, config)
@@ -147,7 +147,7 @@ func TestTLS_MakeConfig(t *testing.T) {
 			keyRaw, err := os.ReadFile(keyFile.Name()) // #nosec G703 -- name is not user supplied, but from os.CreateTemp
 			require.NoError(t, err)
 
-			tlsConfig := &TLS{TLSCommon: TLSCommon{Enable: true, Cert: string(certRaw), Key: string(keyRaw)}}
+			tlsConfig := &TLS{Enable: true, Cert: string(certRaw), Key: string(keyRaw)}
 			config, err := tlsConfig.MakeConfig("icinga.com")
 			require.NoError(t, err)
 			require.NotNil(t, config)
@@ -158,7 +158,7 @@ func TestTLS_MakeConfig(t *testing.T) {
 			keyRaw, err := os.ReadFile(keyFile.Name()) // #nosec G703 -- name is not user supplied, but from os.CreateTemp
 			require.NoError(t, err)
 
-			tlsConfig := &TLS{TLSCommon: TLSCommon{Enable: true, Cert: certFile.Name(), Key: string(keyRaw)}}
+			tlsConfig := &TLS{Enable: true, Cert: certFile.Name(), Key: string(keyRaw)}
 			config, err := tlsConfig.MakeConfig("icinga.com")
 			require.NoError(t, err)
 			require.NotNil(t, config)
@@ -178,13 +178,13 @@ func TestTLS_MakeConfig(t *testing.T) {
 			err = pem.Encode(_keyFile, &pem.Block{Type: "PRIVATE KEY", Bytes: _keyBytes})
 			require.NoError(t, err)
 
-			tlsConfig := &TLS{TLSCommon: TLSCommon{Enable: true, Cert: certFile.Name(), Key: _keyFile.Name()}}
+			tlsConfig := &TLS{Enable: true, Cert: certFile.Name(), Key: _keyFile.Name()}
 			_, err = tlsConfig.MakeConfig("icinga.com")
 			require.Error(t, err)
 		})
 
 		t.Run("Invalid certificate path", func(t *testing.T) {
-			tlsConfig := &TLS{TLSCommon: TLSCommon{Enable: true, Cert: "nonexistent.crt", Key: keyFile.Name()}}
+			tlsConfig := &TLS{Enable: true, Cert: "nonexistent.crt", Key: keyFile.Name()}
 			_, err := tlsConfig.MakeConfig("icinga.com")
 			require.Error(t, err)
 		})
@@ -199,13 +199,13 @@ func TestTLS_MakeConfig(t *testing.T) {
 			err = certFile.Chmod(0000)
 			require.NoError(t, err)
 
-			tlsConfig := &TLS{TLSCommon: TLSCommon{Enable: true, Cert: certFile.Name(), Key: keyFile.Name()}}
+			tlsConfig := &TLS{Enable: true, Cert: certFile.Name(), Key: keyFile.Name()}
 			_, err = tlsConfig.MakeConfig("icinga.com")
 			require.Error(t, err)
 		})
 
 		t.Run("Corrupt certificate", func(t *testing.T) {
-			tlsConfig := &TLS{TLSCommon: TLSCommon{Enable: true, Cert: corruptFile.Name(), Key: keyFile.Name()}}
+			tlsConfig := &TLS{Enable: true, Cert: corruptFile.Name(), Key: keyFile.Name()}
 			_, err := tlsConfig.MakeConfig("icinga.com")
 			require.Error(t, err)
 		})
@@ -216,13 +216,13 @@ func TestTLS_MakeConfig(t *testing.T) {
 			keyRaw, err := os.ReadFile(keyFile.Name()) // #nosec G703 -- name is not user supplied, but from os.CreateTemp
 			require.NoError(t, err)
 
-			tlsConfig := &TLS{TLSCommon: TLSCommon{Enable: true, Cert: string(corruptRaw), Key: string(keyRaw)}}
+			tlsConfig := &TLS{Enable: true, Cert: string(corruptRaw), Key: string(keyRaw)}
 			_, err = tlsConfig.MakeConfig("icinga.com")
 			require.Error(t, err)
 		})
 
 		t.Run("Invalid key path", func(t *testing.T) {
-			tlsConfig := &TLS{TLSCommon: TLSCommon{Enable: true, Cert: certFile.Name(), Key: "nonexistent.key"}}
+			tlsConfig := &TLS{Enable: true, Cert: certFile.Name(), Key: "nonexistent.key"}
 			_, err := tlsConfig.MakeConfig("icinga.com")
 			require.Error(t, err)
 		})
@@ -237,19 +237,19 @@ func TestTLS_MakeConfig(t *testing.T) {
 			err = keyFile.Chmod(0000)
 			require.NoError(t, err)
 
-			tlsConfig := &TLS{TLSCommon: TLSCommon{Enable: true, Cert: certFile.Name(), Key: keyFile.Name()}}
+			tlsConfig := &TLS{Enable: true, Cert: certFile.Name(), Key: keyFile.Name()}
 			_, err = tlsConfig.MakeConfig("icinga.com")
 			require.Error(t, err)
 		})
 
 		t.Run("Corrupt key", func(t *testing.T) {
-			tlsConfig := &TLS{TLSCommon: TLSCommon{Enable: true, Cert: certFile.Name(), Key: corruptFile.Name()}}
+			tlsConfig := &TLS{Enable: true, Cert: certFile.Name(), Key: corruptFile.Name()}
 			_, err := tlsConfig.MakeConfig("icinga.com")
 			require.Error(t, err)
 		})
 
 		t.Run("Valid CA", func(t *testing.T) {
-			tlsConfig := &TLS{TLSCommon: TLSCommon{Enable: true, Ca: caFile.Name()}}
+			tlsConfig := &TLS{Enable: true, Ca: caFile.Name()}
 			config, err := tlsConfig.MakeConfig("icinga.com")
 			require.NoError(t, err)
 			require.NotNil(t, config)
@@ -260,7 +260,7 @@ func TestTLS_MakeConfig(t *testing.T) {
 			caRaw, err := os.ReadFile(caFile.Name()) // #nosec G703 -- name is not user supplied, but from os.CreateTemp
 			require.NoError(t, err)
 
-			tlsConfig := &TLS{TLSCommon: TLSCommon{Enable: true, Ca: string(caRaw)}}
+			tlsConfig := &TLS{Enable: true, Ca: string(caRaw)}
 			config, err := tlsConfig.MakeConfig("icinga.com")
 			require.NoError(t, err)
 			require.NotNil(t, config)
@@ -268,7 +268,7 @@ func TestTLS_MakeConfig(t *testing.T) {
 		})
 
 		t.Run("Invalid CA path", func(t *testing.T) {
-			tlsConfig := &TLS{TLSCommon: TLSCommon{Enable: true, Ca: "nonexistent.ca"}}
+			tlsConfig := &TLS{Enable: true, Ca: "nonexistent.ca"}
 			_, err := tlsConfig.MakeConfig("icinga.com")
 			require.Error(t, err)
 		})
@@ -283,13 +283,13 @@ func TestTLS_MakeConfig(t *testing.T) {
 			err = caFile.Chmod(0000)
 			require.NoError(t, err)
 
-			tlsConfig := &TLS{TLSCommon: TLSCommon{Enable: true, Ca: caFile.Name()}}
+			tlsConfig := &TLS{Enable: true, Ca: caFile.Name()}
 			_, err = tlsConfig.MakeConfig("icinga.com")
 			require.Error(t, err)
 		})
 
 		t.Run("Corrupt CA", func(t *testing.T) {
-			tlsConfig := &TLS{TLSCommon: TLSCommon{Enable: true, Ca: corruptFile.Name()}}
+			tlsConfig := &TLS{Enable: true, Ca: corruptFile.Name()}
 			_, err := tlsConfig.MakeConfig("icinga.com")
 			require.Error(t, err)
 		})
@@ -300,7 +300,7 @@ func TestServerTLS_MakeConfig(t *testing.T) {
 	t.Parallel()
 
 	t.Run("TLS disabled", func(t *testing.T) {
-		tlsConfig := &ServerTLS{TLSCommon: TLSCommon{Enable: false}}
+		tlsConfig := &ServerTLS{Enable: false}
 		config, err := tlsConfig.MakeConfig()
 		require.NoError(t, err)
 		require.Nil(t, config)
@@ -324,12 +324,11 @@ func TestServerTLS_MakeConfig(t *testing.T) {
 		require.NoError(t, pem.Encode(&keyBytes, &pem.Block{Type: "PRIVATE KEY", Bytes: _keyBytes}))
 
 		t.Run("Valid CA and Server Cert", func(t *testing.T) {
-			tlsConfig := &ServerTLS{TLSCommon: TLSCommon{
+			tlsConfig := &ServerTLS{
 				Enable: true,
 				Cert:   certBytes.String(),
 				Key:    keyBytes.String(),
-				Ca:     caBytes.String(),
-			}}
+				Ca:     caBytes.String()}
 			config, err := tlsConfig.MakeConfig()
 			require.NoError(t, err)
 			require.NotNil(t, config)
@@ -338,18 +337,17 @@ func TestServerTLS_MakeConfig(t *testing.T) {
 		})
 
 		t.Run("Invalid CA", func(t *testing.T) {
-			tlsConfig := &ServerTLS{TLSCommon: TLSCommon{
+			tlsConfig := &ServerTLS{
 				Enable: true,
 				Cert:   certBytes.String(),
 				Key:    keyBytes.String(),
-				Ca:     "invalid-ca",
-			}}
+				Ca:     "invalid-ca"}
 			_, err := tlsConfig.MakeConfig()
 			require.ErrorContains(t, err, "can't load X.509 CA certificate")
 		})
 
 		t.Run("Without Server Cert", func(t *testing.T) {
-			tlsConfig := &ServerTLS{TLSCommon: TLSCommon{Enable: true, Ca: caBytes.String()}}
+			tlsConfig := &ServerTLS{Enable: true, Ca: caBytes.String()}
 			_, err := tlsConfig.MakeConfig()
 			require.ErrorContains(t, err, "TLS is enabled but no certificate/key pair is configured")
 		})
@@ -360,9 +358,7 @@ func TestServerTLS_Validate(t *testing.T) {
 	t.Parallel()
 
 	st := &ServerTLS{
-		TLSCommon: TLSCommon{
-			Enable: true,
-		},
+		Enable:     true,
 		ClientAuth: TlsClientAuthType(tls.RequestClientCert),
 	}
 	require.NoError(t, st.Validate())
@@ -435,14 +431,14 @@ func TestTLSCommon_InitRevocationChecking(t *testing.T) {
 	revokedCrlFile := createCRLFile(t, ca, caKey, nextUpdate, revokedCert.SerialNumber)
 
 	t.Run("Nil tlsConfig", func(t *testing.T) {
-		st := &ServerTLS{TLSCommon: TLSCommon{Ca: caStr}, CrlFile: emptyCrlFile}
+		st := &ServerTLS{Ca: caStr, CrlFile: emptyCrlFile}
 		checker, err := st.InitRevocationChecking(nil)
 		require.ErrorContains(t, err, "tls config for crl is required")
 		require.Nil(t, checker)
 	})
 
 	t.Run("Empty CrlFile", func(t *testing.T) {
-		st := &ServerTLS{TLSCommon: TLSCommon{Ca: caStr}}
+		st := &ServerTLS{Ca: caStr}
 		checker, err := st.InitRevocationChecking(&tls.Config{})
 		require.ErrorContains(t, err, "tls config for crl is required")
 		require.Nil(t, checker)
@@ -456,19 +452,19 @@ func TestTLSCommon_InitRevocationChecking(t *testing.T) {
 	})
 
 	t.Run("Invalid Ca", func(t *testing.T) {
-		st := &ServerTLS{TLSCommon: TLSCommon{Ca: "/nonexistent/ca.pem"}, CrlFile: emptyCrlFile}
+		st := &ServerTLS{Ca: "/nonexistent/ca.pem", CrlFile: emptyCrlFile}
 		_, err := st.InitRevocationChecking(&tls.Config{})
 		require.Error(t, err)
 	})
 
 	t.Run("Nonexistent CRL file", func(t *testing.T) {
-		st := &ServerTLS{TLSCommon: TLSCommon{Ca: caStr}, CrlFile: "/nonexistent/crl.pem"}
+		st := &ServerTLS{Ca: caStr, CrlFile: "/nonexistent/crl.pem"}
 		_, err := st.InitRevocationChecking(&tls.Config{})
 		require.ErrorContains(t, err, "cannot load CRL")
 	})
 
 	t.Run("Valid CA and Valid CRL", func(t *testing.T) {
-		st := &ServerTLS{TLSCommon: TLSCommon{Ca: caStr}, CrlFile: emptyCrlFile}
+		st := &ServerTLS{Ca: caStr, CrlFile: emptyCrlFile}
 		tlsConf := &tls.Config{}
 		checker, err := st.InitRevocationChecking(tlsConf)
 		require.NoError(t, err)
@@ -478,7 +474,7 @@ func TestTLSCommon_InitRevocationChecking(t *testing.T) {
 
 	t.Run("VerifyConnection", func(t *testing.T) {
 		t.Run("Empty VerifiedChains", func(t *testing.T) {
-			st := &ServerTLS{TLSCommon: TLSCommon{Ca: caStr}, CrlFile: emptyCrlFile}
+			st := &ServerTLS{Ca: caStr, CrlFile: emptyCrlFile}
 			tlsConf := &tls.Config{}
 			_, err := st.InitRevocationChecking(tlsConf)
 			require.NoError(t, err)
@@ -486,7 +482,7 @@ func TestTLSCommon_InitRevocationChecking(t *testing.T) {
 		})
 
 		t.Run("Valid Cert", func(t *testing.T) {
-			st := &ServerTLS{TLSCommon: TLSCommon{Ca: caStr}, CrlFile: revokedCrlFile}
+			st := &ServerTLS{Ca: caStr, CrlFile: revokedCrlFile}
 			tlsConf := &tls.Config{}
 			_, err := st.InitRevocationChecking(tlsConf)
 			require.NoError(t, err)
@@ -497,7 +493,7 @@ func TestTLSCommon_InitRevocationChecking(t *testing.T) {
 		})
 
 		t.Run("Revoked Cert", func(t *testing.T) {
-			st := &ServerTLS{TLSCommon: TLSCommon{Ca: caStr}, CrlFile: revokedCrlFile}
+			st := &ServerTLS{Ca: caStr, CrlFile: revokedCrlFile}
 			tlsConf := &tls.Config{}
 			_, err := st.InitRevocationChecking(tlsConf)
 			require.NoError(t, err)
@@ -508,7 +504,7 @@ func TestTLSCommon_InitRevocationChecking(t *testing.T) {
 		})
 
 		t.Run("Chains existing VerifyConnection", func(t *testing.T) {
-			st := &ServerTLS{TLSCommon: TLSCommon{Ca: caStr}, CrlFile: emptyCrlFile}
+			st := &ServerTLS{Ca: caStr, CrlFile: emptyCrlFile}
 			sentinel := errors.New("existing verify error")
 			tlsConf := &tls.Config{
 				VerifyConnection: func(_ tls.ConnectionState) error { return sentinel },

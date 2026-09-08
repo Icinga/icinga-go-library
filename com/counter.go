@@ -7,14 +7,14 @@ import (
 
 // Counter implements an atomic counter.
 type Counter struct {
-	value uint64
+	value atomic.Uint64
 	mu    sync.Mutex // Protects total.
 	total uint64
 }
 
 // Add adds the given delta to the counter.
 func (c *Counter) Add(delta uint64) {
-	atomic.AddUint64(&c.value, delta)
+	c.value.Add(delta)
 }
 
 // Inc increments the counter by one.
@@ -28,7 +28,7 @@ func (c *Counter) Reset() uint64 {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
-	v := atomic.SwapUint64(&c.value, 0)
+	v := c.value.Swap(0)
 	c.total += v
 
 	return v
@@ -44,5 +44,5 @@ func (c *Counter) Total() uint64 {
 
 // Val returns the current counter value.
 func (c *Counter) Val() uint64 {
-	return atomic.LoadUint64(&c.value)
+	return c.value.Load()
 }
