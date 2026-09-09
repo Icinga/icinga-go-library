@@ -34,6 +34,13 @@ const (
 	MethodSendNotification = "SendNotification"
 )
 
+// ChildOption describes a config element that is conditionally displayed
+// based on the value of a parent option
+type ChildOption struct {
+	ConfigOption
+	ParentValues []any `json:"parent_values"`
+}
+
 // ConfigOption describes a config element.
 type ConfigOption struct {
 	// Element name
@@ -80,6 +87,8 @@ type ConfigOption struct {
 
 	// Element's max option defines the maximum allowed number value. It can only be used for the type number.
 	Max types.Int `json:"max"`
+
+	Children []ChildOption `json:"children,omitempty"`
 }
 
 // ConfigOptions describes all ConfigOption entries.
