@@ -88,6 +88,7 @@ type ConfigOption struct {
 	// Element's max option defines the maximum allowed number value. It can only be used for the type number.
 	Max types.Int `json:"max"`
 
+	// Children of the current element to be displayed conditionally. It can only be used for the types bool and option.
 	Children []ChildOption `json:"children,omitempty"`
 }
 
