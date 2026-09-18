@@ -51,6 +51,11 @@ type Event struct {
 	// Message is a human-readable message describing the event.
 	Message string `json:"message"`
 
+	// Type of the event, e.g. "DowntimeStart", "DowntimeEnd", etc.
+	//
+	// The Type field must only be set if incident is set to false.
+	Type string `json:"type,omitempty"`
+
 	// Muted indicates whether the object this event is referring to is currently muted or not.
 	//
 	// If set to true, Icinga Notifications will suppress the resulting notifications of a given incident.
@@ -134,6 +139,9 @@ func (e *Event) IsMuted() bool { return e.Muted.Valid && e.Muted.Bool }
 // OpenOrEscalate returns true if this event should open an incident or escalate an existing one.
 func (e *Event) OpenOrEscalate() bool { return e.Incident.Valid && e.Incident.Bool }
 
+// NotificationOnly returns true if this event should notify without changing the incident state.
+func (e *Event) NotificationOnly() bool { return e.Incident.Valid && !e.Incident.Bool }
+
 // CloseIncident returns true if this event should close an existing incident.
 func (e *Event) CloseIncident() bool { return e.Close.Valid && e.Close.Bool }
 
@@ -175,9 +183,6 @@ func (e *Event) Validate() error {
 		}
 	}
 
-	if !e.OpenOrEscalate() && e.Incident.Valid {
-		return errors.New("invalid event: 'incident' can only be set to true or none at all, but not to false")
-	}
 	if !e.CloseIncident() && e.Close.Valid {
 		return errors.New("invalid event: 'close' can only be set to true or none at all, but not to false")
 	}
@@ -186,7 +191,7 @@ func (e *Event) Validate() error {
 	}
 
 	if !e.OpenOrEscalate() && e.CloseIncident() {
-		return errors.New("invalid event: 'close' must not be set if 'incident' is not set")
+		return errors.New("invalid event: 'close' must not be set if 'incident' is not set to true")
 	}
 
 	if e.Muted.Valid && e.MutedReason == "" {
@@ -197,14 +202,25 @@ func (e *Event) Validate() error {
 	}
 
 	if !e.OpenOrEscalate() && e.NotifyRecipients() {
-		return errors.New("invalid event: 'notify' must not be set if 'incident' is not set")
+		return errors.New("invalid event: 'notify' must not be set if 'incident' is not set to true")
 	}
 	if e.CloseIncident() && e.Notify.Valid {
 		return errors.New("invalid event: 'notify' must not be set if 'close' is set")
 	}
 
-	if !e.OpenOrEscalate() && !e.Muted.Valid {
+	if !e.Incident.Valid && !e.Muted.Valid {
 		return errors.New("invalid event: at least one of 'incident' or 'muted' must be set")
+	}
+
+	if e.NotificationOnly() && e.Muted.Valid {
+		return errors.New("invalid event: 'incident' must not be set to false if 'muted' is set")
+	}
+
+	if e.NotificationOnly() && e.Type == "" {
+		return errors.New("invalid event: 'type' must be set if 'incident' is set to false")
+	}
+	if e.Type != "" && !e.NotificationOnly() {
+		return errors.New("invalid event: 'type' must not be set if `incident` is not set to false")
 	}
 
 	return nil
