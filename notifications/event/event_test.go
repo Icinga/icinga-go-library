@@ -103,7 +103,13 @@ func TestEvent(t *testing.T) {
 				t.Parallel()
 
 				assert.NoError(t, (&Event{Tags: tags, Incident: mkB(true)}).Validate())
-				assert.ErrorContains(t, (&Event{Tags: tags, Incident: mkB(false)}).Validate(), "'incident' can only be set to true or none at all")
+				assert.NoError(t, (&Event{Tags: tags, Incident: mkB(false)}).Validate())
+				assert.ErrorContains(t, (&Event{Tags: tags, Incident: mkB(false), Muted: mkB(true), MutedReason: "R"}).Validate(),
+					"invalid event: 'incident' must not be set to false if any of 'muted', 'notify' or 'close' is set")
+				assert.ErrorContains(t, (&Event{Tags: tags, Incident: mkB(false), Notify: mkB(true)}).Validate(),
+					"invalid event: 'incident' must not be set to false if any of 'muted', 'notify' or 'close' is set")
+				assert.ErrorContains(t, (&Event{Tags: tags, Incident: mkB(false), Close: mkB(true)}).Validate(),
+					"invalid event: 'incident' must not be set to false if any of 'muted', 'notify' or 'close' is set")
 			})
 
 			t.Run("Close", func(t *testing.T) {
