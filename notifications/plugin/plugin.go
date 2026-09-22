@@ -34,8 +34,29 @@ const (
 	MethodSendNotification = "SendNotification"
 )
 
-// ConfigOption describes a config element.
-type ConfigOption struct {
+// ChildOption describes a config element that is conditionally displayed based on the value of a parent option.
+//
+// This allows to create a more dynamic and user-friendly configuration interface, where certain options are only
+// shown when relevant based on the user's previous selections. Even though the API allows for nested children, the
+// UI will only render one level of children or even reject them entirely. Therefore, it is prohibited to define a
+// child option with its own children.
+type ChildOption struct {
+	ConfigOptionCommon
+
+	// ParentValues is a list of parent element values that will trigger the display of this child option.
+	//
+	// If the parent element is a select element, this list should contain the keys of the parent option that
+	// should trigger this child option to be displayed. If the parent element is a checkbox, this list should
+	// contain the boolean value (true or false). All other parent element types are not supported for child options
+	// and will be rejected by Icinga Notifications Web.
+	//
+	// If empty, the child option will always be displayed regardless of the parent option's value. This is useful for
+	// child options that should always be displayed, but are still logically grouped under a parent element.
+	ParentValues []any `json:"parent_values"`
+}
+
+// ConfigOptionCommon describes common fields.
+type ConfigOptionCommon struct {
 	// Element name
 	Name string `json:"name"`
 
@@ -80,6 +101,22 @@ type ConfigOption struct {
 
 	// Element's max option defines the maximum allowed number value. It can only be used for the type number.
 	Max types.Int `json:"max"`
+}
+
+// ConfigOption describes a config element.
+type ConfigOption struct {
+	ConfigOptionCommon
+
+	// Children contains a set of [ChildOption] rendered in the UI only when a specific parent option value is selected.
+	//
+	// This allows for conditional configuration options based on the user's selection in the parent option.
+	// For example, if a parent option is a select element with multiple choices, each choice can have its own
+	// set of child options that are displayed only when that choice is selected. A concrete example would be a
+	// parent option for selecting HTTP request method (GET, POST, PUT, DELETE), and each method could have its
+	// own set of child options for configuring headers, body content, etc.
+	//
+	// A child option must not have its own children, as this would create a recursive structure that is not supported.
+	Children []ChildOption `json:"children,omitempty"`
 }
 
 // ConfigOptions describes all ConfigOption entries.
