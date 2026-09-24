@@ -116,7 +116,4 @@ type NotificationHistory struct {
 	ChannelName      types.String      `json:"channel_name"`
 	EventMessage     types.String      `json:"event_message"`
 	State            NotificationState `json:"state"`
-
-	// ObjectTags is the ID tags of the associated object.
-	ObjectTags map[string]string `json:"object_tags,omitempty"`
 }
