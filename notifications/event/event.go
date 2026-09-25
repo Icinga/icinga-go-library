@@ -51,6 +51,11 @@ type Event struct {
 	// Message is a human-readable message describing the event.
 	Message string `json:"message"`
 
+	// Type of the event, e.g. "downtime_started", "downtime_ended", "acknowledgement", etc.
+	//
+	// The Type field must only be set if incident is set to false.
+	Type string `json:"type,omitempty"`
+
 	// Muted indicates whether the object this event is referring to is currently muted or not.
 	//
 	// If set to true, Icinga Notifications will suppress the resulting notifications of a given incident.
@@ -209,6 +214,12 @@ func (e *Event) Validate() error {
 
 	if e.JustNotify() && (e.Muted.Valid || e.Notify.Valid || e.Close.Valid) {
 		return errors.New("invalid event: 'incident' must not be set to false if any of 'muted', 'notify' or 'close' is set")
+	}
+	if e.JustNotify() && e.Type == "" {
+		return errors.New("invalid event: 'type' must be set if 'incident' is set to false")
+	}
+	if e.Type != "" && !e.JustNotify() {
+		return errors.New("invalid event: 'type' must not be set if `incident` is not set to false")
 	}
 
 	return nil
