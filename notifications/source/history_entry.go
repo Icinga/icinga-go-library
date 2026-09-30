@@ -116,4 +116,5 @@ type NotificationHistory struct {
 	ChannelName      string            `json:"channel_name"`
 	EventMessage     string            `json:"event_message"`
 	State            NotificationState `json:"state"`
+	IncidentClosed   bool              `json:"incident_closed"`
 }
