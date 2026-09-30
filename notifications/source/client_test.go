@@ -293,8 +293,8 @@ func TestClientGetNotificationHistory(t *testing.T) {
 							EventID:      uuid1,
 							TriggeredAt:  types.UnixMilli(time.Unix(0, 1234567890123*int64(time.Millisecond))),
 							ContactName:  types.MakeString("first-contact"),
-							ChannelName:  types.MakeString("first-channel"),
-							EventMessage: types.MakeString("hello"),
+							ChannelName:  "first-channel",
+							EventMessage: "hello",
 							State:        NotificationStateSent,
 						},
 					},
@@ -304,8 +304,8 @@ func TestClientGetNotificationHistory(t *testing.T) {
 							EventID:      uuid2,
 							TriggeredAt:  types.UnixMilli(time.Unix(0, 1234567890456*int64(time.Millisecond))),
 							ContactName:  types.MakeString("second-contact"),
-							ChannelName:  types.MakeString("second-channel"),
-							EventMessage: types.MakeString("hello"),
+							ChannelName:  "second-channel",
+							EventMessage: "hello",
 							State:        NotificationStateFailed,
 						},
 					},
@@ -322,16 +322,16 @@ func TestClientGetNotificationHistory(t *testing.T) {
 				assert.Equal(t, uuid1, first.EventID)
 				assert.Equal(t, types.UnixMilli(time.Unix(0, 1234567890123*int64(time.Millisecond))), first.TriggeredAt)
 				assert.Equal(t, "first-contact", first.ContactName.String)
-				assert.Equal(t, "first-channel", first.ChannelName.String)
-				assert.Equal(t, "hello", first.EventMessage.String)
+				assert.Equal(t, "first-channel", first.ChannelName)
+				assert.Equal(t, "hello", first.EventMessage)
 				assert.Equal(t, NotificationStateSent, first.State)
 
 				second := result[1]
 				assert.Equal(t, uuid2, second.EventID)
 				assert.Equal(t, types.UnixMilli(time.Unix(0, 1234567890456*int64(time.Millisecond))), second.TriggeredAt)
 				assert.Equal(t, "second-contact", second.ContactName.String)
-				assert.Equal(t, "second-channel", second.ChannelName.String)
-				assert.Equal(t, "hello", second.EventMessage.String)
+				assert.Equal(t, "second-channel", second.ChannelName)
+				assert.Equal(t, "hello", second.EventMessage)
 				assert.Equal(t, NotificationStateFailed, second.State)
 			},
 		},

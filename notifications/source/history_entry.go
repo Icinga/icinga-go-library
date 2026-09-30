@@ -113,7 +113,7 @@ type NotificationHistory struct {
 	ContactName      types.String      `json:"contact_name"`
 	ContactgroupName types.String      `json:"contactgroup_name"`
 	ScheduleName     types.String      `json:"schedule_name"`
-	ChannelName      types.String      `json:"channel_name"`
-	EventMessage     types.String      `json:"event_message"`
+	ChannelName      string            `json:"channel_name"`
+	EventMessage     string            `json:"event_message"`
 	State            NotificationState `json:"state"`
 }
