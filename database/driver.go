@@ -108,5 +108,5 @@ type MysqlFuncLogger func(v ...any)
 
 // Print implements the mysql.Logger interface.
 func (log MysqlFuncLogger) Print(v ...any) {
-	log(v)
+	log(v...)
 }
