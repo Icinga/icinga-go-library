@@ -14,8 +14,6 @@ import (
 	"context"
 	"database/sql/driver"
 	"encoding/json"
-	"fmt"
-	"io"
 	"log"
 	"os"
 	"os/signal"
@@ -25,7 +23,6 @@ import (
 	"github.com/icinga/icinga-go-library/notifications/event"
 	"github.com/icinga/icinga-go-library/notifications/jsonrpc"
 	"github.com/icinga/icinga-go-library/types"
-	"github.com/icinga/icinga-go-library/utils"
 )
 
 const (
@@ -180,6 +177,9 @@ type Object struct {
 	// Url pointing to this Object, may be to Icinga Web.
 	Url string `json:"url"`
 
+	// Sources lists the names of every Source this Object has ever been observed from.
+	Sources []string `json:"sources"`
+
 	// Tags defining this Object, may be "host" and "service" when from Icinga 2.
 	Tags map[string]string `json:"tags"`
 }
@@ -197,12 +197,42 @@ type Incident struct {
 
 	// IsRecovered indicates whether this Incident is going to be resolved/recovered with the ongoing event.
 	IsRecovered bool `json:"recovered"`
+
+	// Message is the latest human-readable message of the Event that affected this Incident.
+	Message string `json:"message"`
+
+	// Summary is the latest one-line Event.Summary that affected this Incident.
+	Summary string `json:"summary"`
+
+	// StartedAt is when this Incident was opened.
+	StartedAt time.Time `json:"started_at"`
+
+	// RecoveredAt is when this Incident was closed/resolved. Zero value if still open.
+	RecoveredAt time.Time `json:"recovered_at,omitzero"`
+
+	// MutedReason contains the reason this Incident is currently muted. Empty if not muted.
+	MutedReason string `json:"muted_reason,omitempty"`
+
+	// Managed indicates whether this Incident currently has an assigned manager.
+	Managed bool `json:"managed"`
+
+	// ManagedBy is the display name of the Incident's manager. Empty if Managed is false.
+	ManagedBy string `json:"managed_by,omitempty"`
+
+	// OpenedBySource is the name of the Source whose Event opened this Incident.
+	OpenedBySource string `json:"opened_by_source"`
 }
 
 // Event indicating this NotificationRequest.
 type Event struct {
+	// Type of this Event; optional.
+	Type string `json:"type,omitzero"`
+
 	// Time when this event occurred, being encoded according to RFC 3339 when passed as JSON.
 	Time time.Time `json:"time"`
+
+	// Summary is a short, one-line description of this Event.
+	Summary string `json:"summary"`
 
 	// Message of this event, might be a check output when the related Object is an Icinga 2 object.
 	Message string `json:"message"`
@@ -243,6 +273,12 @@ type NotificationRequest struct {
 
 	// Event being responsible for creating this NotificationRequest, e.g., a firing Icinga 2 Service Check.
 	Event *Event `json:"event"`
+
+	// Summary is Icinga Notifications' own pre-formatted, single-line summary of this notification.
+	Summary string `json:"summary"`
+
+	// Body is Icinga Notifications' own pre-formatted, multi-line notification text.
+	Body string `json:"body"`
 
 	// States of the channel plugin freshly retrieved from the database.
 	//
@@ -395,28 +431,4 @@ func Run(p Plugin) {
 	case <-endpoint.Done():
 		return
 	}
-}
-
-// FormatMessage formats a NotificationRequest message and adds to the given io.Writer.
-//
-// The created message is a multi-line message as one might expect it in an email.
-func FormatMessage(writer io.Writer, req *NotificationRequest) {
-	if req.Event.Message != "" {
-		_, _ = fmt.Fprintf(writer, "Message: %s\n\n", req.Event.Message)
-	}
-
-	_, _ = fmt.Fprintf(writer, "When: %s\n\n", req.Event.Time.Format("2006-01-02 15:04:05 MST"))
-	_, _ = fmt.Fprintf(writer, "Object: %s\n\n", req.Object.Url)
-	_, _ = writer.Write([]byte("Tags:\n"))
-	for k, v := range utils.IterateOrderedMap(req.Object.Tags) {
-		_, _ = fmt.Fprintf(writer, "%s: %s\n", k, v)
-	}
-}
-
-// FormatSubject returns the formatted subject string.
-func FormatSubject(req *NotificationRequest) string {
-	if req.Incident != nil {
-		return fmt.Sprintf("[#%d] %s is %s", req.Incident.Id, req.Object.Name, req.Incident.Severity)
-	}
-	return req.Object.Name
 }

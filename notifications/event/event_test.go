@@ -18,12 +18,33 @@ func TestEvent(t *testing.T) {
 	t.Run("Validate", func(t *testing.T) {
 		t.Parallel()
 
-		assert.ErrorContains(t, (&Event{Tags: map[string]string{"foo": "bar"}}).Validate(), "at least one of 'incident' or 'muted' must be set")
+		assert.ErrorContains(t,
+			(&Event{Tags: map[string]string{"foo": "bar"}, Summary: "foo"}).Validate(),
+			"at least one of 'incident' or 'muted' must be set")
+
+		t.Run("Summary", func(t *testing.T) {
+			t.Parallel()
+
+			ev := &Event{Tags: map[string]string{"foo": "bar"}, Severity: SeverityInfo, Incident: types.MakeBool(true)}
+
+			assert.ErrorContains(t, ev.Validate(), "summary must not be empty")
+
+			ev.Summary = strings.Repeat("A", MaxSummaryLen*2)
+			assert.ErrorContains(t, ev.Validate(), fmt.Sprintf("summary must be at most %d chars, %d given", MaxSummaryLen, MaxSummaryLen*2))
+
+			for _, summary := range []string{"foo\nbar", "foo\rbar", "foo\r\nbar"} {
+				ev.Summary = summary
+				assert.ErrorContains(t, ev.Validate(), "summary contains newline")
+			}
+
+			ev.Summary = "foo bar"
+			assert.NoError(t, ev.Validate())
+		})
 
 		t.Run("Tags", func(t *testing.T) {
 			t.Parallel()
 
-			ev := &Event{Tags: map[string]string{"foo": "bar"}, Severity: SeverityInfo, Incident: types.MakeBool(true)}
+			ev := &Event{Tags: map[string]string{"foo": "bar"}, Severity: SeverityInfo, Summary: "foo", Incident: types.MakeBool(true)}
 			assert.NoError(t, ev.Validate())
 
 			ev.Tags[""] = "foo"
@@ -62,6 +83,7 @@ func TestEvent(t *testing.T) {
 						Severity: SeverityInfo,
 						URL:      tc.url,
 						Tags:     map[string]string{"foo": "bar"},
+						Summary:  "foo",
 						Incident: types.MakeBool(true),
 					}
 
@@ -83,73 +105,74 @@ func TestEvent(t *testing.T) {
 			t.Run("Muted", func(t *testing.T) {
 				t.Parallel()
 
-				assert.NoError(t, (&Event{Tags: tags, Severity: SeverityInfo, Muted: mkB(true), MutedReason: "R"}).Validate())
-				assert.NoError(t, (&Event{Tags: tags, Muted: mkB(false), MutedReason: "R"}).Validate())
+				assert.NoError(t, (&Event{Tags: tags, Severity: SeverityInfo, Summary: "foo", Muted: mkB(true), MutedReason: "R"}).Validate())
+				assert.NoError(t, (&Event{Tags: tags, Summary: "foo", Muted: mkB(false), MutedReason: "R"}).Validate())
 				assert.ErrorContains(t,
-					(&Event{Tags: tags, Severity: SeverityInfo, Muted: mkB(true)}).Validate(),
+					(&Event{Tags: tags, Severity: SeverityInfo, Summary: "foo", Muted: mkB(true)}).Validate(),
 					"invalid event: 'muted_reason' must not be empty if 'muted' is set")
 				assert.ErrorContains(t,
-					(&Event{Tags: tags, Muted: mkB(false)}).Validate(),
+					(&Event{Tags: tags, Summary: "foo", Muted: mkB(false)}).Validate(),
 					"invalid event: 'muted_reason' must not be empty if 'muted' is set")
 
 				assert.NoError(t,
-					(&Event{Tags: tags, Severity: SeverityInfo, Incident: mkB(true), Muted: mkB(true), MutedReason: "R"}).Validate())
+					(&Event{Tags: tags, Severity: SeverityInfo, Summary: "foo", Incident: mkB(true), Muted: mkB(true), MutedReason: "R"}).Validate())
 				assert.NoError(t,
-					(&Event{Tags: tags, Severity: SeverityInfo, Incident: mkB(true), Muted: mkB(false), MutedReason: "R"}).Validate())
+					(&Event{Tags: tags, Severity: SeverityInfo, Summary: "foo", Incident: mkB(true), Muted: mkB(false), MutedReason: "R"}).Validate())
 				assert.NoError(t,
-					(&Event{Tags: tags, Severity: SeverityInfo, Incident: mkB(true), Close: mkB(true), Muted: mkB(false), MutedReason: "R"}).Validate())
+					(&Event{Tags: tags, Severity: SeverityInfo, Summary: "foo", Incident: mkB(true), Close: mkB(true), Muted: mkB(false), MutedReason: "R"}).Validate())
 				assert.ErrorContains(t,
-					(&Event{Tags: tags, Severity: SeverityInfo, Incident: mkB(true), Close: mkB(true), Muted: mkB(true), MutedReason: "R"}).Validate(),
+					(&Event{Tags: tags, Severity: SeverityInfo, Summary: "foo", Incident: mkB(true), Close: mkB(true), Muted: mkB(true), MutedReason: "R"}).Validate(),
 					"invalid event: 'muted' must not be set to true if 'close' is set")
 			})
 
 			t.Run("Incident", func(t *testing.T) {
 				t.Parallel()
 
-				assert.NoError(t, (&Event{Tags: tags, Severity: SeverityInfo, Incident: mkB(true)}).Validate())
-				assert.NoError(t, (&Event{Tags: tags, Type: "test-type", Incident: mkB(false)}).Validate())
-				assert.ErrorContains(t, (&Event{Tags: tags, Incident: mkB(true)}).Validate(),
+				assert.NoError(t, (&Event{Tags: tags, Severity: SeverityInfo, Summary: "foo", Incident: mkB(true)}).Validate())
+				assert.NoError(t, (&Event{Tags: tags, Summary: "foo", Type: "test-type", Incident: mkB(false)}).Validate())
+				assert.ErrorContains(t, (&Event{Tags: tags, Summary: "foo", Incident: mkB(true)}).Validate(),
 					"invalid event: 'severity' must be set if 'incident' is set to true")
-				assert.ErrorContains(t, (&Event{Tags: tags, Incident: mkB(false)}).Validate(),
+				assert.ErrorContains(t, (&Event{Tags: tags, Summary: "foo", Incident: mkB(false)}).Validate(),
 					"invalid event: 'type' must be set if 'incident' is set to false")
-				assert.ErrorContains(t, (&Event{Tags: tags, Incident: mkB(false), Muted: mkB(true), MutedReason: "R"}).Validate(),
+				assert.ErrorContains(t, (&Event{Tags: tags, Summary: "foo", Incident: mkB(false), Muted: mkB(true), MutedReason: "R"}).Validate(),
 					"invalid event: 'incident' must not be set to false if 'muted' is set")
-				assert.ErrorContains(t, (&Event{Tags: tags, Incident: mkB(false), Notify: mkB(true)}).Validate(),
+				assert.ErrorContains(t, (&Event{Tags: tags, Summary: "foo", Incident: mkB(false), Notify: mkB(true)}).Validate(),
 					"invalid event: 'notify' must not be set if 'incident' is not set to true")
-				assert.ErrorContains(t, (&Event{Tags: tags, Incident: mkB(false), Close: mkB(true)}).Validate(),
+				assert.ErrorContains(t, (&Event{Tags: tags, Summary: "foo", Incident: mkB(false), Close: mkB(true)}).Validate(),
 					"invalid event: 'close' must not be set if 'incident' is not set to true")
 			})
 
 			t.Run("Type", func(t *testing.T) {
 				t.Parallel()
 
-				assert.NoError(t, (&Event{Tags: tags, Type: "test-type", Incident: mkB(false)}).Validate())
-				assert.ErrorContains(t, (&Event{Tags: tags, Type: "test-type", Severity: SeverityInfo, Incident: mkB(true)}).Validate(),
+				assert.NoError(t, (&Event{Tags: tags, Type: "test-type", Summary: "foo", Incident: mkB(false)}).Validate())
+				assert.ErrorContains(t, (&Event{Tags: tags, Type: "test-type", Summary: "foo", Severity: SeverityInfo, Incident: mkB(true)}).Validate(),
 					"invalid event: 'type' must not be set if `incident` is not set to false")
-				assert.ErrorContains(t, (&Event{Tags: tags, Type: "test-type", Muted: mkB(true), MutedReason: "R"}).Validate(),
+				assert.ErrorContains(t, (&Event{Tags: tags, Type: "test-type", Summary: "foo", Muted: mkB(true), MutedReason: "R"}).Validate(),
 					"invalid event: 'type' must not be set if `incident` is not set to false")
+				assert.NoError(t, (&Event{Tags: tags, Severity: SeverityInfo, Summary: "foo", Incident: mkB(true)}).Validate())
 			})
 
 			t.Run("Close", func(t *testing.T) {
 				t.Parallel()
 
-				assert.NoError(t, (&Event{Tags: tags, Severity: SeverityInfo, Incident: mkB(true), Close: mkB(true)}).Validate())
-				assert.ErrorContains(t, (&Event{Tags: tags, Close: mkB(false)}).Validate(), "'close' can only be set to true or none at all")
-				assert.ErrorContains(t, (&Event{Tags: tags, Close: mkB(true)}).Validate(), "'close' must not be set if 'incident' is not set")
+				assert.NoError(t, (&Event{Tags: tags, Severity: SeverityInfo, Summary: "foo", Incident: mkB(true), Close: mkB(true)}).Validate())
+				assert.ErrorContains(t, (&Event{Tags: tags, Summary: "foo", Close: mkB(false)}).Validate(), "'close' can only be set to true or none at all")
+				assert.ErrorContains(t, (&Event{Tags: tags, Summary: "foo", Close: mkB(true)}).Validate(), "'close' must not be set if 'incident' is not set")
 			})
 
 			t.Run("Notify", func(t *testing.T) {
 				t.Parallel()
 
-				assert.NoError(t, (&Event{Tags: tags, Severity: SeverityInfo, Incident: mkB(true), Notify: mkB(true)}).Validate())
+				assert.NoError(t, (&Event{Tags: tags, Summary: "foo", Severity: SeverityInfo, Incident: mkB(true), Notify: mkB(true)}).Validate())
 				assert.NoError(t,
-					(&Event{Tags: tags, Severity: SeverityInfo, Incident: mkB(true), Notify: mkB(true), Muted: mkB(false), MutedReason: "R"}).Validate())
+					(&Event{Tags: tags, Summary: "foo", Severity: SeverityInfo, Incident: mkB(true), Notify: mkB(true), Muted: mkB(false), MutedReason: "R"}).Validate())
 				assert.NoError(t,
-					(&Event{Tags: tags, Severity: SeverityInfo, Incident: mkB(true), Notify: mkB(true), Muted: mkB(true), MutedReason: "R"}).Validate())
-				assert.ErrorContains(t, (&Event{Tags: tags, Notify: mkB(false)}).Validate(), "'notify' can only be set to true or none at all")
-				assert.ErrorContains(t, (&Event{Tags: tags, Notify: mkB(true)}).Validate(), "'notify' must not be set if 'incident' is not set")
+					(&Event{Tags: tags, Summary: "foo", Severity: SeverityInfo, Incident: mkB(true), Notify: mkB(true), Muted: mkB(true), MutedReason: "R"}).Validate())
+				assert.ErrorContains(t, (&Event{Tags: tags, Summary: "foo", Notify: mkB(false)}).Validate(), "'notify' can only be set to true or none at all")
+				assert.ErrorContains(t, (&Event{Tags: tags, Summary: "foo", Notify: mkB(true)}).Validate(), "'notify' must not be set if 'incident' is not set")
 				assert.ErrorContains(t,
-					(&Event{Tags: tags, Severity: SeverityInfo, Incident: mkB(true), Close: mkB(true), Notify: mkB(true)}).Validate(),
+					(&Event{Tags: tags, Summary: "foo", Severity: SeverityInfo, Incident: mkB(true), Close: mkB(true), Notify: mkB(true)}).Validate(),
 					"'notify' must not be set if 'close' is set")
 			})
 		})
@@ -162,6 +185,7 @@ func TestEvent(t *testing.T) {
 			assert.Equal(t, "/icingadb/service?name=https%20ssl%20v3.0%20compatibility%20IE%206.0&host.name=example%20host", event.URL)
 			assert.Equal(t, map[string]string{"tag1": "value1"}, event.Tags)
 			assert.Equal(t, SeverityOK, event.Severity)
+			assert.Equal(t, "Foo", event.Summary)
 			assert.Equal(t, "Test", event.Message)
 			assert.Equal(t, []string{"relation1", "relation2"}, event.CompleteRelations)
 			assert.Equal(t, map[string]any{"relation1": "relation1", "relation2": "relation2"}, event.Relations)
@@ -177,6 +201,7 @@ func TestEvent(t *testing.T) {
 					"url":"/icingadb/service?name=https%20ssl%20v3.0%20compatibility%20IE%206.0&host.name=example%20host",
 					"tags":{"tag1":"value1"},
 					"severity":"ok",
+					"summary":"Foo",
 					"message":"Test",
 					"complete_relations":["relation1", "relation2"],
 					"relations":{"relation1":"relation1","relation2":"relation2"}
@@ -200,6 +225,7 @@ func TestEvent(t *testing.T) {
 					"url":"/icingadb/service?name=https%20ssl%20v3.0%20compatibility%20IE%206.0&host.name=example%20host",
 					"tags":{"tag1":"value1"},
 					"severity":"ok",
+					"summary":"Foo",
 					"message":"Test",
 					"complete_relations":["relation1", "relation2"],
 					"relations":{"relation1":"relation1","relation2":"relation2"}
@@ -221,6 +247,7 @@ func TestEvent(t *testing.T) {
 					"url":"/icingadb/service?name=https%20ssl%20v3.0%20compatibility%20IE%206.0&host.name=example%20host",
 					"tags":{"tag1":"value1"},
 					"severity":"ok",
+					"summary":"Foo",
 					"message":"Test",
 					"complete_relations":["relation1", "relation2"],
 					"relations":{"relation1":"relation1","relation2":"relation2"}
@@ -246,7 +273,8 @@ func TestEvent(t *testing.T) {
 				URL:               "https://example.com/icingaweb2/icingadb/service?name=https%20ssl%20v3.0%20compatibility%20IE%206.0&host.name=example%20host",
 				Tags:              map[string]string{"tag1": "value1"},
 				Severity:          SeverityOK,
-				Message:           "Test",
+				Summary:           "Test",
+				Message:           "Test\nTest",
 				CompleteRelations: []string{"relation1", "relation2"},
 				Relations: map[string]any{
 					"relation1": "relation1",
@@ -264,7 +292,8 @@ func TestEvent(t *testing.T) {
 					"url":"https://example.com/icingaweb2/icingadb/service?name=https%20ssl%20v3.0%20compatibility%20IE%206.0&host.name=example%20host",
 					"tags":{"tag1":"value1"},
 					"severity":"ok",
-					"message":"Test",
+					"summary":"Test",
+					"message":"Test\nTest",
 					"complete_relations":["relation1", "relation2"],
 					"relations":{"relation1":"relation1","relation2":"relation2"}
 				}`
@@ -281,6 +310,7 @@ func TestEvent(t *testing.T) {
 			expected := `
 			   {
 				  "name":"",
+				  "summary":"",
 				  "message":"",
 				  "url":"",
 				  "tags":{"tag1":"value1"}
@@ -295,6 +325,7 @@ func TestEvent(t *testing.T) {
 				Name:    "TestEvent",
 				URL:     "https://example.com/icingaweb2/icingadb/service?name=https%20ssl%20v3.0%20compatibility%20IE%206.0&host.name=example%20host",
 				Tags:    map[string]string{"tag1": "value1"},
+				Summary: "foo",
 				Message: "Test",
 			}
 
