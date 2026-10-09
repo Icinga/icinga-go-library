@@ -295,7 +295,6 @@ func TestClientGetNotificationHistory(t *testing.T) {
 							ContactName:  types.MakeString("first-contact"),
 							ChannelName:  "first-channel",
 							EventMessage: "hello",
-							State:        NotificationStateSent,
 						},
 					},
 					{
@@ -306,7 +305,6 @@ func TestClientGetNotificationHistory(t *testing.T) {
 							ContactName:  types.MakeString("second-contact"),
 							ChannelName:  "second-channel",
 							EventMessage: "hello",
-							State:        NotificationStateFailed,
 						},
 					},
 				}
@@ -324,7 +322,6 @@ func TestClientGetNotificationHistory(t *testing.T) {
 				assert.Equal(t, "first-contact", first.ContactName.String)
 				assert.Equal(t, "first-channel", first.ChannelName)
 				assert.Equal(t, "hello", first.EventMessage)
-				assert.Equal(t, NotificationStateSent, first.State)
 
 				second := result[1]
 				assert.Equal(t, uuid2, second.EventID)
@@ -332,7 +329,6 @@ func TestClientGetNotificationHistory(t *testing.T) {
 				assert.Equal(t, "second-contact", second.ContactName.String)
 				assert.Equal(t, "second-channel", second.ChannelName)
 				assert.Equal(t, "hello", second.EventMessage)
-				assert.Equal(t, NotificationStateFailed, second.State)
 			},
 		},
 		{
@@ -340,7 +336,7 @@ func TestClientGetNotificationHistory(t *testing.T) {
 			since: 1,
 			handler: func(t *testing.T, rw http.ResponseWriter, r *http.Request) bool {
 				entries := []any{
-					Response[NotificationHistory]{Status: ResponseStatusSuccess, Result: NotificationHistory{State: NotificationStateSent}},
+					Response[NotificationHistory]{Status: ResponseStatusSuccess, Result: NotificationHistory{}},
 					Response[ErrorState]{Status: ResponseStatusError, Result: ErrorState{Error: "something went wrong"}},
 				}
 				writeResp(t, rw, entries)
