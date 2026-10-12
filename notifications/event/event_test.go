@@ -23,7 +23,7 @@ func TestEvent(t *testing.T) {
 		t.Run("Tags", func(t *testing.T) {
 			t.Parallel()
 
-			ev := &Event{Tags: map[string]string{"foo": "bar"}, Incident: types.MakeBool(true)}
+			ev := &Event{Tags: map[string]string{"foo": "bar"}, Severity: SeverityInfo, Incident: types.MakeBool(true)}
 			assert.NoError(t, ev.Validate())
 
 			ev.Tags[""] = "foo"
@@ -59,6 +59,7 @@ func TestEvent(t *testing.T) {
 					t.Parallel()
 
 					ev := &Event{
+						Severity: SeverityInfo,
 						URL:      tc.url,
 						Tags:     map[string]string{"foo": "bar"},
 						Incident: types.MakeBool(true),
@@ -82,28 +83,33 @@ func TestEvent(t *testing.T) {
 			t.Run("Muted", func(t *testing.T) {
 				t.Parallel()
 
-				assert.NoError(t, (&Event{Tags: tags, Muted: mkB(true), MutedReason: "R"}).Validate())
+				assert.NoError(t, (&Event{Tags: tags, Severity: SeverityInfo, Muted: mkB(true), MutedReason: "R"}).Validate())
 				assert.NoError(t, (&Event{Tags: tags, Muted: mkB(false), MutedReason: "R"}).Validate())
 				assert.ErrorContains(t,
-					(&Event{Tags: tags, Muted: mkB(true)}).Validate(),
+					(&Event{Tags: tags, Severity: SeverityInfo, Muted: mkB(true)}).Validate(),
 					"invalid event: 'muted_reason' must not be empty if 'muted' is set")
 				assert.ErrorContains(t,
 					(&Event{Tags: tags, Muted: mkB(false)}).Validate(),
 					"invalid event: 'muted_reason' must not be empty if 'muted' is set")
 
-				assert.NoError(t, (&Event{Tags: tags, Incident: mkB(true), Muted: mkB(true), MutedReason: "R"}).Validate())
-				assert.NoError(t, (&Event{Tags: tags, Incident: mkB(true), Muted: mkB(false), MutedReason: "R"}).Validate())
-				assert.NoError(t, (&Event{Tags: tags, Incident: mkB(true), Close: mkB(true), Muted: mkB(false), MutedReason: "R"}).Validate())
+				assert.NoError(t,
+					(&Event{Tags: tags, Severity: SeverityInfo, Incident: mkB(true), Muted: mkB(true), MutedReason: "R"}).Validate())
+				assert.NoError(t,
+					(&Event{Tags: tags, Severity: SeverityInfo, Incident: mkB(true), Muted: mkB(false), MutedReason: "R"}).Validate())
+				assert.NoError(t,
+					(&Event{Tags: tags, Severity: SeverityInfo, Incident: mkB(true), Close: mkB(true), Muted: mkB(false), MutedReason: "R"}).Validate())
 				assert.ErrorContains(t,
-					(&Event{Tags: tags, Incident: mkB(true), Close: mkB(true), Muted: mkB(true), MutedReason: "R"}).Validate(),
+					(&Event{Tags: tags, Severity: SeverityInfo, Incident: mkB(true), Close: mkB(true), Muted: mkB(true), MutedReason: "R"}).Validate(),
 					"invalid event: 'muted' must not be set to true if 'close' is set")
 			})
 
 			t.Run("Incident", func(t *testing.T) {
 				t.Parallel()
 
-				assert.NoError(t, (&Event{Tags: tags, Incident: mkB(true)}).Validate())
+				assert.NoError(t, (&Event{Tags: tags, Severity: SeverityInfo, Incident: mkB(true)}).Validate())
 				assert.NoError(t, (&Event{Tags: tags, Type: "test-type", Incident: mkB(false)}).Validate())
+				assert.ErrorContains(t, (&Event{Tags: tags, Incident: mkB(true)}).Validate(),
+					"invalid event: 'severity' must be set if 'incident' is set to true")
 				assert.ErrorContains(t, (&Event{Tags: tags, Incident: mkB(false)}).Validate(),
 					"invalid event: 'type' must be set if 'incident' is set to false")
 				assert.ErrorContains(t, (&Event{Tags: tags, Incident: mkB(false), Muted: mkB(true), MutedReason: "R"}).Validate(),
@@ -118,7 +124,7 @@ func TestEvent(t *testing.T) {
 				t.Parallel()
 
 				assert.NoError(t, (&Event{Tags: tags, Type: "test-type", Incident: mkB(false)}).Validate())
-				assert.ErrorContains(t, (&Event{Tags: tags, Type: "test-type", Incident: mkB(true)}).Validate(),
+				assert.ErrorContains(t, (&Event{Tags: tags, Type: "test-type", Severity: SeverityInfo, Incident: mkB(true)}).Validate(),
 					"invalid event: 'type' must not be set if `incident` is not set to false")
 				assert.ErrorContains(t, (&Event{Tags: tags, Type: "test-type", Muted: mkB(true), MutedReason: "R"}).Validate(),
 					"invalid event: 'type' must not be set if `incident` is not set to false")
@@ -127,7 +133,7 @@ func TestEvent(t *testing.T) {
 			t.Run("Close", func(t *testing.T) {
 				t.Parallel()
 
-				assert.NoError(t, (&Event{Tags: tags, Incident: mkB(true), Close: mkB(true)}).Validate())
+				assert.NoError(t, (&Event{Tags: tags, Severity: SeverityInfo, Incident: mkB(true), Close: mkB(true)}).Validate())
 				assert.ErrorContains(t, (&Event{Tags: tags, Close: mkB(false)}).Validate(), "'close' can only be set to true or none at all")
 				assert.ErrorContains(t, (&Event{Tags: tags, Close: mkB(true)}).Validate(), "'close' must not be set if 'incident' is not set")
 			})
@@ -135,12 +141,16 @@ func TestEvent(t *testing.T) {
 			t.Run("Notify", func(t *testing.T) {
 				t.Parallel()
 
-				assert.NoError(t, (&Event{Tags: tags, Incident: mkB(true), Notify: mkB(true)}).Validate())
-				assert.NoError(t, (&Event{Tags: tags, Incident: mkB(true), Notify: mkB(true), Muted: mkB(false), MutedReason: "R"}).Validate())
-				assert.NoError(t, (&Event{Tags: tags, Incident: mkB(true), Notify: mkB(true), Muted: mkB(true), MutedReason: "R"}).Validate())
+				assert.NoError(t, (&Event{Tags: tags, Severity: SeverityInfo, Incident: mkB(true), Notify: mkB(true)}).Validate())
+				assert.NoError(t,
+					(&Event{Tags: tags, Severity: SeverityInfo, Incident: mkB(true), Notify: mkB(true), Muted: mkB(false), MutedReason: "R"}).Validate())
+				assert.NoError(t,
+					(&Event{Tags: tags, Severity: SeverityInfo, Incident: mkB(true), Notify: mkB(true), Muted: mkB(true), MutedReason: "R"}).Validate())
 				assert.ErrorContains(t, (&Event{Tags: tags, Notify: mkB(false)}).Validate(), "'notify' can only be set to true or none at all")
 				assert.ErrorContains(t, (&Event{Tags: tags, Notify: mkB(true)}).Validate(), "'notify' must not be set if 'incident' is not set")
-				assert.ErrorContains(t, (&Event{Tags: tags, Incident: mkB(true), Close: mkB(true), Notify: mkB(true)}).Validate(), "'notify' must not be set if 'close' is set")
+				assert.ErrorContains(t,
+					(&Event{Tags: tags, Severity: SeverityInfo, Incident: mkB(true), Close: mkB(true), Notify: mkB(true)}).Validate(),
+					"'notify' must not be set if 'close' is set")
 			})
 		})
 	})
