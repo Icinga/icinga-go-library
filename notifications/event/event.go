@@ -5,10 +5,14 @@ import (
 	"errors"
 	"fmt"
 	"net/url"
+	"strings"
 	"unicode/utf8"
 
 	"github.com/icinga/icinga-go-library/types"
 )
+
+// MaxSummaryLen is the maximum rune length of Event.Summary.
+const MaxSummaryLen = 1024
 
 // Event represents an Icinga Notifications event that can be sent to the Icinga Notifications API.
 //
@@ -48,7 +52,11 @@ type Event struct {
 
 	// Severity of the event.
 	Severity Severity `json:"severity,omitempty"`
-	// Message is a human-readable message describing the event.
+
+	// Summary describes this event in a single line. It will be used in situations where space is limited, such as
+	// email subject lines. The complete output goes into Message.
+	Summary string `json:"summary"`
+	// Message is the complete human-readable message of the event.
 	Message string `json:"message"`
 
 	// Type of the event, e.g. "DowntimeStart", "DowntimeEnd", etc.
@@ -167,6 +175,15 @@ func (e *Event) Validate() error {
 		if l := utf8.RuneCountInString(tag); l > 255 {
 			return fmt.Errorf("invalid event: tag %q is too long, at most 255 chars allowed, %d given", tag, l)
 		}
+	}
+
+	if l := utf8.RuneCountInString(e.Summary); l == 0 {
+		return errors.New("invalid event: summary must not be empty")
+	} else if l > MaxSummaryLen {
+		return fmt.Errorf("invalid event: summary must be at most %d chars, %d given", MaxSummaryLen, l)
+	}
+	if strings.ContainsAny(e.Summary, "\r\n") {
+		return errors.New("invalid event: summary contains newline")
 	}
 
 	// A source has to submit an absolute URL, as Icinga Notifications does not know where the source's web
