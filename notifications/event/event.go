@@ -200,8 +200,8 @@ func (e *Event) Validate() error {
 		}
 	}
 
-	if e.OpenOrEscalate() && e.Severity == SeverityNone {
-		return errors.New("invalid event: 'severity' must be set if 'incident' is set to true")
+	if e.OpenOrEscalate() != (e.Severity != SeverityNone) {
+		return errors.New("invalid event: 'severity' must be set if and only if 'incident' is set to true")
 	}
 
 	if !e.CloseIncident() && e.Close.Valid {

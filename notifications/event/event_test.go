@@ -105,10 +105,10 @@ func TestEvent(t *testing.T) {
 			t.Run("Muted", func(t *testing.T) {
 				t.Parallel()
 
-				assert.NoError(t, (&Event{Tags: tags, Severity: SeverityInfo, Summary: "foo", Muted: mkB(true), MutedReason: "R"}).Validate())
+				assert.NoError(t, (&Event{Tags: tags, Summary: "foo", Muted: mkB(true), MutedReason: "R"}).Validate())
 				assert.NoError(t, (&Event{Tags: tags, Summary: "foo", Muted: mkB(false), MutedReason: "R"}).Validate())
 				assert.ErrorContains(t,
-					(&Event{Tags: tags, Severity: SeverityInfo, Summary: "foo", Muted: mkB(true)}).Validate(),
+					(&Event{Tags: tags, Summary: "foo", Muted: mkB(true)}).Validate(),
 					"invalid event: 'muted_reason' must not be empty if 'muted' is set")
 				assert.ErrorContains(t,
 					(&Event{Tags: tags, Summary: "foo", Muted: mkB(false)}).Validate(),
@@ -131,7 +131,11 @@ func TestEvent(t *testing.T) {
 				assert.NoError(t, (&Event{Tags: tags, Severity: SeverityInfo, Summary: "foo", Incident: mkB(true)}).Validate())
 				assert.NoError(t, (&Event{Tags: tags, Summary: "foo", Type: "test-type", Incident: mkB(false)}).Validate())
 				assert.ErrorContains(t, (&Event{Tags: tags, Summary: "foo", Incident: mkB(true)}).Validate(),
-					"invalid event: 'severity' must be set if 'incident' is set to true")
+					"invalid event: 'severity' must be set if and only if 'incident' is set to true")
+				assert.ErrorContains(t, (&Event{Tags: tags, Summary: "foo", Severity: SeverityCrit, Type: "foo", Incident: mkB(false)}).Validate(),
+					"invalid event: 'severity' must be set if and only if 'incident' is set to true")
+				assert.ErrorContains(t, (&Event{Tags: tags, Summary: "foo", Severity: SeverityCrit}).Validate(),
+					"invalid event: 'severity' must be set if and only if 'incident' is set to true")
 				assert.ErrorContains(t, (&Event{Tags: tags, Summary: "foo", Incident: mkB(false)}).Validate(),
 					"invalid event: 'type' must be set if 'incident' is set to false")
 				assert.ErrorContains(t, (&Event{Tags: tags, Summary: "foo", Incident: mkB(false), Muted: mkB(true), MutedReason: "R"}).Validate(),
