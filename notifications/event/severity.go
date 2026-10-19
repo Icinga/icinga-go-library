@@ -15,15 +15,10 @@ type Severity uint8
 const (
 	SeverityNone Severity = iota // none
 
-	SeverityOK      // ok
-	SeverityDebug   // debug
-	SeverityInfo    // info
-	SeverityNotice  // notice
-	SeverityWarning // warning
-	SeverityErr     // err
-	SeverityCrit    // crit
-	SeverityAlert   // alert
-	SeverityEmerg   // emerg
+	SeverityOK       // ok
+	SeverityWarning  // warning
+	SeverityError    // error
+	SeverityCritical // critical
 
 	severityMax // internal
 )
