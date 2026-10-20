@@ -392,6 +392,11 @@ func PopulateDefaults(typePtr Plugin) error {
 		if confAttr.Default != nil {
 			defaults[confAttr.Name] = confAttr.Default
 		}
+		for _, child := range confAttr.Children {
+			if child.Default != nil {
+				defaults[child.Name] = child.Default
+			}
+		}
 	}
 
 	defaultConf, err := json.Marshal(defaults)
