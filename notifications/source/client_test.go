@@ -214,6 +214,7 @@ func TestClient(t *testing.T) {
 			srv := tc.server(t, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				reached = true
 				assert.Equal(t, "test-client", r.Header.Get("User-Agent"))
+				assert.Equal(t, "/v1/incidents", r.URL.Path)
 				if tc.handler != nil {
 					if tc.handler(t, w, r) {
 						return // headers and status code already written by handler
@@ -382,6 +383,7 @@ func TestClientGetNotificationHistory(t *testing.T) {
 			srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				reached = true
 				assert.Equal(t, "test-client", r.Header.Get("User-Agent"))
+				assert.Equal(t, "/v1/notification-history", r.URL.Path)
 				if tc.handler(t, w, r) {
 					return // headers and status code already written by handler
 				}
@@ -404,7 +406,7 @@ func TestClientGetNotificationHistory(t *testing.T) {
 }
 
 // writeResp writes each of results as a chunk of a streamed x-ndjson response with a 202 Accepted status,
-// mirroring how the Icinga Notifications API streams /incidents and /notification-history responses.
+// mirroring how the Icinga Notifications API streams /v1/incidents and /v1/notification-history responses.
 func writeResp[T any](t *testing.T, rw http.ResponseWriter, results []T) {
 	rw.Header().Set("Content-Type", "application/x-ndjson")
 	rw.WriteHeader(http.StatusAccepted)
