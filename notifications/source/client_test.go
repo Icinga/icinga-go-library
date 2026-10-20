@@ -122,9 +122,9 @@ func TestClient(t *testing.T) {
 			server: func(t *testing.T, h http.Handler) *httptest.Server { return httptest.NewServer(h) },
 			handler: func(t *testing.T, rw http.ResponseWriter, r *http.Request) bool {
 				incidents := []any{
-					Response[Incident]{Status: ResponseStatusSuccess, Result: Incident{IsMuted: false, ObjectTags: map[string]string{"icinga": "test"}, Severity: event.SeverityCrit}},
+					Response[Incident]{Status: ResponseStatusSuccess, Result: Incident{IsMuted: false, ObjectTags: map[string]string{"icinga": "test"}, Severity: event.SeverityCritical}},
 					Response[Incident]{Status: ResponseStatusSuccess, Result: Incident{IsMuted: true, ObjectTags: map[string]string{"icinga": "test2"}, Severity: event.SeverityWarning}},
-					Response[Incident]{Status: ResponseStatusSuccess, Result: Incident{IsMuted: false, ObjectTags: map[string]string{"icinga": "test3"}, Severity: event.SeverityInfo}},
+					Response[Incident]{Status: ResponseStatusSuccess, Result: Incident{IsMuted: false, ObjectTags: map[string]string{"icinga": "test3"}, Severity: event.SeverityOK}},
 				}
 				writeResp(t, rw, incidents)
 				return true
@@ -136,13 +136,13 @@ func TestClient(t *testing.T) {
 				for i, incident := range result {
 					switch i {
 					case 0:
-						assert.Equal(t, event.SeverityCrit, incident.Severity)
+						assert.Equal(t, event.SeverityCritical, incident.Severity)
 						assert.Equal(t, map[string]string{"icinga": "test"}, incident.ObjectTags)
 					case 1:
 						assert.Equal(t, event.SeverityWarning, incident.Severity)
 						assert.Equal(t, map[string]string{"icinga": "test2"}, incident.ObjectTags)
 					case 2:
-						assert.Equal(t, event.SeverityInfo, incident.Severity)
+						assert.Equal(t, event.SeverityOK, incident.Severity)
 						assert.Equal(t, map[string]string{"icinga": "test3"}, incident.ObjectTags)
 					}
 				}
@@ -153,7 +153,7 @@ func TestClient(t *testing.T) {
 			server: func(t *testing.T, h http.Handler) *httptest.Server { return httptest.NewServer(h) },
 			handler: func(t *testing.T, rw http.ResponseWriter, r *http.Request) bool {
 				incidents := []any{
-					Response[Incident]{Status: ResponseStatusSuccess, Result: Incident{IsMuted: false, ObjectTags: map[string]string{"icinga": "test"}, Severity: event.SeverityCrit}},
+					Response[Incident]{Status: ResponseStatusSuccess, Result: Incident{IsMuted: false, ObjectTags: map[string]string{"icinga": "test"}, Severity: event.SeverityCritical}},
 					Response[ErrorState]{Status: ResponseStatusError, Result: ErrorState{Error: "something went wrong"}},
 				}
 				writeResp(t, rw, incidents)

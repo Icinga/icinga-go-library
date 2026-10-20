@@ -25,7 +25,7 @@ func TestEvent(t *testing.T) {
 		t.Run("Summary", func(t *testing.T) {
 			t.Parallel()
 
-			ev := &Event{Tags: map[string]string{"foo": "bar"}, Severity: SeverityInfo, Incident: types.MakeBool(true)}
+			ev := &Event{Tags: map[string]string{"foo": "bar"}, Severity: SeverityOK, Incident: types.MakeBool(true)}
 
 			assert.ErrorContains(t, ev.Validate(), "summary must not be empty")
 
@@ -44,7 +44,7 @@ func TestEvent(t *testing.T) {
 		t.Run("Tags", func(t *testing.T) {
 			t.Parallel()
 
-			ev := &Event{Tags: map[string]string{"foo": "bar"}, Severity: SeverityInfo, Summary: "foo", Incident: types.MakeBool(true)}
+			ev := &Event{Tags: map[string]string{"foo": "bar"}, Severity: SeverityOK, Summary: "foo", Incident: types.MakeBool(true)}
 			assert.NoError(t, ev.Validate())
 
 			ev.Tags[""] = "foo"
@@ -80,7 +80,7 @@ func TestEvent(t *testing.T) {
 					t.Parallel()
 
 					ev := &Event{
-						Severity: SeverityInfo,
+						Severity: SeverityOK,
 						URL:      tc.url,
 						Tags:     map[string]string{"foo": "bar"},
 						Summary:  "foo",
@@ -115,26 +115,26 @@ func TestEvent(t *testing.T) {
 					"invalid event: 'muted_reason' must not be empty if 'muted' is set")
 
 				assert.NoError(t,
-					(&Event{Tags: tags, Severity: SeverityInfo, Summary: "foo", Incident: mkB(true), Muted: mkB(true), MutedReason: "R"}).Validate())
+					(&Event{Tags: tags, Severity: SeverityOK, Summary: "foo", Incident: mkB(true), Muted: mkB(true), MutedReason: "R"}).Validate())
 				assert.NoError(t,
-					(&Event{Tags: tags, Severity: SeverityInfo, Summary: "foo", Incident: mkB(true), Muted: mkB(false), MutedReason: "R"}).Validate())
+					(&Event{Tags: tags, Severity: SeverityOK, Summary: "foo", Incident: mkB(true), Muted: mkB(false), MutedReason: "R"}).Validate())
 				assert.NoError(t,
-					(&Event{Tags: tags, Severity: SeverityInfo, Summary: "foo", Incident: mkB(true), Close: mkB(true), Muted: mkB(false), MutedReason: "R"}).Validate())
+					(&Event{Tags: tags, Severity: SeverityOK, Summary: "foo", Incident: mkB(true), Close: mkB(true), Muted: mkB(false), MutedReason: "R"}).Validate())
 				assert.ErrorContains(t,
-					(&Event{Tags: tags, Severity: SeverityInfo, Summary: "foo", Incident: mkB(true), Close: mkB(true), Muted: mkB(true), MutedReason: "R"}).Validate(),
+					(&Event{Tags: tags, Severity: SeverityOK, Summary: "foo", Incident: mkB(true), Close: mkB(true), Muted: mkB(true), MutedReason: "R"}).Validate(),
 					"invalid event: 'muted' must not be set to true if 'close' is set")
 			})
 
 			t.Run("Incident", func(t *testing.T) {
 				t.Parallel()
 
-				assert.NoError(t, (&Event{Tags: tags, Severity: SeverityInfo, Summary: "foo", Incident: mkB(true)}).Validate())
+				assert.NoError(t, (&Event{Tags: tags, Severity: SeverityOK, Summary: "foo", Incident: mkB(true)}).Validate())
 				assert.NoError(t, (&Event{Tags: tags, Summary: "foo", Type: "test-type", Incident: mkB(false)}).Validate())
 				assert.ErrorContains(t, (&Event{Tags: tags, Summary: "foo", Incident: mkB(true)}).Validate(),
 					"invalid event: 'severity' must be set if and only if 'incident' is set to true")
-				assert.ErrorContains(t, (&Event{Tags: tags, Summary: "foo", Severity: SeverityCrit, Type: "foo", Incident: mkB(false)}).Validate(),
+				assert.ErrorContains(t, (&Event{Tags: tags, Summary: "foo", Severity: SeverityCritical, Type: "foo", Incident: mkB(false)}).Validate(),
 					"invalid event: 'severity' must be set if and only if 'incident' is set to true")
-				assert.ErrorContains(t, (&Event{Tags: tags, Summary: "foo", Severity: SeverityCrit}).Validate(),
+				assert.ErrorContains(t, (&Event{Tags: tags, Summary: "foo", Severity: SeverityCritical}).Validate(),
 					"invalid event: 'severity' must be set if and only if 'incident' is set to true")
 				assert.ErrorContains(t, (&Event{Tags: tags, Summary: "foo", Incident: mkB(false)}).Validate(),
 					"invalid event: 'type' must be set if 'incident' is set to false")
@@ -150,17 +150,17 @@ func TestEvent(t *testing.T) {
 				t.Parallel()
 
 				assert.NoError(t, (&Event{Tags: tags, Type: "test-type", Summary: "foo", Incident: mkB(false)}).Validate())
-				assert.ErrorContains(t, (&Event{Tags: tags, Type: "test-type", Summary: "foo", Severity: SeverityInfo, Incident: mkB(true)}).Validate(),
+				assert.ErrorContains(t, (&Event{Tags: tags, Type: "test-type", Summary: "foo", Severity: SeverityOK, Incident: mkB(true)}).Validate(),
 					"invalid event: 'type' must not be set if `incident` is not set to false")
 				assert.ErrorContains(t, (&Event{Tags: tags, Type: "test-type", Summary: "foo", Muted: mkB(true), MutedReason: "R"}).Validate(),
 					"invalid event: 'type' must not be set if `incident` is not set to false")
-				assert.NoError(t, (&Event{Tags: tags, Severity: SeverityInfo, Summary: "foo", Incident: mkB(true)}).Validate())
+				assert.NoError(t, (&Event{Tags: tags, Severity: SeverityOK, Summary: "foo", Incident: mkB(true)}).Validate())
 			})
 
 			t.Run("Close", func(t *testing.T) {
 				t.Parallel()
 
-				assert.NoError(t, (&Event{Tags: tags, Severity: SeverityInfo, Summary: "foo", Incident: mkB(true), Close: mkB(true)}).Validate())
+				assert.NoError(t, (&Event{Tags: tags, Severity: SeverityOK, Summary: "foo", Incident: mkB(true), Close: mkB(true)}).Validate())
 				assert.ErrorContains(t, (&Event{Tags: tags, Summary: "foo", Close: mkB(false)}).Validate(), "'close' can only be set to true or none at all")
 				assert.ErrorContains(t, (&Event{Tags: tags, Summary: "foo", Close: mkB(true)}).Validate(), "'close' must not be set if 'incident' is not set")
 			})
@@ -168,15 +168,15 @@ func TestEvent(t *testing.T) {
 			t.Run("Notify", func(t *testing.T) {
 				t.Parallel()
 
-				assert.NoError(t, (&Event{Tags: tags, Summary: "foo", Severity: SeverityInfo, Incident: mkB(true), Notify: mkB(true)}).Validate())
+				assert.NoError(t, (&Event{Tags: tags, Summary: "foo", Severity: SeverityOK, Incident: mkB(true), Notify: mkB(true)}).Validate())
 				assert.NoError(t,
-					(&Event{Tags: tags, Summary: "foo", Severity: SeverityInfo, Incident: mkB(true), Notify: mkB(true), Muted: mkB(false), MutedReason: "R"}).Validate())
+					(&Event{Tags: tags, Summary: "foo", Severity: SeverityOK, Incident: mkB(true), Notify: mkB(true), Muted: mkB(false), MutedReason: "R"}).Validate())
 				assert.NoError(t,
-					(&Event{Tags: tags, Summary: "foo", Severity: SeverityInfo, Incident: mkB(true), Notify: mkB(true), Muted: mkB(true), MutedReason: "R"}).Validate())
+					(&Event{Tags: tags, Summary: "foo", Severity: SeverityOK, Incident: mkB(true), Notify: mkB(true), Muted: mkB(true), MutedReason: "R"}).Validate())
 				assert.ErrorContains(t, (&Event{Tags: tags, Summary: "foo", Notify: mkB(false)}).Validate(), "'notify' can only be set to true or none at all")
 				assert.ErrorContains(t, (&Event{Tags: tags, Summary: "foo", Notify: mkB(true)}).Validate(), "'notify' must not be set if 'incident' is not set")
 				assert.ErrorContains(t,
-					(&Event{Tags: tags, Summary: "foo", Severity: SeverityInfo, Incident: mkB(true), Close: mkB(true), Notify: mkB(true)}).Validate(),
+					(&Event{Tags: tags, Summary: "foo", Severity: SeverityOK, Incident: mkB(true), Close: mkB(true), Notify: mkB(true)}).Validate(),
 					"'notify' must not be set if 'close' is set")
 			})
 		})

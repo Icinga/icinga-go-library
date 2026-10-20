@@ -10,24 +10,20 @@ func _() {
 	var x [1]struct{}
 	_ = x[SeverityNone-0]
 	_ = x[SeverityOK-1]
-	_ = x[SeverityDebug-2]
-	_ = x[SeverityInfo-3]
-	_ = x[SeverityNotice-4]
-	_ = x[SeverityWarning-5]
-	_ = x[SeverityErr-6]
-	_ = x[SeverityCrit-7]
-	_ = x[SeverityAlert-8]
-	_ = x[SeverityEmerg-9]
-	_ = x[severityMax-10]
+	_ = x[SeverityWarning-2]
+	_ = x[SeverityError-3]
+	_ = x[SeverityCritical-4]
+	_ = x[severityMax-5]
 }
 
-const _Severity_name = "noneokdebuginfonoticewarningerrcritalertemerginternal"
+const _Severity_name = "noneokwarningerrorcriticalinternal"
 
-var _Severity_index = [...]uint8{0, 4, 6, 11, 15, 21, 28, 31, 35, 40, 45, 53}
+var _Severity_index = [...]uint8{0, 4, 6, 13, 18, 26, 34}
 
 func (i Severity) String() string {
-	if i >= Severity(len(_Severity_index)-1) {
+	idx := int(i) - 0
+	if i < 0 || idx >= len(_Severity_index)-1 {
 		return "Severity(" + strconv.FormatInt(int64(i), 10) + ")"
 	}
-	return _Severity_name[_Severity_index[i]:_Severity_index[i+1]]
+	return _Severity_name[_Severity_index[idx]:_Severity_index[idx+1]]
 }
