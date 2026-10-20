@@ -125,14 +125,14 @@ func NewClient(cfg Config, clientName string) (*Client, error) {
 			Incidents           string
 			NotificationHistory string
 		}{
-			ProcessEvent:        baseUrl.JoinPath("/process-event").String(),
-			Incidents:           baseUrl.JoinPath("/incidents").String(),
-			NotificationHistory: baseUrl.JoinPath("/notification-history").String(),
+			ProcessEvent:        baseUrl.JoinPath("/v1/process-event").String(),
+			Incidents:           baseUrl.JoinPath("/v1/incidents").String(),
+			NotificationHistory: baseUrl.JoinPath("/v1/notification-history").String(),
 		},
 	}, nil
 }
 
-// ProcessEvent submits an event.Event to the Icinga Notifications /process-event API endpoint.
+// ProcessEvent submits an event.Event to the Icinga Notifications /v1/process-event API endpoint.
 //
 // When rejectIncomplete is set and the returned error is ErrAttrsNegotiation,
 // the first return parameter is an array of required attributes.
@@ -179,7 +179,7 @@ func (client *Client) ProcessEvent(ctx context.Context, ev *event.Event, rejectI
 		resp.Status, resp.StatusCode, readLimitedBody(resp.Body))
 }
 
-// GetIncidents retrieves the current incidents of this source from the Icinga Notifications /incidents API endpoint.
+// GetIncidents retrieves the current incidents of this source from the Icinga Notifications /v1/incidents API endpoint.
 //
 // The filter parameter is used to filter the incidents returned by the API. It must be a non-nil value that can
 // be marshaled to JSON. If filter is nil, an error is returned. Please refer to the Icinga Notifications API doc
@@ -197,7 +197,7 @@ func (client *Client) GetIncidents(ctx context.Context, filter any) ([]Incident,
 	return incidents, nil
 }
 
-// YieldIncidents retrieves the current incidents of this source from the Icinga Notifications /incidents endpoint
+// YieldIncidents retrieves the current incidents of this source from the Icinga Notifications /v1/incidents endpoint
 // and yields them as a stream of [Incident] objects.
 //
 // The filter parameter is used to filter the incidents returned by the API. It must be a non-nil value that can
@@ -424,7 +424,7 @@ type ErrorState struct {
 	Error string `json:"error,omitempty"`
 }
 
-// Incident represents an incident as returned by the Icinga Notifications /incidents API endpoint as a Response.Result
+// Incident represents an incident as returned by the Icinga Notifications /v1/incidents API endpoint as a Response.Result
 // when the Response.Status is "success".
 type Incident struct {
 	IsMuted    bool              `json:"is_muted"`
