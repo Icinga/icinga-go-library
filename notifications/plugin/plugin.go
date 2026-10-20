@@ -39,6 +39,13 @@ const (
 // avoiding unnecessary verbosity.
 const MaxDeliveryResultSize = 1024 * 1024
 
+// RequestVersion is the version of the NotificationRequest payload structure.
+type RequestVersion uint16
+
+const (
+	RequestVersionV1 RequestVersion = 1
+)
+
 // ChildOption describes a config element that is conditionally displayed based on the value of a parent option.
 //
 // This allows to create a more dynamic and user-friendly configuration interface, where certain options are only
@@ -150,6 +157,11 @@ type Info struct {
 	// Author of this channel plugin.
 	Author string `db:"author" json:"author"`
 
+	// SupportedRequestVersions lists the [NotificationRequest] versions this channel plugin can handle.
+	//
+	// Plugins must always advertise all versions they support, even if they only support the latest version.
+	SupportedRequestVersions []RequestVersion `db:"-" json:"supported_request_versions"`
+
 	// ConfigAttributes contains multiple ConfigOption(s) as JSON-encoded list.
 	ConfigAttributes ConfigOptions `db:"config_attrs" json:"config_attrs"`
 }
@@ -159,7 +171,7 @@ func (i *Info) TableName() string {
 	return "available_channel_type"
 }
 
-// Contact to receive notifications for the NotificationRequest.
+// Contact to receive notifications for the NotificationRequest.Payload.
 type Contact struct {
 	// FullName of a Contact as defined in Icinga Notifications.
 	FullName string `json:"full_name"`
@@ -177,7 +189,7 @@ type Address struct {
 	Address string `json:"address"`
 }
 
-// Object which this NotificationRequest is all about, e.g., an Icinga 2 Host or Service object.
+// Object which this NotificationRequest.Payload is all about, e.g., an Icinga 2 Host or Service object.
 type Object struct {
 	// Name depending on its source, may be "host!service" when from Icinga 2.
 	Name string `json:"name"`
@@ -192,7 +204,7 @@ type Object struct {
 	Tags map[string]string `json:"tags"`
 }
 
-// Incident of this NotificationRequest, grouping Events for this Object.
+// Incident of this NotificationRequest.Payload, grouping Events for this Object.
 type Incident struct {
 	// Severity of this Incident.
 	Severity event.Severity `json:"severity"`
@@ -228,7 +240,7 @@ type Incident struct {
 	OpenedBySource string `json:"opened_by_source"`
 }
 
-// Event indicating this NotificationRequest.
+// Event indicating this NotificationRequest.Payload.
 type Event struct {
 	// Type of this Event; optional.
 	Type string `json:"type,omitzero"`
@@ -262,6 +274,43 @@ func (s State) IsZero() bool { return s.Key.IsZero() }
 
 // NotificationRequest is sent to a channel plugin via [Plugin.SendNotification] to request a notification delivery.
 type NotificationRequest struct {
+	// Version of the Payload structure, set by Icinga Notifications.
+	//
+	// Valid versions start at RequestVersionV1, and all plugins are expected to support at least this version.
+	// The zero value is never set, and plugins should reject any request with an unsupported version.
+	Version RequestVersion `json:"version"`
+
+	// Payload contains the notification data in the structure defined by Version.
+	//
+	// Plugins should unmarshal this field into a compatible struct based on the Version field.
+	// For example, if Version is [RequestVersionV1], the Payload can be unmarshaled into [PayloadV1].
+	Payload json.RawMessage `json:"payload"`
+}
+
+// PayloadAs is a generic accessor for the Payload field of a NotificationRequest.
+//
+// It unmarshals the Payload into the specified type T, which must correspond to the Version of the
+// NotificationRequest. If the Version does not match the expected type, or if unmarshaling fails,
+// an error is returned.
+func (nr *NotificationRequest) PayloadAs[T any]() (*T, error) {
+	p := new(T)
+	switch t := any(p).(type) {
+	case *PayloadV1:
+		if nr.Version != RequestVersionV1 {
+			return nil, fmt.Errorf("unsupported notification request version %d, expected %d", nr.Version, RequestVersionV1)
+		}
+	default:
+		return nil, fmt.Errorf("unsupported payload type %T", t)
+	}
+
+	if err := json.Unmarshal(nr.Payload, p); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal notification request payload: %w", err)
+	}
+	return p, nil
+}
+
+// PayloadV1 represents the structure of the notification request data for version 1 of the Payload.
+type PayloadV1 struct {
 	// Contact to receive this NotificationRequest.
 	Contact *Contact `json:"contact"`
 
@@ -293,7 +342,7 @@ type NotificationRequest struct {
 
 // DeliveryResult is the outcome of [Plugin.SendNotification] reported back to Icinga Notifications.
 type DeliveryResult struct {
-	// If State has a valid Key, it replaces the stored state of the [NotificationRequest].
+	// If State has a valid Key, it replaces the stored state of the [NotificationRequest.Payload].
 	//
 	// Its Key must match [NotificationRequest.State.Key]. A zero State leaves the stored state unchanged.
 	State State `json:"state,omitzero"`
@@ -369,8 +418,13 @@ type Plugin interface {
 
 	// SendNotification sends the notification described by req, returning an error on failure.
 	//
-	// A non-nil error means the delivery failed. When the plugin is started via [Run], the error is sent
-	// back as a JSON-RPC error response and any [DeliveryResult] returned with it is dropped. On success,
+	// Before calling this method, the rpcHandler has already checked that req.Version is one of the versions the
+	// library supports and rejected the request otherwise. Implementations should still use the typed accessor
+	// for the version they handle (e.g., NotificationRequest.PayloadAs[PayloadV1]()) instead of decoding the
+	// payload directly.
+	//
+	// Returning a non-nil error means the delivery failed. When the plugin is started via [Run], the error is
+	// sent back as a JSON-RPC error response and any [DeliveryResult] returned with it is dropped. On success,
 	// the returned [DeliveryResult] may be nil if there is no state update and no details to report.
 	SendNotification(req *NotificationRequest) (*DeliveryResult, error)
 }
@@ -451,6 +505,17 @@ func (rh *rpcHandler) Handle(ctx context.Context, conn *jsonrpc.Conn, req *jsonr
 		var nr NotificationRequest
 		if err := json.Unmarshal(*req.Params, &nr); err != nil {
 			if err := jsonrpc.ReplyError(ctx, conn, req.ID, jsonrpc.CodeParseError, err.Error()); err != nil {
+				log.Fatalf("failed to send SendNotification response: %v", err)
+			}
+			return
+		}
+
+		switch nr.Version {
+		case RequestVersionV1:
+			// Valid version, no action needed.
+		default:
+			msg := fmt.Sprintf("unsupported notification request version %d", nr.Version)
+			if err := jsonrpc.ReplyError(ctx, conn, req.ID, jsonrpc.CodeInvalidParams, msg); err != nil {
 				log.Fatalf("failed to send SendNotification response: %v", err)
 			}
 			return
