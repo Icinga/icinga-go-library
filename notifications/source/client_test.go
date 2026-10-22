@@ -296,6 +296,7 @@ func TestClientGetNotificationHistory(t *testing.T) {
 							ContactName:  types.MakeString("first-contact"),
 							ChannelName:  "first-channel",
 							EventMessage: "hello",
+							EventSummary: "summary",
 						},
 					},
 					{
@@ -306,6 +307,7 @@ func TestClientGetNotificationHistory(t *testing.T) {
 							ContactName:  types.MakeString("second-contact"),
 							ChannelName:  "second-channel",
 							EventMessage: "hello",
+							EventSummary: "summary",
 						},
 					},
 				}
@@ -323,6 +325,7 @@ func TestClientGetNotificationHistory(t *testing.T) {
 				assert.Equal(t, "first-contact", first.ContactName.String)
 				assert.Equal(t, "first-channel", first.ChannelName)
 				assert.Equal(t, "hello", first.EventMessage)
+				assert.Equal(t, "summary", first.EventSummary)
 
 				second := result[1]
 				assert.Equal(t, uuid2, second.EventID)
@@ -330,6 +333,7 @@ func TestClientGetNotificationHistory(t *testing.T) {
 				assert.Equal(t, "second-contact", second.ContactName.String)
 				assert.Equal(t, "second-channel", second.ChannelName)
 				assert.Equal(t, "hello", second.EventMessage)
+				assert.Equal(t, "summary", second.EventSummary)
 			},
 		},
 		{
