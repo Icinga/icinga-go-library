@@ -15,5 +15,6 @@ type NotificationHistory struct {
 	ScheduleName     types.String    `json:"schedule_name"`
 	ChannelName      string          `json:"channel_name"`
 	EventMessage     string          `json:"event_message"`
+	EventSummary     string          `json:"event_summary"`
 	IncidentClosed   types.Bool      `json:"incident_closed"`
 }
