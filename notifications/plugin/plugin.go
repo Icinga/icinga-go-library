@@ -53,7 +53,7 @@ const (
 // UI will only render one level of children or even reject them entirely. Therefore, it is prohibited to define a
 // child option with its own children.
 type ChildOption struct {
-	ConfigOptionCommon
+	ConfigOptionCommon `json:",inline"`
 
 	// ParentValues is a list of parent element values that will trigger the display of this child option.
 	//
@@ -117,7 +117,7 @@ type ConfigOptionCommon struct {
 
 // ConfigOption describes a config element.
 type ConfigOption struct {
-	ConfigOptionCommon
+	ConfigOptionCommon `json:",inline"`
 
 	// Children contains a set of [ChildOption] rendered in the UI only when a specific parent option value is selected.
 	//
