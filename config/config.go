@@ -34,10 +34,6 @@ var ErrInvalidConfiguration = stderrors.New("invalid configuration")
 
 // fromYAMLFile parses the configuration from a YAML file. Used internally in FromYAMLFile.
 func fromYAMLFile(name string, v Validator) error {
-	if err := validateNonNilStructPointer(v); err != nil {
-		return errors.WithStack(err)
-	}
-
 	// #nosec G304 G703 -- Accept user-controlled input for config file.
 	f, err := os.Open(name)
 	if err != nil {
@@ -46,10 +42,6 @@ func fromYAMLFile(name string, v Validator) error {
 	defer func(f *os.File) {
 		_ = f.Close()
 	}(f)
-
-	if err := defaults.Set(v); err != nil {
-		return errors.Wrap(err, "can't set config defaults")
-	}
 
 	d := yaml.NewDecoder(f, yaml.DisallowUnknownField())
 	if err := d.Decode(v); err != nil {
@@ -104,6 +96,10 @@ func fromYAMLFile(name string, v Validator) error {
 //		// ...
 //	}
 func FromYAMLFile(name string, v Validator) error {
+	if err := setDefaults(v); err != nil {
+		return err
+	}
+
 	if err := fromYAMLFile(name, v); err != nil {
 		return err
 	}
@@ -118,8 +114,13 @@ func FromYAMLFile(name string, v Validator) error {
 // EnvOptions is a type alias for [env.Options], so that only this package needs to import [env].
 type EnvOptions = env.Options
 
-// fromEnv parses the configuration from environment variables. Used internally in FromEnv.
-func fromEnv(v Validator, options EnvOptions) error {
+// setDefaults applies the "default" struct tags.
+//
+// Must be called once before parsing. As the default package considers zero values as unset, a second call would
+// override set zero values, e.g., false.
+//
+// An error is returned if v is invalid, [validateNonNilStructPointer], or [defaults.Set] fails.
+func setDefaults(v Validator) error {
 	if err := validateNonNilStructPointer(v); err != nil {
 		return errors.WithStack(err)
 	}
@@ -128,6 +129,11 @@ func fromEnv(v Validator, options EnvOptions) error {
 		return errors.Wrap(err, "can't set config defaults")
 	}
 
+	return nil
+}
+
+// fromEnv parses the configuration from environment variables. Used internally in FromEnv.
+func fromEnv(v Validator, options EnvOptions) error {
 	if err := env.ParseWithOptions(v, options); err != nil {
 		return errors.Wrap(err, "can't parse environment variables")
 	}
@@ -179,6 +185,10 @@ func fromEnv(v Validator, options EnvOptions) error {
 //		// ...
 //	}
 func FromEnv(v Validator, options EnvOptions) error {
+	if err := setDefaults(v); err != nil {
+		return err
+	}
+
 	if err := fromEnv(v, options); err != nil {
 		return err
 	}
@@ -276,8 +286,8 @@ type LoadOptions struct {
 //		// ...
 //	}
 func Load(v Validator, options LoadOptions) error {
-	if err := validateNonNilStructPointer(v); err != nil {
-		return errors.WithStack(err)
+	if err := setDefaults(v); err != nil {
+		return err
 	}
 
 	var configFileIsDefaultAndDoesNotExist bool

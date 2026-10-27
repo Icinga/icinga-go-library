@@ -76,6 +76,12 @@ type defaultConfig struct {
 	validateValid
 }
 
+// zeroValueConfig is a valid test configuration with a field defaulting to true.
+type zeroValueConfig struct {
+	Synchronize bool `yaml:"synchronize" env:"SYNCHRONIZE" default:"true"`
+	validateValid
+}
+
 // invalidConfig is an always invalid test configuration struct with only one key.
 type invalidConfig struct {
 	Key string `yaml:"key" env:"KEY"`
@@ -178,6 +184,14 @@ default-key: overridden-value`,
 			Key:     "value",
 			Default: defaultConfigPart{Key: "overridden-value"},
 		},
+	},
+	{
+		Name: "Overriding Defaults to Zero Value",
+		Data: testutils.ConfigTestData{
+			Yaml: `synchronize: false`,
+			Env:  map[string]string{"SYNCHRONIZE": "0"},
+		},
+		Expected: &zeroValueConfig{Synchronize: false},
 	},
 	{
 		Name: "Validate invalid",
@@ -398,6 +412,20 @@ func TestLoad(t *testing.T) {
 				Key:      "yaml-value",
 				Embedded: embeddedConfigPart{Key: "env-value"},
 			},
+		},
+		{
+			Name: "YAML: Overriding Defaults to Zero Value",
+			Data: testutils.ConfigTestData{
+				Yaml: `synchronize: false`,
+			},
+			Expected: &zeroValueConfig{Synchronize: false},
+		},
+		{
+			Name: "Env: Overriding Defaults to Zero Value",
+			Data: testutils.ConfigTestData{
+				Env: map[string]string{"SYNCHRONIZE": "0"},
+			},
+			Expected: &zeroValueConfig{Synchronize: false},
 		},
 		{
 			Name: "Validate invalid",
