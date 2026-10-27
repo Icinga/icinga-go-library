@@ -32,7 +32,13 @@ type Event struct {
 	// a new UUID.
 	ID types.UUID `json:"id,omitzero"`
 
-	Name string `json:"name"` // Name is the name of the object this event is all about.
+	// Name is the display name of the object this event is referring to, e.g. a host or service display name.
+	//
+	// This should be a human-readable name that describes the object this event is referring to. It will
+	// be used in the notifications sent to the recipients, as well as in Icinga Notifications Web for the
+	// associated incident. It is not required to be unique, but it should be descriptive enough to identify
+	// the object this event is referring to.
+	Name string `json:"name"`
 
 	// URL points to the object this event is all about, e.g. its detail view in the source's web interface.
 	//
@@ -161,6 +167,10 @@ func (e *Event) NotifyRecipients() bool { return e.Notify.Valid && e.Notify.Bool
 // It checks if the required fields are set and if the values of the fields are valid.
 // If any of the checks fail, it returns an error describing the issue. Otherwise, it returns nil.
 func (e *Event) Validate() error {
+	if e.Name == "" {
+		return errors.New("invalid event: 'name' must not be empty")
+	}
+
 	if len(e.Tags) == 0 {
 		return errors.New("invalid event: tags must not be empty")
 	}
