@@ -18,29 +18,32 @@ const MaxSummaryLen = 1024
 //
 // It contains all the necessary fields to fully describe an Icinga Notifications event and can be used to
 // serialize the event to JSON for transmission over HTTP as well as to deserialize it from JSON requests.
+//
+// Please refer to the [Icinga Notifications API documentation] for more information on the behavior of the
+// fields and how they affect the incident state and notifications. Also, please use [Event.Validate] to check
+// for invalid combinations of fields before sending the event to Icinga Notifications.
+//
+// [Icinga Notifications API documentation]: https://icinga.com/docs/icinga-notifications/latest/doc/20-HTTP-API/#process-event
 type Event struct {
-	// ID is a global unique identifier [types.UUID] for the event.
+	// ID is a globally unique identifier [types.UUID] for the event.
 	//
-	// The Name field describes the event, while the ID distinguishes two events that look identical. This is
-	// necessary for otherwise identical-looking events. Consider a "door open" event without any additional
-	// information. When the source sets a unique ID next to the Name, it is possible to distinguish between two
-	// consecutive opened doors and the same "door open" event that was submitted twice due to an error.
+	// While Tags identify the object an event refers to, ID identifies the event itself. Icinga Notifications
+	// uses it to detect duplicates: an event whose ID has already been processed is treated as a resubmission
+	// of that event. Without an ID, a "door open" event that was sent twice due to a network error would be
+	// indistinguishable from the door being opened twice.
 	//
-	// So, when implementing a source, ensure that each event gets its own unique ID. When resubmitting the same
-	// event, keep the ID - reusing it is what allows Icinga Notifications to identify the resubmission as a
-	// duplicate of the original event. When submitting a new event - even if the fields are identical - generate
-	// a new UUID.
+	// So, a source should generate a new ID for every event it emits, even if all other fields match a previous
+	// event, and reuse an ID only when resubmitting the very same event. If omitted, Icinga Notifications derives
+	// the ID from the event's content, so identical events without an ID are treated as duplicates of each other.
 	ID types.UUID `json:"id,omitzero"`
 
-	// Name is the display name of the object this event is referring to, e.g. a host or service display name.
+	// Name is the human-readable display name of the object, e.g. a host or service display name.
 	//
-	// This should be a human-readable name that describes the object this event is referring to. It will
-	// be used in the notifications sent to the recipients, as well as in Icinga Notifications Web for the
-	// associated incident. It is not required to be unique, but it should be descriptive enough to identify
-	// the object this event is referring to.
+	// It is shown in notifications and in Icinga Notifications Web. It must not be empty, but it
+	// doesn't need to be unique.
 	Name string `json:"name"`
 
-	// URL points to the object this event is all about, e.g. its detail view in the source's web interface.
+	// URL points to the object this event refers to, e.g. its detail view in the source's web interface.
 	//
 	// It is passed on to the notified contacts, so it has to be an absolute URL such as
 	// "https://example.com/icingaweb2/icingadb/host?name=example". Icinga Notifications does not know
@@ -48,102 +51,121 @@ type Event struct {
 	// left empty if the object has no web interface to link to.
 	URL string `json:"url"`
 
-	// Tags contains additional metadata for the event that uniquely identifies the object it's referring to.
+	// Tags uniquely identifies the object this event refers to.
 	//
-	// It is a map of string keys to string values, allowing for flexible tagging of events if the event
-	// name alone is not sufficient to identify the object. In the case of using Icinga DB as a source, the
-	// tags will typically look like this:
-	// For hosts: {"host": "host_name"} and for services: {"host": "host_name", "service": "service_name"}.
+	// It is a map of string keys to string values that together form the identity of the object, whereas Name
+	// is only used for display purposes. It must not be empty, and neither its keys nor its values may be empty.
+	// Keys must be at most 255 characters long. In the case of using Icinga DB as a source, the tags will
+	// typically look like this:
+	//
+	//	host:    {"environment": "environment_id", "host": "host_name"}
+	//	service: {"environment": "environment_id", "host": "host_name", "service": "service_name"}
 	Tags map[string]string `json:"tags"`
 
-	// Severity of the event.
+	// Severity indicates the [Severity] of the event, i.e. "ok", "warning", "error" or "critical".
+	//
+	// This must be set if and only if Incident is set to true. The zero value [SeverityNone] means
+	// unset and is omitted from the encoded JSON.
 	Severity Severity `json:"severity,omitempty"`
 
-	// Summary describes this event in a single line. It will be used in situations where space is limited, such as
-	// email subject lines. The complete output goes into Message.
+	// Summary describes this event in a single line.
+	//
+	// It will be used in situations where space is limited, such as email subject lines.
+	// The full text goes into Message.
+	//
+	// It must not be empty, must not contain any line breaks, and must be at most [MaxSummaryLen] characters long.
 	Summary string `json:"summary"`
+
 	// Message is the complete human-readable message of the event.
+	//
+	// It is optional and may span multiple lines.
 	Message string `json:"message"`
 
-	// Type of the event, e.g. "DowntimeStart", "DowntimeEnd", etc.
+	// Type of the event, e.g. "downtime_start", "downtime_end", etc.
 	//
-	// The Type field must only be set if incident is set to false.
+	// This must be set if and only if Incident is set to false.
 	Type string `json:"type,omitempty"`
 
 	// Muted indicates whether the object this event is referring to is currently muted or not.
 	//
 	// If set to true, Icinga Notifications will suppress the resulting notifications of a given incident.
-	// The MutedReason field must be set if this field is set to both true or false, as it provides the
-	// reason for muting or unmuting the incident/object. After the initial event that sets the muted state,
-	// the source can omit these fields in follow-up events if the muted state doesn't change, as Icinga
-	// Notifications will remember the muted state of the object/incident for subsequent events.
+	// If set to false, the object/incident is unmuted. MutedReason must be set whenever this field is set
+	// (true or false), as it provides the reason for muting or unmuting the incident/object. After the initial
+	// event that sets the muted state, the source can omit both Muted and MutedReason in follow-up events if the
+	// muted state doesn't change, as Icinga Notifications will remember the muted state of the object/incident.
 	//
-	// Note that setting this field to true while Close is set to true will cause the request to fail.
-	// You can use the Validate method to check for these and other invalid combinations of fields before
-	// sending the event to the Icinga Notifications API.
+	// An event may omit Incident and set only Muted (and MutedReason), in which case it merely updates the muted
+	// state of the object/incident. However, this field must not be combined with Incident set to false, and
+	// it must not be set to true if Close is set.
 	//
-	// If this field is not explicitly set by the source, it will be omitted from the encoded JSON.
+	// If not explicitly set by the source, it will be omitted from the encoded JSON.
 	Muted types.Bool `json:"muted,omitzero"`
 
 	// MutedReason contains the reason for muting or unmuting the object/incident this event is referring to.
 	//
-	// This field must be set if the Muted field is set to either true or false, as it provides the reason for
-	// muting or unmuting the incident/object. If set to empty string or none at all, it will be omitted from
-	// the encoded JSON and the request might fail depending on the value of the Muted field.
+	// This must be non-empty whenever Muted is set (true or false).
 	MutedReason string `json:"muted_reason,omitempty"`
 
-	// Incident instructs Icinga Notifications to open a new incident for this event or escalate an existing one.
+	// Incident controls whether this event affects an incident (true) or is a notification-only event (false).
 	//
-	// If set, Icinga Notifications will open a new incident for this event if there's none yet,
-	// or escalate an existing incident regardless of whether the severity has changed or not.
+	// If set to true, Icinga Notifications will open a new incident for this event if there's none yet, or trigger
+	// new escalations for an existing incident depending on the severity of the event. Severity must be set then.
+	// See [Event.OpenOrEscalate].
 	//
-	// You can only set this field to true or omit it entirely, but not to false. If you set it to false,
-	// the request will be rejected by the Icinga Notifications API. You can use the Validate method to
-	// check for this and other invalid combinations of fields before sending your request.
+	// If set to false, Icinga Notifications treats this event as a notification-only/informational event. In this
+	// case, Type must be provided to describe the kind of event this is, e.g. "downtime_start", etc., while Severity,
+	// Muted, Close and Notify must not be set. Such events are not tied to an incident's state and do not trigger
+	// escalations, but recipients of an existing incident may still be notified. See [Event.NotificationOnly].
+	//
+	// If omitted, Muted must be set, and the event only updates the muted state of the object/incident.
 	Incident types.Bool `json:"incident,omitzero"`
 
 	// Close instructs Icinga Notifications to close an existing incident for this event.
 	//
-	// If set, Icinga Notifications will close an existing incident, and depending on the Muted field, it might
-	// also trigger notifications and unmute the incident if it was muted before. This option can only be used
-	// if the Incident field is set as well, otherwise the request will be rejected by the Icinga Notifications
-	// API. You can use the Validate method to check for this and other invalid combinations of fields before
-	// sending your request.
+	// If set, Icinga Notifications will close an existing incident. When combined with Muted set to false, it also
+	// unmutes the incident if it was muted before, which might trigger notifications as well. Muted set to true is
+	// not allowed, though, as closing and muting an incident at the same time would be contradictory.
 	//
-	// Like the Incident field, you can only set this field to true or omit it entirely, but not to false.
+	// This field can only be used if Incident is set to true as well, otherwise the request will be rejected by
+	// Icinga Notifications. If there's no existing incident, Icinga Notifications will create a new one and close
+	// it immediately.
+	//
+	// You can only set this field to true or omit it entirely. It must not be combined with Notify.
 	Close types.Bool `json:"close,omitzero"`
 
 	// Notify instructs Icinga Notifications to notify the recipients of the incident this event is referring to.
 	//
-	// Normally, Icinga Notifications will only send notifications for an incident if its severity changes with
-	// the ongoing events, but if this field is set to true, it will trigger notifications for the incident regardless
-	// of whether the severity has changed or not.
+	// Normally, Icinga Notifications will only send notifications for an incident if its severity changes with the
+	// ongoing event, or new escalations are triggered. However, you can use this field to bypass this behavior and
+	// force Icinga Notifications to notify all existing recipients of the incident. For example, Icinga DB uses this
+	// for volatile checks to trigger notifications with each check result, even if the severity doesn't change.
+	// If there's no existing incident, this field has no effect.
 	//
-	// If there's no existing incident, this field has no effect. Like the Incident and Close fields, you can
-	// only set this field to true or omit it entirely, but not to false. Also, this option cannot be combined
-	// with any of the other options other than the Incident and Muted fields.
+	// You can only set this field to true or omit it entirely. It requires Incident to be true and must
+	// not be combined with Close.
 	Notify types.Bool `json:"notify,omitzero"`
 
 	// CompleteRelations contains a list of relations that should be considered complete for this event.
 	//
-	// Typically, when Icinga Notifications determines that the event didn't provide complete information
-	// needed to evaluate the rules in the [Relations] field, it will instruct the source to provide the
-	// missing information in a follow-up request. This field can be used by the source to indicate that
-	// it already provided all the available information it has for the certain relations and that Icinga
-	// Notifications should not ask for more information for these relations.
+	// Typically, when Icinga Notifications determines that the event didn't provide complete information in
+	// [Event.Relations] that is needed to evaluate the rules, it will instruct the source to provide the missing
+	// information in a follow-up request. This field can be used by the source to indicate that it already provided
+	// all the available information it has for certain relations and that Icinga Notifications should not ask for
+	// more information for these relations.
 	//
-	// The relations must be specified as JSONPath expressions that match the structure of the [Relations] field.
-	// For example, if the [Relations] field contains a "host" field with some information about the customvars,
-	// the source can add `host.vars` or `host.vars.something` to this list to indicate that it already provided
-	// all the host's customvars or all the information about the `something` customvar.
+	// The relations must be specified as JSONPath expressions that match the structure of [Event.Relations].
+	// For example, if [Event.Relations] contains a "host" field with the host's custom variables, the source
+	// can add `host.vars` or `host.vars.something` to this list to indicate that it already provided all the
+	// host's custom variables or all the information about the `something` custom variable. The leading `$.`
+	// (or just `$` for bracket notation, e.g. `$["host"]`) is optional, as Icinga Notifications prepends it
+	// if missing.
 	CompleteRelations []string `json:"complete_relations,omitempty"`
 
 	// Relations contains additional information about the relations of the object this event is referring to.
 	//
-	// This will be used to evaluate JSONPath expressions in the filter columns of the event rules.
+	// This will be used to evaluate JSONPath expressions in the filter expressions of event rules.
 	// The structure of this field is flexible and can contain any information that might be relevant
-	// for the evaluation of the rules. It will not be used for anything else than evaluating the rules
-	// and will not be persisted to the database as well.
+	// for the evaluation of the rules. It will not be used for anything other than evaluating the rules.
 	Relations map[string]any `json:"relations,omitempty"`
 }
 
