@@ -3,7 +3,7 @@ module github.com/icinga/icinga-go-library
 go 1.27
 
 require (
-	github.com/caarlos0/env/v11 v11.4.1
+	github.com/caarlos0/env/v11 v11.4.2
 	github.com/creasty/defaults v1.11.0
 	github.com/fsnotify/fsnotify v1.10.1
 	github.com/go-sql-driver/mysql v1.10.1
