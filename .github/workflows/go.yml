@@ -3,29 +3,11 @@ name: Go
 on:
   push:
     branches: [ main ]
-  pull_request: { }
+  pull_request: {}
 
 permissions:
   contents: read
-  checks: write
 
 jobs:
   go:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v7
-
-      - name: Set up Go
-        uses: actions/setup-go@v7
-        with:
-          go-version: stable
-          cache: false
-
-      - name: Lint
-        uses: golangci/golangci-lint-action@v9
-        with:
-          version: latest
-          only-new-issues: true
-
-      - name: Test
-        run: go test -v ./...
+    uses: Icinga/github-actions/.github/workflows/go.yml@main
