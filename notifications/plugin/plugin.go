@@ -358,9 +358,10 @@ type DeliveryResult struct {
 type DeliveryDetail struct {
 	// Type of this detail.
 	//
-	// Supported types are "number", "boolean", "severity", "text", "url", and "datetime". The type determines how
-	// the value is interpreted and displayed in the UI. For example, a "url" type will be rendered as a clickable
-	// link, while a "datetime" type will be formatted according to the user's locale.
+	// Supported types are "number", "boolean", "severity", "text", "url", "datetime", and "error".
+	// The type determines how the value is interpreted and displayed in the UI. For example, a "url"
+	// type will be rendered as a clickable link, while a "datetime" type will be formatted according
+	// to the user's locale.
 	//
 	// This is required and must be one of the supported types.
 	Type string `json:"type"`
@@ -387,7 +388,7 @@ type DeliveryDetail struct {
 // MarshalJSON implements the json.Marshaler interface to marshal the DeliveryDetail as a JSON object.
 func (d *DeliveryDetail) MarshalJSON() ([]byte, error) {
 	switch d.Type {
-	case "number", "boolean", "severity", "text", "url", "datetime":
+	case "number", "boolean", "severity", "text", "url", "datetime", "error":
 		// Valid types, do nothing.
 	default:
 		return nil, fmt.Errorf("invalid type: %q", d.Type)
