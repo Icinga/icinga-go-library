@@ -6,7 +6,7 @@ require (
 	github.com/caarlos0/env/v11 v11.4.2
 	github.com/creasty/defaults v1.11.0
 	github.com/fsnotify/fsnotify v1.10.1
-	github.com/go-sql-driver/mysql v1.10.1
+	github.com/go-sql-driver/mysql v1.10.2
 	github.com/goccy/go-yaml v1.13.0
 	github.com/google/uuid v1.6.0
 	github.com/jessevdk/go-flags v1.6.1
