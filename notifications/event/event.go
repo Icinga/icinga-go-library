@@ -117,7 +117,8 @@ type Event struct {
 	// Muted, Close and Notify must not be set. Such events are not tied to an incident's state and do not trigger
 	// escalations, but recipients of an existing incident may still be notified. See [Event.NotificationOnly].
 	//
-	// If omitted, Muted must be set, and the event only updates the muted state of the object/incident.
+	// If omitted, either Muted or Close must be set. The event then only updates the muted state of the
+	// object/incident or closes an existing incident, respectively.
 	Incident types.Bool `json:"incident,omitzero"`
 
 	// Close instructs Icinga Notifications to close an existing incident for this event.
@@ -126,9 +127,9 @@ type Event struct {
 	// unmutes the incident if it was muted before, which might trigger notifications as well. Muted set to true is
 	// not allowed, though, as closing and muting an incident at the same time would be contradictory.
 	//
-	// This field can only be used if Incident is set to true as well, otherwise the request will be rejected by
-	// Icinga Notifications. If there's no existing incident, Icinga Notifications will create a new one and close
-	// it immediately.
+	// If there's no existing incident, and Incident is set to true, Icinga Notifications will create a new one
+	// and close it immediately. If Incident is omitted, the event only closes an existing incident and is a no-op
+	// otherwise. In that case, Severity must not be set either.
 	//
 	// You can only set this field to true or omit it entirely. It must not be combined with Notify.
 	Close types.Bool `json:"close,omitzero"`
@@ -243,8 +244,8 @@ func (e *Event) Validate() error {
 		return errors.New("invalid event: 'notify' can only be set to true or none at all, but not to false")
 	}
 
-	if !e.OpenOrEscalate() && e.CloseIncident() {
-		return errors.New("invalid event: 'close' must not be set if 'incident' is not set to true")
+	if e.NotificationOnly() && e.CloseIncident() {
+		return errors.New("invalid event: 'close' must not be set if 'incident' is set to false")
 	}
 
 	if e.Muted.Valid && e.MutedReason == "" {
@@ -261,8 +262,8 @@ func (e *Event) Validate() error {
 		return errors.New("invalid event: 'notify' must not be set if 'close' is set")
 	}
 
-	if !e.Incident.Valid && !e.Muted.Valid {
-		return errors.New("invalid event: at least one of 'incident' or 'muted' must be set")
+	if !e.CloseIncident() && !e.Incident.Valid && !e.Muted.Valid {
+		return errors.New("invalid event: at least one of 'incident', 'close' or 'muted' must be set")
 	}
 
 	if e.NotificationOnly() && e.Muted.Valid {
