@@ -23,7 +23,7 @@ func TestEvent(t *testing.T) {
 			"invalid event: 'name' must not be empty")
 		assert.ErrorContains(t,
 			(&Event{Name: "uhu", Tags: map[string]string{"foo": "bar"}, Summary: "foo"}).Validate(),
-			"at least one of 'incident' or 'muted' must be set")
+			"at least one of 'incident', 'close' or 'muted' must be set")
 
 		t.Run("Summary", func(t *testing.T) {
 			t.Parallel()
@@ -146,7 +146,7 @@ func TestEvent(t *testing.T) {
 				assert.ErrorContains(t, (&Event{Name: "uhu", Tags: tags, Summary: "foo", Incident: mkB(false), Notify: mkB(true)}).Validate(),
 					"invalid event: 'notify' must not be set if 'incident' is not set to true")
 				assert.ErrorContains(t, (&Event{Name: "uhu", Tags: tags, Summary: "foo", Incident: mkB(false), Close: mkB(true)}).Validate(),
-					"invalid event: 'close' must not be set if 'incident' is not set to true")
+					"invalid event: 'close' must not be set if 'incident' is set to false")
 			})
 
 			t.Run("Type", func(t *testing.T) {
@@ -164,8 +164,8 @@ func TestEvent(t *testing.T) {
 				t.Parallel()
 
 				assert.NoError(t, (&Event{Name: "uhu", Tags: tags, Severity: SeverityOK, Summary: "foo", Incident: mkB(true), Close: mkB(true)}).Validate())
+				assert.NoError(t, (&Event{Name: "uhu", Tags: tags, Summary: "foo", Close: mkB(true)}).Validate())
 				assert.ErrorContains(t, (&Event{Name: "uhu", Tags: tags, Summary: "foo", Close: mkB(false)}).Validate(), "'close' can only be set to true or none at all")
-				assert.ErrorContains(t, (&Event{Name: "uhu", Tags: tags, Summary: "foo", Close: mkB(true)}).Validate(), "'close' must not be set if 'incident' is not set")
 			})
 
 			t.Run("Notify", func(t *testing.T) {
