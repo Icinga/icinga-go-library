@@ -2,12 +2,13 @@ package logging
 
 import (
 	"fmt"
-	"github.com/creasty/defaults"
-	"github.com/pkg/errors"
-	"go.uber.org/zap/zapcore"
 	"os"
 	"strings"
 	"time"
+
+	"github.com/creasty/defaults"
+	"github.com/pkg/errors"
+	"go.uber.org/zap/zapcore"
 )
 
 // Options define child loggers with their desired log level.
@@ -59,7 +60,11 @@ type Config struct {
 	Output string        `yaml:"output" env:"OUTPUT"`
 	// Interval for periodic logging.
 	Interval time.Duration `yaml:"interval" env:"INTERVAL" default:"20s"`
-	Options  Options       `yaml:"options" env:"OPTIONS"`
+
+	// Development puts the logger in a development mode, which causes DPanic-level logs to panic instead of simply logging an error.
+	Development bool `yaml:"development" env:"DEVELOPMENT" default:"false"`
+
+	Options Options `yaml:"options" env:"OPTIONS"`
 }
 
 // SetDefaults implements defaults.Setter to configure the log output if it is not set:

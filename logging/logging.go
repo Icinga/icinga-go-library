@@ -1,11 +1,12 @@
 package logging
 
 import (
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 	"os"
 	"sync"
 	"time"
+
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 const (
@@ -40,6 +41,7 @@ type Logging struct {
 	output    string
 	verbosity zap.AtomicLevel
 	interval  time.Duration
+	devel     bool
 
 	// coreFactory creates zapcore.Core based on the log level and the log output.
 	coreFactory CoreFactory
@@ -58,7 +60,7 @@ type Logging struct {
 //
 // Example usage:
 //
-//	logs := logging.NewLoggingWithFactory("testing", zapcore.DebugLevel, time.Second, func(level zap.AtomicLevel) zapcore.Core {
+//	logs := logging.NewLoggingWithFactory("testing", zapcore.DebugLevel, time.Second, true, func(level zap.AtomicLevel) zapcore.Core {
 //	    return zaptest.NewLogger(t, zaptest.Level(level.Level())).Core()
 //	})
 //
@@ -67,13 +69,19 @@ type Logging struct {
 // The above example creates a Logging instance that logs to the test logger provided by the zaptest package.
 // All loggers created from this Logging instance will log to the same test logger, which will only be visible
 // in the test output when the test fails or when the test is run with the -v flag.
-func NewLoggingWithFactory(name string, level zapcore.Level, interval time.Duration, f CoreFactory) *Logging {
+func NewLoggingWithFactory(name string, level zapcore.Level, interval time.Duration, devel bool, f CoreFactory) *Logging {
 	verbosity := zap.NewAtomicLevelAt(level)
 
+	var zopts []zap.Option
+	if devel {
+		zopts = append(zopts, zap.Development())
+	}
+
 	return &Logging{
-		logger:      NewLogger(zap.New(f(verbosity)).Named(name).Sugar(), interval),
+		logger:      NewLogger(zap.New(f(verbosity), zopts...).Named(name).Sugar(), interval),
 		verbosity:   verbosity,
 		interval:    interval,
+		devel:       devel,
 		coreFactory: f,
 		loggers:     make(map[string]*Logger),
 		options:     make(Options),
@@ -84,7 +92,7 @@ func NewLoggingWithFactory(name string, level zapcore.Level, interval time.Durat
 // output where log messages are written to,
 // options having log levels for named child loggers
 // and returns a new Logging.
-func NewLogging(name string, level zapcore.Level, output string, options Options, interval time.Duration) (*Logging, error) {
+func NewLogging(name string, level zapcore.Level, output string, options Options, interval time.Duration, devel bool) (*Logging, error) {
 	verbosity := zap.NewAtomicLevelAt(level)
 
 	var coreFactory CoreFactory
@@ -103,13 +111,18 @@ func NewLogging(name string, level zapcore.Level, output string, options Options
 		return nil, invalidOutput(output)
 	}
 
-	logger := NewLogger(zap.New(coreFactory(verbosity)).Named(name).Sugar(), interval)
+	var zopts []zap.Option
+	if devel {
+		zopts = append(zopts, zap.Development())
+	}
+	logger := NewLogger(zap.New(coreFactory(verbosity), zopts...).Named(name).Sugar(), interval)
 
 	return &Logging{
 			logger:      logger,
 			output:      output,
 			verbosity:   verbosity,
 			interval:    interval,
+			devel:       devel,
 			coreFactory: coreFactory,
 			loggers:     make(map[string]*Logger),
 			options:     options,
@@ -119,7 +132,7 @@ func NewLogging(name string, level zapcore.Level, output string, options Options
 
 // NewLoggingFromConfig returns a new Logging from Config.
 func NewLoggingFromConfig(name string, c Config) (*Logging, error) {
-	return NewLogging(name, c.Level, c.Output, c.Options, c.Interval)
+	return NewLogging(name, c.Level, c.Output, c.Options, c.Interval, c.Development)
 }
 
 // GetChildLogger returns a named child logger.
@@ -140,7 +153,12 @@ func (l *Logging) GetChildLogger(name string) *Logger {
 		verbosity = l.verbosity
 	}
 
-	logger := NewLogger(zap.New(l.coreFactory(verbosity)).Named(name).Sugar(), l.interval)
+	var zopts []zap.Option
+	if l.devel {
+		zopts = append(zopts, zap.Development())
+	}
+
+	logger := NewLogger(zap.New(l.coreFactory(verbosity), zopts...).Named(name).Sugar(), l.interval)
 	l.loggers[name] = logger
 
 	return logger
