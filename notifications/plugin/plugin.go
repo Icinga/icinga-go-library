@@ -53,7 +53,7 @@ const (
 // UI will only render one level of children or even reject them entirely. Therefore, it is prohibited to define a
 // child option with its own children.
 type ChildOption struct {
-	ConfigOptionCommon
+	ConfigOptionCommon `yaml:",inline"`
 
 	// ParentValues is a list of parent element values that will trigger the display of this child option.
 	//
@@ -64,25 +64,25 @@ type ChildOption struct {
 	//
 	// If empty, the child option will always be displayed regardless of the parent option's value. This is useful for
 	// child options that should always be displayed, but are still logically grouped under a parent element.
-	ParentValues []any `json:"parent_values"`
+	ParentValues []any `json:"parent_values" yaml:"parent_values"`
 }
 
 // ConfigOptionCommon describes common fields.
 type ConfigOptionCommon struct {
 	// Element name
-	Name string `json:"name"`
+	Name string `json:"name" yaml:"name"`
 
 	// Element type:
 	//
 	//  string = text, number = number, bool = checkbox, text = textarea, option = select, options = select[multiple], secret = password
-	Type string `json:"type"`
+	Type string `json:"type" yaml:"type"`
 
 	// Element label map. Locale in the standard format (language_REGION) as key and corresponding label as value.
 	// Locale is assumed to be UTF-8 encoded (Without the suffix in the locale)
 	//
 	//  e.g. {"en_US": "Save", "de_DE": "Speichern"}
 	//  An "en_US" locale must be given as a fallback
-	Label map[string]string `json:"label"`
+	Label map[string]string `json:"label" yaml:"label"`
 
 	// Element description map. Locale in the standard format (language_REGION) as key and corresponding label as value.
 	// Locale is assumed to be UTF-8 encoded (Without the suffix in the locale)
@@ -91,13 +91,13 @@ type ConfigOptionCommon struct {
 	//
 	//  e.g. {"en_US": "HTTP request method for the request.", "de_DE": "HTTP-Methode für die Anfrage."}
 	//  An "en_US" locale must be given as a fallback
-	Help map[string]string `json:"help,omitempty"`
+	Help map[string]string `json:"help,omitempty" yaml:"help"`
 
 	// Element default: bool for checkbox default value, string for other elements (used as placeholder)
-	Default any `json:"default,omitempty"`
+	Default any `json:"default,omitempty" yaml:"default"`
 
 	// Set true if this element is required, omit otherwise
-	Required bool `json:"required,omitempty"`
+	Required bool `json:"required,omitempty" yaml:"required"`
 
 	// Options of a select element: key => value.
 	// Only required for the type option or options
@@ -106,18 +106,18 @@ type ConfigOptionCommon struct {
 	//			"1":   "January",
 	//			"2":  "February",
 	//		}
-	Options map[string]string `json:"options,omitempty"`
+	Options map[string]string `json:"options,omitempty" yaml:"options"`
 
 	// Element's min option defines the minimum allowed number value. It can only be used for the type number.
-	Min types.Int `json:"min"`
+	Min types.Int `json:"min" yaml:"min"`
 
 	// Element's max option defines the maximum allowed number value. It can only be used for the type number.
-	Max types.Int `json:"max"`
+	Max types.Int `json:"max" yaml:"max"`
 }
 
 // ConfigOption describes a config element.
 type ConfigOption struct {
-	ConfigOptionCommon
+	ConfigOptionCommon `yaml:",inline"`
 
 	// Children contains a set of [ChildOption] rendered in the UI only when a specific parent option value is selected.
 	//
@@ -128,7 +128,7 @@ type ConfigOption struct {
 	// own set of child options for configuring headers, body content, etc.
 	//
 	// A child option must not have its own children, as this would create a recursive structure that is not supported.
-	Children []ChildOption `json:"children,omitempty"`
+	Children []ChildOption `json:"children,omitempty" yaml:"children"`
 }
 
 // ConfigOptions describes all ConfigOption entries.
@@ -149,13 +149,13 @@ type Info struct {
 	Type string `db:"type" json:"-"`
 
 	// Name of this channel plugin in a human-readable value.
-	Name string `db:"name" json:"name"`
+	Name string `db:"name" json:"name" yaml:"name"`
 
 	// Version of this channel plugin.
-	Version string `db:"version" json:"version"`
+	Version string `db:"version" json:"version" yaml:"version"`
 
 	// Author of this channel plugin.
-	Author string `db:"author" json:"author"`
+	Author string `db:"author" json:"author" yaml:"author"`
 
 	// SupportedRequestVersions lists the [NotificationRequest] versions this channel plugin can handle.
 	//
@@ -163,7 +163,7 @@ type Info struct {
 	SupportedRequestVersions []RequestVersion `db:"-" json:"supported_request_versions"`
 
 	// ConfigAttributes contains multiple ConfigOption(s) as JSON-encoded list.
-	ConfigAttributes ConfigOptions `db:"config_attrs" json:"config_attrs"`
+	ConfigAttributes ConfigOptions `db:"config_attrs" json:"config_attrs" yaml:"config_attrs"`
 }
 
 // TableName implements the contracts.TableNamer interface.
